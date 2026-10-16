@@ -1,0 +1,50 @@
+/* ===== BALLOON ===== */
+.sl-balloon {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sl-bob 4s ease-in-out infinite;
+}
+@keyframes sl-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50%      { transform: translateY(-8px) rotate(3deg); }
+}
+/* ===== END BALLOON ===== */
+
+
+/* ===== CANDLE FLAME ===== */
+.sl-flame {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sl-flicker 0.9s ease-in-out infinite alternate;
+}
+@keyframes sl-flicker {
+  0%   { transform: scale(1, 1) rotate(-2deg); }
+  100% { transform: scale(0.9, 1.1) rotate(2deg); }
+}
+/* ===== END CANDLE FLAME ===== */
+
+
+/* ===== SPARKLE ===== */
+.sl-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sl-twinkle 2.4s ease-in-out infinite;
+}
+@keyframes sl-twinkle {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.3; transform: scale(0.6); }
+}
+/* ===== END SPARKLE ===== */
+
+
+/* ===== (ilagay dito ang susunod na animation) ===== */
+
+
+/* ===== REDUCED MOTION (laging nasa pinakadulo) ===== */
+@media (prefers-reduced-motion: reduce) {
+  .sl-balloon,
+  .sl-flame,
+  .sl-sparkle {
+    animation: none !important;
+  }
+}

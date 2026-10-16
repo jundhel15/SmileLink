@@ -49,23 +49,7 @@
 
         <div class="phone">
           <div class="phone-screen">
-            <div class="birthday-scene">
-              <span class="balloon balloon-one"></span>
-              <span class="balloon balloon-two"></span>
-              <span class="balloon balloon-three"></span>
-              <span class="balloon-string string-one"></span>
-              <span class="balloon-string string-two"></span>
-              <div class="cake">
-                <div class="candle candle-one"></div>
-                <div class="candle candle-two"></div>
-                <div class="candle candle-three"></div>
-                <div class="cake-top"></div>
-                <div class="cake-middle"></div>
-                <div class="cake-bottom"></div>
-              </div>
-              <div class="cake-shadow"></div>
-              <div class="sand"></div>
-            </div>
+            <FrontBdayCake />
             <div class="greeting">
               <h2>Happy Birthday,<br />Maria!</h2>
               <p>Someone special made this just for you.</p>
@@ -87,6 +71,10 @@
     <span id="create" class="sr-only">Create your SmileLink surprise</span>
   </main>
 </template>
+
+<script setup>
+import FrontBdayCake from "@/components/FrontBdayCake.vue";
+</script>
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900;1000&display=swap");
@@ -153,6 +141,8 @@ a {
   font-size: clamp(27px, 2.5vw, 42px);
   font-weight: 1000;
   letter-spacing: -1.7px;
+  color: #1c2344;
+
 }
 .brand-name span {
   color: #3265df;
@@ -181,10 +171,12 @@ a {
   font-size: clamp(16px, 1.3vw, 23px);
   font-weight: 800;
   margin-bottom: 27px;
+  color: #1c2344;
 }
 .sparkle {
   font-size: 25px;
   line-height: 1;
+  color: #1c2344;
 }
 h1 {
   margin: 0;
@@ -277,140 +269,6 @@ h1 span {
   overflow: hidden;
   background: white;
 }
-.birthday-scene {
-  height: 48%;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(#cfe2ff 0 62%, #fff0c5 62% 100%);
-}
-.sand {
-  position: absolute;
-  left: 18%;
-  right: 15%;
-  bottom: 17%;
-  height: 20px;
-  background: #fffdf3;
-  border-radius: 50%;
-  transform: rotate(4deg);
-}
-.balloon {
-  position: absolute;
-  display: block;
-  width: 42px;
-  height: 57px;
-  border-radius: 50% 50% 48% 48%;
-  z-index: 1;
-}
-.balloon::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 20px;
-  top: 9px;
-  left: 12px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.42);
-}
-.balloon-one {
-  left: 14%;
-  top: 16%;
-  background: #ffb629;
-}
-.balloon-two {
-  right: 8%;
-  top: 29%;
-  background: #ff887b;
-}
-.balloon-three {
-  left: -7%;
-  top: 26%;
-  background: #3265df;
-}
-.balloon-string {
-  position: absolute;
-  width: 1px;
-  height: 85px;
-  border-left: 2px solid #9ba5b8;
-  top: 31%;
-}
-.string-one {
-  left: 22%;
-  transform: rotate(-10deg);
-}
-.string-two {
-  right: 17%;
-  transform: rotate(-15deg);
-}
-.cake {
-  position: absolute;
-  z-index: 2;
-  width: 48%;
-  height: 46%;
-  left: 29%;
-  bottom: 17%;
-}
-.cake-bottom {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 43%;
-  background: #fff;
-  border-radius: 7px 7px 15px 15px;
-  transform: skewY(4deg);
-  box-shadow: inset 0 -8px #f2f4f8;
-}
-.cake-middle {
-  position: absolute;
-  bottom: 33%;
-  left: -2%;
-  width: 104%;
-  height: 19%;
-  border-radius: 7px;
-  background: #ff887b;
-  transform: skewY(4deg);
-}
-.cake-top {
-  position: absolute;
-  z-index: 2;
-  bottom: 48%;
-  left: 15%;
-  width: 70%;
-  height: 28%;
-  border-radius: 6px 6px 12px 12px;
-  background: #ffd6df;
-  transform: skewY(4deg);
-}
-.candle {
-  position: absolute;
-  z-index: 3;
-  bottom: 72%;
-  width: 5px;
-  height: 27px;
-  background: #fff;
-  border: 2px solid #ffb629;
-  border-radius: 5px;
-}
-.candle::before {
-  content: "";
-  position: absolute;
-  width: 7px;
-  height: 11px;
-  background: #ffb629;
-  border-radius: 50% 50% 50% 0;
-  transform: rotate(-35deg);
-  top: -13px;
-  left: -3px;
-}
-.candle-one {
-  left: 34%;
-}
-.candle-two {
-  left: 48%;
-}
-.candle-three {
-  left: 62%;
-}
 .greeting {
   padding: 10% 8%;
   text-align: center;
@@ -458,10 +316,12 @@ h1 span {
 .notice-open {
   top: 17%;
   right: -1%;
+  color: #1c2344;
 }
 .notice-sent {
   bottom: 17%;
   left: -9%;
+  color: #1c2344;
 }
 .heart-icon,
 .check-icon {
@@ -618,9 +478,6 @@ h1 span {
     font-size: 15px;
     padding: 8px 16px;
     margin-bottom: 20px;
-  }
-  .sparkle {
-    font-size: 20px;
   }
   h1 {
     font-size: clamp(44px, 11.8vw, 76px);
@@ -799,6 +656,8 @@ h1 span {
   }
 }
 
+
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -807,4 +666,6 @@ h1 span {
     transition: none !important;
   }
 }
+
+
 </style>
