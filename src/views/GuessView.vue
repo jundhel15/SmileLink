@@ -28,7 +28,8 @@
           Personalized surprise websites and greeting cards for birthdays, monthsaries, weddings and
           more.
         </p>
-        <a class="cta" href="#create">
+
+        <RouterLink class="cta" to="/celebrate">
           Create yours today
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
@@ -39,7 +40,7 @@
               stroke-linejoin="round"
             />
           </svg>
-        </a>
+        </RouterLink>
       </div>
 
       <div class="hero-art" aria-label="Preview of a birthday greeting website">
@@ -125,7 +126,7 @@ a {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  background: #fffbf4;
+  background: #fff;
   padding: 5.3vh 6vw 6vh;
 }
 .brand {
