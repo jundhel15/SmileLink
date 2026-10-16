@@ -37,6 +37,194 @@
 /* ===== END SPARKLE ===== */
 
 
+/* ===== CAKE REACTION (kapag pinindot ang "Open your surprise") ===== */
+.sl-cake {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.sl-cake.is-happy {
+  animation: sl-cake-hop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes sl-cake-hop {
+  0%   { transform: none; }
+  20%  { transform: scale(1.06, 0.92); }
+  45%  { transform: translateY(-10px) scale(0.97, 1.05); }
+  70%  { transform: translateY(0) scale(1.02, 0.98); }
+  100% { transform: none; }
+}
+/* ===== END CAKE REACTION ===== */
+
+
+/* ===== PHONE FLOAT + SHADOW ===== */
+.phone-float {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  animation: sl-phone-float 6s ease-in-out infinite;
+}
+.phone {
+  animation: sl-phone-shadow 6s ease-in-out infinite;
+}
+@keyframes sl-phone-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-9px) rotate(-0.6deg); }
+}
+@keyframes sl-phone-shadow {
+  0%, 100% { box-shadow: 0 36px 60px rgba(27, 35, 68, 0.22); }
+  50%      { box-shadow: 0 48px 74px rgba(27, 35, 68, 0.15); }
+}
+/* ===== END PHONE FLOAT ===== */
+
+
+/* ===== BACKGROUND ORBS (mabagal, halos hindi mapansin) ===== */
+.blue-orb {
+  overflow: hidden;
+  animation: sl-orb-drift 22s ease-in-out infinite;
+}
+.blue-orb::after {
+  content: "";
+  position: absolute;
+  inset: 12% 34% 38% 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 70%);
+  animation: sl-orb-light 16s ease-in-out infinite alternate;
+}
+.yellow-orb {
+  animation: sl-orb-drift 26s ease-in-out infinite reverse;
+}
+@keyframes sl-orb-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(-14px, 12px); }
+}
+@keyframes sl-orb-light {
+  0%   { transform: translate(0, 0);     opacity: 0.6; }
+  100% { transform: translate(40%, 30%); opacity: 1; }
+}
+/* ===== END BACKGROUND ORBS ===== */
+
+
+/* ===== HEADLINE (pagkabukas ng page) ===== */
+h1 .h-line {
+  display: inline-block;
+  animation: sl-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+h1 .h-line-1 { animation-delay: 0.1s; }
+h1 .h-line-2 { animation-delay: 0.28s; }
+h1 .smile-word {
+  display: inline-block;
+  transform-origin: 20% 80%;
+  animation: sl-smile 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.55s both;
+}
+@keyframes sl-rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sl-smile {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to   { opacity: 1; transform: none; }
+}
+/* ===== END HEADLINE ===== */
+
+
+/* ===== NOTIFICATIONS ===== */
+.notice {
+  animation: sl-pop-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.notice-open { animation-delay: 1s; }
+.notice-sent { animation-delay: 1.5s; }
+.notice-open .heart-icon {
+  animation: sl-heart-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.35s both;
+}
+@keyframes sl-pop-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes sl-heart-pop {
+  0%   { transform: scale(0.4); }
+  60%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+/* ===== END NOTIFICATIONS ===== */
+
+
+/* ===== CTA BUTTON ("Create yours today") ===== */
+.cta {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.cta svg {
+  transition: transform 0.2s ease;
+}
+.cta:hover {
+  transform: translateY(-3px);
+  background-color: #ffc247;
+  box-shadow: 0 12px 24px rgba(255, 182, 41, 0.35);
+}
+.cta:hover svg {
+  transform: translateX(4px);
+}
+.cta:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 4px 10px rgba(255, 182, 41, 0.3);
+  transition-duration: 0.08s;
+}
+.cta:focus-visible {
+  outline: 3px solid #3265df;
+  outline-offset: 4px;
+}
+/* ===== END CTA BUTTON ===== */
+
+
+/* ===== OPEN SURPRISE BUTTON + BURST ===== */
+.open-button {
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.open-button:hover { filter: brightness(1.08); }
+.open-button:active { transform: scale(0.96); }
+.open-button:focus-visible {
+  outline: 3px solid #ffb629;
+  outline-offset: 3px;
+}
+.burst-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+.burst-piece {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 12px;
+  height: 16px;
+  margin: -8px 0 0 -6px;
+  border-radius: 3px;
+  background: var(--c);
+  animation: sl-burst 1.2s cubic-bezier(0.15, 0.75, 0.35, 1) var(--delay) both;
+}
+.burst-piece.heart {
+  width: auto;
+  height: auto;
+  background: none;
+  color: var(--c);
+  font-size: 22px;
+  line-height: 1;
+}
+.burst-piece.sparkle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+@keyframes sl-burst {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.4) rotate(0deg); }
+  15%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 60px)) scale(1) rotate(var(--rot)); }
+}
+/* ===== END OPEN SURPRISE ===== */
+
+
 /* ===== (ilagay dito ang susunod na animation) ===== */
 
 
@@ -44,7 +232,23 @@
 @media (prefers-reduced-motion: reduce) {
   .sl-balloon,
   .sl-flame,
-  .sl-sparkle {
+  .sl-sparkle,
+  .sl-cake.is-happy,
+  .phone-float,
+  .phone,
+  .blue-orb,
+  .blue-orb::after,
+  .yellow-orb,
+  h1 .h-line,
+  h1 .smile-word,
+  .notice,
+  .notice-open .heart-icon,
+  .burst-piece {
     animation: none !important;
+  }
+  .cta,
+  .cta svg,
+  .open-button {
+    transition: none !important;
   }
 }
