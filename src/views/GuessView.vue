@@ -28,8 +28,8 @@
           <span class="h-line h-line-2">into a <span class="smile-word">smile.</span></span>
         </h1>
         <p class="description">
-          Create personalized surprise websites and digital greeting cards for birthdays,
-          anniversaries, and all the moments that matter.
+          Personalized surprise websites and greeting cards for birthdays, monthsaries, weddings and
+          more.
         </p>
 
         <RouterLink class="cta" to="/celebrate">
@@ -94,7 +94,7 @@
 
 <script setup>
 import { ref, onBeforeUnmount } from "vue";
-import FrontBdayCake from "../components/FrontBdayCake.vue";
+import FrontBdayCake from "@/components/FrontBdayCake.vue";
 
 /* ===== Surprise burst (confetti, puso, kislap) ===== */
 const COLORS = ["#ffb629", "#ff887b", "#3265df", "#ff9eb1", "#6cc4a1"];
@@ -154,18 +154,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900;1000&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wdth,wght@75..125,300..700&family=Nunito:wght@400;500;600;700;800&display=swap");
 
-:root {
-  font-family:
-    "Nunito Sans",
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+/* Parehong font ng Celebrate page:
+   Fredoka = title, logo, buttons, notices  |  Nunito = description at maliliit na text */
+.landing {
+  --display: "Fredoka", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --stretch: 86%;
+  --body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--body);
   color: #1c2344;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -215,9 +212,11 @@ a {
   height: 45px;
 }
 .brand-name {
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(27px, 2.5vw, 42px);
-  font-weight: 1000;
-  letter-spacing: -1.7px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
   color: #1c2344;
 }
 .brand-name span {
@@ -244,8 +243,10 @@ a {
   background: #ffb629;
   border-radius: 999px;
   padding: 9px 23px;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(16px, 1.3vw, 23px);
-  font-weight: 800;
+  font-weight: 600;
   margin-bottom: 27px;
   color: #1c2344;
 }
@@ -257,10 +258,12 @@ a {
 h1 {
   margin: 0;
   color: #1c2344;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(54px, 5.65vw, 104px);
-  line-height: 0.99;
-  letter-spacing: -0.065em;
-  font-weight: 1000;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  font-weight: 700;
 }
 h1 .smile-word {
   color: #3265df;
@@ -284,8 +287,17 @@ h1 .smile-word {
   color: #1c2344;
   background: #ffb629;
   text-decoration: none;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(20px, 1.75vw, 30px);
-  font-weight: 800;
+  font-weight: 600;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+.cta:hover {
+  transform: translateY(-3px);
+  background: #ffc247;
 }
 .cta svg {
   width: 27px;
@@ -345,10 +357,12 @@ h1 .smile-word {
 .greeting h2 {
   color: #244eae;
   font-size: clamp(19px, 1.9vw, 32px);
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   line-height: 1.1;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.01em;
   margin: 0 0 12px;
-  font-weight: 1000;
+  font-weight: 700;
 }
 .greeting p {
   color: #68718a;
@@ -363,8 +377,10 @@ h1 .smile-word {
   background: #3265df;
   border-radius: 14px;
   padding: 13px 19px;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(11px, 1.1vw, 17px);
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 .notice {
@@ -379,8 +395,10 @@ h1 .smile-word {
   border-radius: 23px;
   box-shadow: 0 16px 42px rgba(28, 35, 68, 0.13);
   white-space: nowrap;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
   font-size: clamp(15px, 1.5vw, 26px);
-  font-weight: 800;
+  font-weight: 500;
 }
 .notice-open {
   top: 17%;
@@ -527,7 +545,7 @@ h1 .smile-word {
   }
   .brand-name {
     font-size: clamp(26px, 6vw, 31px);
-    letter-spacing: -1.2px;
+    letter-spacing: -0.3px;
   }
 
   .hero {
@@ -550,8 +568,8 @@ h1 .smile-word {
   }
   h1 {
     font-size: clamp(44px, 11.8vw, 76px);
-    line-height: 0.99;
-    letter-spacing: -0.06em;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
     overflow-wrap: normal;
   }
   .description {
@@ -725,6 +743,181 @@ h1 .smile-word {
   }
 }
 
+
+/* ===== MOBILE: kasya sa isang screen, walang scroll =====
+   Buong taas ng screen ang page (100svh). Ang text ay sumusunod sa taas ng screen,
+   at ang phone ang lumiliit/lumalaki para sakto sa natitirang espasyo. */
+@media (max-width: 760px) {
+  .landing {
+    height: 100vh;
+    height: 100svh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(14px, 3svh, 24px) 20px clamp(8px, 2svh, 18px);
+  }
+  .brand {
+    flex: none;
+  }
+  .brand-mark {
+    width: clamp(38px, 6svh, 47px);
+    height: clamp(38px, 6svh, 47px);
+    border-radius: 12px;
+  }
+  .brand-mark svg {
+    width: 74%;
+    height: 74%;
+  }
+  .brand-name {
+    font-size: clamp(22px, 3.6svh, 30px);
+  }
+  .hero {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: clamp(12px, 3.5svh, 40px) 0 0;
+  }
+  .hero-copy {
+    flex: none;
+  }
+  .eyebrow {
+    font-size: clamp(13px, 2svh, 15px);
+    padding: clamp(5px, 0.9svh, 8px) 15px;
+    margin-bottom: clamp(10px, 2.2svh, 20px);
+  }
+  .sparkle {
+    font-size: 1.3em;
+  }
+  h1 {
+    font-size: clamp(32px, min(11.8vw, 6.4svh), 64px);
+  }
+  .description {
+    font-size: clamp(14px, min(4.2vw, 2.4svh), 19px);
+    line-height: 1.45;
+    margin: clamp(8px, 2svh, 20px) 0 clamp(12px, 2.6svh, 24px);
+  }
+  .cta {
+    min-height: clamp(46px, 7.4svh, 60px);
+    padding-block: 0;
+    font-size: clamp(16px, 2.6svh, 20px);
+  }
+
+  /* lugar ng phone: kukunin lahat ng natitirang taas */
+  .hero-art {
+    flex: 1 1 0;
+    min-height: 0;
+    margin: clamp(6px, 1.6svh, 20px) 0 0;
+    container-type: size;
+  }
+  .blue-orb {
+    width: 120cqw;
+    right: -38%;
+    top: 4%;
+  }
+  .yellow-orb {
+    width: 40cqw;
+    left: -10%;
+    bottom: -8%;
+  }
+  .phone {
+    height: max(calc(100cqh - 14px), 200px);
+    width: auto;
+    max-width: 70cqw;
+    aspect-ratio: 0.54;
+    border-width: 7px;
+    border-radius: clamp(22px, 7cqh, 36px);
+    padding: 5px;
+    transform: rotate(4deg);
+    container-type: inline-size;
+  }
+  .phone-screen {
+    border-radius: clamp(15px, 5cqh, 26px);
+  }
+  /* text sa loob ng phone: sumusunod sa laki ng phone */
+  .greeting {
+    padding: 7cqi 7cqi 0;
+  }
+  .greeting h2 {
+    font-size: 10.5cqi;
+    margin-bottom: 3cqi;
+  }
+  .greeting p {
+    font-size: 5.4cqi;
+    margin-bottom: 5cqi;
+  }
+  .open-button {
+    font-size: 5.6cqi;
+    padding: 3.6cqi 5.5cqi;
+    border-radius: 4cqi;
+  }
+  .notice {
+    max-width: 60%;
+    padding: 7px 10px;
+    gap: 6px;
+    border-radius: 12px;
+    font-size: clamp(10.5px, 1.8svh, 13px);
+  }
+  .heart-icon,
+  .check-icon {
+    width: clamp(22px, 3.6svh, 28px);
+    height: clamp(22px, 3.6svh, 28px);
+    font-size: clamp(16px, 2.6svh, 20px);
+  }
+  .notice-open {
+    top: 8%;
+    right: 0;
+  }
+  .notice-sent {
+    bottom: 8%;
+    left: 0;
+  }
+}
+
+/* ===== MOBILE: itago ang logo at "Now open", ilipat sa ibaba ang button ===== */
+@media (max-width: 760px) {
+  .brand,
+  .eyebrow {
+    display: none;
+  }
+  .hero {
+    margin-top: clamp(4px, 1.5svh, 16px);
+  }
+  /* para maayos ang pagkakasunod: title → description → phone → button */
+  .hero-copy {
+    display: contents;
+  }
+  h1,
+  .description {
+    flex: none;
+  }
+  .description {
+    margin-bottom: 0;
+  }
+  .hero-art {
+    order: 1;
+  }
+  .cta {
+    order: 2;
+    flex: none;
+    position: relative;
+    z-index: 3;
+    box-shadow: 0 8px 20px rgba(255, 182, 41, 0.3);
+    max-width: none;
+    margin-top: clamp(8px, 1.8svh, 16px);
+  }
+}
+
+/* phone na naka-landscape (sobrang baba ng screen): payagan ulit ang scroll */
+@media (max-width: 760px) and (max-height: 480px) {
+  .landing {
+    height: auto;
+    min-height: 100svh;
+  }
+  .hero-art {
+    flex: none;
+    height: 420px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -733,4 +926,6 @@ h1 .smile-word {
     transition: none !important;
   }
 }
+
+
 </style>
