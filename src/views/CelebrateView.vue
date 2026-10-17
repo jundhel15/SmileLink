@@ -22,15 +22,30 @@
       </a>
 
       <nav class="main-nav" aria-label="Main navigation">
-        <a class="active" href="#" @click.prevent>Create</a>
+        <a class="active" href="#" aria-current="page" @click.prevent>Create</a>
         <a href="#" @click.prevent>Templates</a>
         <a href="#" @click.prevent>Pricing</a>
         <a href="#" @click.prevent>How it works</a>
       </nav>
 
       <div class="account-actions">
-        <a class="orders" href="#" @click.prevent><span aria-hidden="true">▣</span> My orders</a>
-        <button class="avatar" type="button" aria-label="Account">J</button>
+        <button class="avatar" type="button" aria-label="Account menu">
+          <span class="avatar-circle" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="8.5" r="4" />
+              <path d="M4.5 20c.8-3.8 3.9-6 7.5-6s6.7 2.2 7.5 6z" />
+            </svg>
+          </span>
+          <svg class="avatar-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="m6 9 6 6 6-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -40,6 +55,7 @@
           <div
             class="progress-step"
             :class="{ current: index === activeStep, complete: index < activeStep }"
+            :aria-current="index === activeStep ? 'step' : undefined"
           >
             <span class="step-number">{{ index < activeStep ? "✓" : index + 1 }}</span>
             <span class="step-label">{{ step }}</span>
@@ -78,25 +94,32 @@ const steps = ["Celebration", "Template", "Package", "Recipient", "Content", "Re
 </script>
 
 <style>
-@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wdth,wght@75..125,300..700&family=Nunito:wght@400;500;600;700;800&display=swap");
 
+/* ===== SmileLink design tokens ===== */
 :root {
-  font-family:
-    "Nunito Sans",
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  color: #1c2344;
-  background: #fffbf3;
+  --sl-navy: #192448;
+  --sl-blue: #3264e8;
+  --sl-blue-dark: #2654d1;
+  --sl-muted: #5f6880;
+  --sl-cream: #fffaf2;
+  --sl-line: #ece4d6;
+  --sl-yellow: #ffb629;
+  /* display: Fredoka na pinakitid (title, pangalan ng card, banner, buttons) */
+  --sl-font-display: "Fredoka", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sl-display-stretch: 86%;
+  /* body: Nunito (menu, stepper, subtitle, description, search) */
+  --sl-font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sl-shadow-soft: 0 6px 18px rgba(120, 92, 40, 0.07);
+  --sl-shadow-lift: 0 14px 30px rgba(120, 92, 40, 0.12);
+
+  font-family: var(--sl-font-body);
+  color: var(--sl-navy);
+  background: var(--sl-cream);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-optical-sizing: auto;
 }
 
 * {
@@ -125,32 +148,37 @@ input:focus-visible {
 }
 .app-shell {
   min-height: 100vh;
-  background: #fffbf3;
+  overflow-x: clip;
+  background:
+    radial-gradient(1200px 500px at 85% 0%, rgba(255, 232, 196, 0.35), transparent 60%),
+    radial-gradient(900px 500px at 0% 100%, rgba(255, 236, 214, 0.4), transparent 60%),
+    var(--sl-cream);
 }
 
+/* ===== Top navigation ===== */
 .topbar {
-  min-height: 77px;
+  min-height: 76px;
   display: flex;
   align-items: center;
-  gap: 42px;
-  padding: 12px 3.1%;
-  background: #fff;
-  border-bottom: 1px solid #e9e1d3;
+  gap: 52px;
+  padding: 10px 4.4%;
+  background: #fffdf8;
+  border-bottom: 1px solid var(--sl-line);
 }
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   text-decoration: none;
   white-space: nowrap;
 }
 .brand-mark {
-  width: 35px;
-  height: 35px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 10px;
-  background: #3265df;
+  background: var(--sl-blue);
   flex: 0 0 auto;
 }
 .brand-mark svg {
@@ -158,98 +186,138 @@ input:focus-visible {
   height: 31px;
 }
 .brand-name {
-  color: #1c2344;
-  font-size: 23px;
-  font-weight: 900;
-  letter-spacing: -1px;
+  font-family: var(--sl-font-display);
+  color: var(--sl-navy);
+  font-size: 25px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1;
 }
 .brand-name span {
-  color: #3265df;
+  color: var(--sl-blue);
 }
 .main-nav {
   display: flex;
-  align-items: center;
-  gap: 34px;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 36px;
   flex: 1;
 }
-.main-nav a,
-.orders {
-  color: #606981;
+.main-nav a {
+  display: flex;
+  align-items: center;
+  color: var(--sl-muted);
   text-decoration: none;
   white-space: nowrap;
+  font-size: 16.5px;
+  font-weight: 500;
+}
+.main-nav a {
+  position: relative;
 }
 .main-nav a.active {
-  color: #1c2344;
-  font-weight: 800;
+  color: var(--sl-navy);
+  font-weight: 700;
 }
-.main-nav a:hover,
-.orders:hover {
-  color: #3265df;
+.main-nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--sl-blue);
+}
+.main-nav a:hover {
+  color: var(--sl-blue);
 }
 .account-actions {
   display: flex;
   align-items: center;
   gap: 22px;
 }
-.orders {
+.avatar {
   display: flex;
   align-items: center;
-  gap: 9px;
-}
-.avatar {
-  width: 41px;
-  height: 41px;
+  gap: 6px;
   border: 0;
+  padding: 0;
+  background: none;
+  color: var(--sl-muted);
+}
+.avatar-circle {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #ffb629;
-  color: #34280a;
-  font-weight: 900;
+  display: grid;
+  place-items: center;
+  background: #e5edff;
+  color: var(--sl-blue);
+  box-shadow: inset 0 0 0 1px #d5e1ff;
+}
+.avatar-circle svg {
+  width: 22px;
+  height: 22px;
+}
+.avatar-chevron {
+  width: 18px;
+  height: 18px;
 }
 
+/* ===== Progress stepper ===== */
 .progress-nav {
-  background: #fff;
-  border-bottom: 1px solid #e9e1d3;
-  padding: 0 5%;
+  background: #fffdf8;
+  border-bottom: 1px solid var(--sl-line);
+  padding: 0 8%;
 }
 .progress-track {
-  max-width: 1500px;
-  min-height: 85px;
+  max-width: 1320px;
+  min-height: 70px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
 }
 .progress-step {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 10px;
   min-width: 0;
-  color: #606981;
+  color: #4560a8;
+  font-size: 14.5px;
+  font-weight: 500;
   white-space: nowrap;
 }
 .step-number {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   border-radius: 50%;
-  border: 1px solid #d7cebd;
+  border: 1.5px solid #ddd5c6;
   display: grid;
   place-items: center;
   background: #fff;
+  color: #2e3d6b;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1;
 }
 .progress-step.current {
-  color: #1c2344;
-  font-weight: 800;
+  color: var(--sl-navy);
+  font-size: 16px;
+  font-weight: 600;
 }
 .progress-step.current .step-number {
   color: #fff;
-  background: #3265df;
-  border-color: #3265df;
+  background: var(--sl-blue);
+  border-color: var(--sl-blue);
+  box-shadow: 0 4px 10px rgba(50, 100, 232, 0.25);
 }
 .progress-step.complete {
   color: #398f48;
-  font-weight: 800;
+  font-weight: 700;
 }
 .progress-step.complete .step-number {
   color: #fff;
@@ -257,9 +325,9 @@ input:focus-visible {
   border-color: #43a047;
 }
 .step-line {
-  height: 2px;
+  height: 1px;
   width: clamp(12px, 5.3vw, 100px);
-  background: #e8e0d2;
+  background: #e6ddcd;
   flex: 1;
 }
 .step-line.complete {
@@ -268,18 +336,23 @@ input:focus-visible {
 
 @media (max-width: 1100px) {
   .topbar {
-    gap: 25px;
+    gap: 28px;
     padding-inline: 3%;
   }
   .main-nav {
-    gap: 20px;
+    gap: 22px;
   }
   .progress-nav {
     padding-inline: 3%;
   }
   .progress-step {
-    gap: 7px;
-    font-size: 14px;
+    gap: 8px;
+    font-size: 13.5px;
+  }
+  .step-number {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
   }
   .step-line {
     width: clamp(8px, 2vw, 30px);
@@ -288,9 +361,9 @@ input:focus-visible {
 @media (max-width: 760px) {
   .topbar {
     min-height: 68px;
-    padding: 13px 18px;
+    padding: 12px 18px 0;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 12px;
   }
   .brand-name {
     font-size: 21px;
@@ -299,17 +372,17 @@ input:focus-visible {
     order: 3;
     flex-basis: 100%;
     overflow-x: auto;
-    gap: 25px;
-    padding: 2px 0 4px;
+    gap: 24px;
+    padding: 4px 0 12px;
+  }
+  .main-nav a.active::after {
+    bottom: -12px;
   }
   .account-actions {
     margin-left: auto;
     gap: 12px;
   }
-  .orders {
-    font-size: 14px;
-  }
-  .avatar {
+  .avatar-circle {
     width: 36px;
     height: 36px;
   }
@@ -325,20 +398,21 @@ input:focus-visible {
   .progress-step {
     gap: 7px;
     font-size: 13px;
+    flex: 0 0 auto;
   }
   .step-number {
-    width: 30px;
-    height: 30px;
-    flex-basis: 30px;
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+    font-size: 14px;
+  }
+  .progress-step.current {
+    font-size: 14px;
   }
   .step-line {
+    flex: 0 0 20px;
     width: 20px;
     min-width: 20px;
-  }
-}
-@media (max-width: 390px) {
-  .orders {
-    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -347,6 +421,7 @@ input:focus-visible {
   *::after {
     scroll-behavior: auto !important;
     transition: none !important;
+    animation: none !important;
   }
 }
 </style>
