@@ -43,13 +43,17 @@
         <button
           class="template-art-button"
           type="button"
-          :aria-label="`Select ${template.name} template`"
+          :aria-label="`Choose ${template.name} template`"
           :aria-pressed="selectedTemplateId === template.id"
-          @click="selectTemplate(template)"
+          @click="confirmTemplate(template)"
         >
           <BirthdayArtwork :template="template" />
           <span v-if="template.isNew" class="new-badge">New</span>
-          <span v-if="selectedTemplateId === template.id" class="template-check" aria-label="Selected">
+          <span
+            v-if="selectedTemplateId === template.id"
+            class="template-check"
+            aria-label="Selected"
+          >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="m5 12 4.3 4.3L19 6.8"
@@ -98,7 +102,12 @@
             <h2>{{ previewTemplate.name }}</h2>
             <p>Birthday card preview</p>
           </div>
-          <button class="close-preview" type="button" aria-label="Close preview" @click="closePreview">
+          <button
+            class="close-preview"
+            type="button"
+            aria-label="Close preview"
+            @click="closePreview"
+          >
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="m6 6 12 12M18 6 6 18"
@@ -120,6 +129,30 @@
         <button class="use-template-button" type="button" @click="usePreviewTemplate">
           Use this template
         </button>
+      </section>
+    </div>
+
+    <div
+      v-if="pendingTemplate"
+      class="confirm-overlay"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="`Use ${pendingTemplate.name} template`"
+      tabindex="-1"
+      @click.self="cancelTemplate"
+      @keydown.esc="cancelTemplate"
+    >
+      <section class="confirm-dialog">
+        <h2>{{ pendingTemplate.name }}</h2>
+        <p>Would you like to use this birthday template?</p>
+        <div class="confirm-actions">
+          <button class="cancel-template-button" type="button" @click="cancelTemplate">
+            Cancel
+          </button>
+          <button class="use-template-button" type="button" @click="useSelectedTemplate">
+            Use template
+          </button>
+        </div>
       </section>
     </div>
   </main>
@@ -318,20 +351,33 @@ const draft = readOrderDraft();
 const selectedTemplateId = ref(
   templates.some((template) => template.id === draft.template_id)
     ? draft.template_id
-    : templates[0].id,
+    : "",
 );
 const previewTemplate = ref(null);
+const pendingTemplate = ref(null);
 const filteredTemplates = computed(() =>
   activeStyle.value === "All"
     ? templates
     : templates.filter((template) => template.style === activeStyle.value),
 );
 
-updateOrderDraft({ occasion: "birthday", template_id: selectedTemplateId.value });
-
 function selectTemplate(template) {
   selectedTemplateId.value = template.id;
   updateOrderDraft({ occasion: "birthday", template_id: template.id });
+}
+
+function confirmTemplate(template) {
+  pendingTemplate.value = template;
+}
+
+function cancelTemplate() {
+  pendingTemplate.value = null;
+}
+
+function useSelectedTemplate() {
+  if (!pendingTemplate.value) return;
+  useTemplate(pendingTemplate.value);
+  cancelTemplate();
 }
 
 function openPreview(template) {
@@ -344,8 +390,13 @@ function closePreview() {
 
 function usePreviewTemplate() {
   if (!previewTemplate.value) return;
-  selectTemplate(previewTemplate.value);
+  useTemplate(previewTemplate.value);
   closePreview();
+}
+
+function useTemplate(template) {
+  selectTemplate(template);
+  router.push("/create/package");
 }
 
 function changeOccasion() {
@@ -426,7 +477,10 @@ function changeOccasion() {
   border: 1px solid #e9e1d3;
   border-radius: 15px;
   background: #fff;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
 }
 .template-card:hover {
   border-color: #9cb7ff;
@@ -586,12 +640,55 @@ function changeOccasion() {
   color: #606981;
 }
 .use-template-button {
-  display: block;
-  margin: 16px 24px 22px auto;
   border: 0;
   border-radius: 12px;
   background: #3265df;
   color: #fff;
+  padding: 12px 20px;
+  font-weight: 800;
+}
+.preview-dialog > .use-template-button {
+  display: block;
+  margin: 16px 24px 22px auto;
+}
+.confirm-overlay {
+  position: fixed;
+  z-index: 11;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(20 25 47 / 68%);
+}
+.confirm-dialog {
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 70px rgb(0 0 0 / 25%);
+  text-align: center;
+}
+.confirm-dialog h2 {
+  margin: 0 0 8px;
+  color: #1c2344;
+  font-size: 23px;
+  font-weight: 900;
+}
+.confirm-dialog p {
+  margin: 0;
+  color: #606981;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+.cancel-template-button {
+  border: 1px solid #d9d0c0;
+  border-radius: 12px;
+  background: #fff;
+  color: #1c2344;
   padding: 12px 20px;
   font-weight: 800;
 }

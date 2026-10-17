@@ -294,7 +294,7 @@ function continueToNext() {
   margin-bottom: 25px;
 }
 .page-heading h1 {
-  margin: 0 0 7px;
+  margin: 0 0 7px; 
   color: #1c2344;
   font-size: clamp(28px, 2.35vw, 36px);
   line-height: 1.18;

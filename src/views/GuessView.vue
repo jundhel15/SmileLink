@@ -28,7 +28,8 @@
           <span class="h-line h-line-2">into a <span class="smile-word">smile.</span></span>
         </h1>
         <p class="description">
-         Create personalized surprise websites and digital greeting cards for birthdays, anniversaries, and all the moments that matter.
+          Create personalized surprise websites and digital greeting cards for birthdays,
+          anniversaries, and all the moments that matter.
         </p>
 
         <RouterLink class="cta" to="/celebrate">
@@ -50,16 +51,18 @@
         <div class="yellow-orb"></div>
 
         <div class="phone-float">
-        <div class="phone">
-          <div class="phone-screen">
-            <FrontBdayCake :happy="celebrating" />
-            <div class="greeting">
-              <h2>Happy Birthday,<br />Maria!</h2>
-              <p>Someone special made this just for you.</p>
-              <button type="button" class="open-button" @click="openSurprise">Open your surprise</button>
+          <div class="phone">
+            <div class="phone-screen">
+              <FrontBdayCake :happy="celebrating" />
+              <div class="greeting">
+                <h2>Happy Birthday,<br />Maria!</h2>
+                <p>Someone special made this just for you.</p>
+                <button type="button" class="open-button" @click="openSurprise">
+                  Open your surprise
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         </div>
 
         <div class="notice notice-open">
@@ -91,7 +94,7 @@
 
 <script setup>
 import { ref, onBeforeUnmount } from "vue";
-import FrontBdayCake from "../components/Frontbdaycake.vue";
+import FrontBdayCake from "../components/FrontBdayCake.vue";
 
 /* ===== Surprise burst (confetti, puso, kislap) ===== */
 const COLORS = ["#ffb629", "#ff887b", "#3265df", "#ff9eb1", "#6cc4a1"];
@@ -216,7 +219,6 @@ a {
   font-weight: 1000;
   letter-spacing: -1.7px;
   color: #1c2344;
-
 }
 .brand-name span {
   color: #3265df;
@@ -723,8 +725,6 @@ h1 .smile-word {
   }
 }
 
-
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -733,6 +733,4 @@ h1 .smile-word {
     transition: none !important;
   }
 }
-
-
 </style>

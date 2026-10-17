@@ -55,6 +55,7 @@
     </nav>
 
     <BirthdayTemp v-if="isTemplateStep" />
+    <PackageTemp v-else-if="isPackageStep" />
     <CelebrateTemp v-else />
   </div>
 </template>
@@ -64,10 +65,15 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import BirthdayTemp from "@/components/form/BirthdayTemp.vue";
 import CelebrateTemp from "@/components/form/CelebrateTemp.vue";
+import PackageTemp from "@/components/form/PackageTemp.vue";
 
 const route = useRoute();
 const isTemplateStep = computed(() => route.name === "birthday-template");
-const activeStep = computed(() => (isTemplateStep.value ? 1 : 0));
+const isPackageStep = computed(() => route.name === "create-package");
+const activeStep = computed(() => {
+  if (isPackageStep.value) return 2;
+  return isTemplateStep.value ? 1 : 0;
+});
 const steps = ["Celebration", "Template", "Package", "Recipient", "Content", "Review & pay"];
 </script>
 
