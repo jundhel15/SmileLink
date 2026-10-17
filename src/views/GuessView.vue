@@ -23,10 +23,12 @@
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow"><span class="sparkle">✧</span> Now open</div>
-        <h1>Turn a link<br />into a <span>smile.</span></h1>
+        <h1>
+          <span class="h-line h-line-1">Turn a link</span><br />
+          <span class="h-line h-line-2">into a <span class="smile-word">smile.</span></span>
+        </h1>
         <p class="description">
-          Personalized surprise websites and greeting cards for birthdays, monthsaries, weddings and
-          more.
+         Create personalized surprise websites and digital greeting cards for birthdays, anniversaries, and all the moments that matter.
         </p>
 
         <RouterLink class="cta" to="/celebrate">
@@ -47,15 +49,17 @@
         <div class="blue-orb"></div>
         <div class="yellow-orb"></div>
 
+        <div class="phone-float">
         <div class="phone">
           <div class="phone-screen">
-            <FrontBdayCake />
+            <FrontBdayCake :happy="celebrating" />
             <div class="greeting">
               <h2>Happy Birthday,<br />Maria!</h2>
               <p>Someone special made this just for you.</p>
-              <button type="button" class="open-button">Open your surprise</button>
+              <button type="button" class="open-button" @click="openSurprise">Open your surprise</button>
             </div>
           </div>
+        </div>
         </div>
 
         <div class="notice notice-open">
@@ -66,6 +70,19 @@
           <span class="check-icon">✓</span>
           <span>Link sent to Maria</span>
         </div>
+
+        <div class="burst-layer" aria-hidden="true">
+          <template v-for="burst in bursts" :key="burst.id">
+            <span
+              v-for="piece in burst.pieces"
+              :key="piece.id"
+              class="burst-piece"
+              :class="piece.kind"
+              :style="piece.style"
+              >{{ piece.kind === "heart" ? "♥" : "" }}</span
+            >
+          </template>
+        </div>
       </div>
     </section>
     <span id="create" class="sr-only">Create your SmileLink surprise</span>
@@ -73,7 +90,64 @@
 </template>
 
 <script setup>
-import FrontBdayCake from "@/components/FrontBdayCake.vue";
+import { ref, onBeforeUnmount } from "vue";
+import FrontBdayCake from "../components/Frontbdaycake.vue";
+
+/* ===== Surprise burst (confetti, puso, kislap) ===== */
+const COLORS = ["#ffb629", "#ff887b", "#3265df", "#ff9eb1", "#6cc4a1"];
+const KINDS = ["confetti", "heart", "confetti", "sparkle"];
+const PIECES = 22;
+
+const bursts = ref([]);
+const celebrating = ref(false);
+const timers = new Set();
+let nextId = 0;
+
+function later(fn, ms) {
+  const t = setTimeout(() => {
+    timers.delete(t);
+    fn();
+  }, ms);
+  timers.add(t);
+}
+
+function openSurprise() {
+  // cake reaction (restart kahit pindutin ulit)
+  celebrating.value = false;
+  later(() => (celebrating.value = true), 20);
+  later(() => (celebrating.value = false), 950);
+
+  const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) return;
+
+  const id = nextId++;
+  const pieces = Array.from({ length: PIECES }, (_, i) => {
+    const angle = (i / PIECES) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = 120 + Math.random() * 90;
+    return {
+      id: `${id}-${i}`,
+      kind: KINDS[i % KINDS.length],
+      style: {
+        "--dx": `${Math.round(Math.cos(angle) * dist)}px`,
+        "--dy": `${Math.round(Math.sin(angle) * dist - 50)}px`,
+        "--rot": `${Math.round(Math.random() * 540 - 270)}deg`,
+        "--c": COLORS[i % COLORS.length],
+        "--delay": `${Math.round(Math.random() * 90)}ms`,
+      },
+    };
+  });
+
+  bursts.value.push({ id, pieces });
+  if (bursts.value.length > 3) bursts.value.shift();
+  later(() => {
+    bursts.value = bursts.value.filter((b) => b.id !== id);
+  }, 1500);
+}
+
+onBeforeUnmount(() => {
+  timers.forEach(clearTimeout);
+  timers.clear();
+});
 </script>
 
 <style scoped>
@@ -186,7 +260,7 @@ h1 {
   letter-spacing: -0.065em;
   font-weight: 1000;
 }
-h1 span {
+h1 .smile-word {
   color: #3265df;
 }
 .description {
@@ -210,13 +284,6 @@ h1 span {
   text-decoration: none;
   font-size: clamp(20px, 1.75vw, 30px);
   font-weight: 800;
-  transition:
-    transform 0.2s ease,
-    background 0.2s ease;
-}
-.cta:hover {
-  transform: translateY(-3px);
-  background: #ffc247;
 }
 .cta svg {
   width: 27px;

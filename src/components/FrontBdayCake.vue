@@ -1,3 +1,9 @@
+<script setup>
+defineProps({
+  happy: { type: Boolean, default: false },
+});
+</script>
+
 <template>
   <div class="birthday-scene">
     <svg class="scene-art" viewBox="0 0 300 260" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -5,13 +11,13 @@
       <g fill="#fff" opacity=".9">
         <circle cx="34" cy="40" r="11" /><circle cx="48" cy="34" r="14" /><circle cx="64" cy="41" r="10" /><rect x="24" y="40" width="50" height="11" rx="5.5" />
         <circle cx="222" cy="30" r="9" /><circle cx="236" cy="24" r="12" /><circle cx="250" cy="31" r="8" /><rect x="213" y="30" width="45" height="9" rx="4.5" />
-      </g> 
+      </g>
       <path class="sl-sparkle" d="M150 20l2.2 5.8 5.8 2.2-5.8 2.2-2.2 5.8-2.2-5.8-5.8-2.2 5.8-2.2Z" fill="#FFB629" />
       <path class="sl-sparkle" style="animation-delay:-1s" d="M196 58l1.6 4.2 4.2 1.6-4.2 1.6-1.6 4.2-1.6-4.2-4.2-1.6 4.2-1.6Z" fill="#fff" />
       <path class="sl-sparkle" style="animation-delay:-2s" d="M186 40l1.6 4.2 4.2 1.6-4.2 1.6-1.6 4.2-1.6-4.2-4.2-1.6 4.2-1.6Z" fill="#FF887B" />
       <path d="M0 182Q150 166 300 182V260H0Z" fill="#FFF0C5" />
       <g transform="translate(262 128) scale(0.7)">
-        <g class="sl-balloon" style="animation-delay: -1s">
+        <g class="sl-balloon" style="animation-delay: -1s; animation-duration: 4.6s">
           <path d="M0 30c-5 10 5 16 0 26s5 16 0 26s5 14 0 24" stroke="#A8B0C2" stroke-width="1.4" fill="none" />
           <path d="M0-26C15-26 24-14 24-1C24 14 12 25 0 27C-12 25-24 14-24-1C-24-14-15-26 0-26Z" fill="#3265DF" />
           <path d="M-4 31L0 25L4 31Z" fill="#3265DF" />
@@ -20,7 +26,7 @@
         </g>
       </g>
       <g transform="translate(46 80) scale(1)">
-        <g class="sl-balloon" style="animation-delay: 0s">
+        <g class="sl-balloon" style="animation-delay: 0s; animation-duration: 4s">
           <path d="M0 30c-5 10 5 16 0 26s5 16 0 26s5 14 0 24" stroke="#A8B0C2" stroke-width="1.4" fill="none" />
           <path d="M0-26C15-26 24-14 24-1C24 14 12 25 0 27C-12 25-24 14-24-1C-24-14-15-26 0-26Z" fill="#FFB629" />
           <path d="M-4 31L0 25L4 31Z" fill="#FFB629" />
@@ -29,7 +35,7 @@
         </g>
       </g>
       <g transform="translate(104 60) scale(0.8)">
-        <g class="sl-balloon" style="animation-delay: -2.2s">
+        <g class="sl-balloon" style="animation-delay: -2.2s; animation-duration: 5.2s">
           <path d="M0 27c-5 10 5 16 0 26s5 16 0 26s5 14 0 24" stroke="#A8B0C2" stroke-width="1.4" fill="none" />
           <path d="M0 24C-26 6-26-20-12-24C-5-26 0-20 0-15C0-20 5-26 12-24C26-20 26 6 0 24Z" fill="#FF887B" />
           <path d="M-4 28L0 22L4 28Z" fill="#FF887B" />
@@ -38,7 +44,7 @@
         </g>
       </g>
       <g transform="translate(80 126) scale(0.62)">
-        <g class="sl-balloon" style="animation-delay: -3.1s">
+        <g class="sl-balloon" style="animation-delay: -3.1s; animation-duration: 3.8s">
           <path d="M0 30c-5 10 5 16 0 26s5 16 0 26s5 14 0 24" stroke="#A8B0C2" stroke-width="1.4" fill="none" />
           <path d="M0-26C15-26 24-14 24-1C24 14 12 25 0 27C-12 25-24 14-24-1C-24-14-15-26 0-26Z" fill="#FF9EB1" />
           <path d="M-4 31L0 25L4 31Z" fill="#FF9EB1" />
@@ -47,6 +53,7 @@
         </g>
       </g>
       <ellipse cx="150" cy="217" rx="88" ry="9" fill="#EAD7A0" opacity=".55" />
+      <g class="sl-cake" :class="{ 'is-happy': happy }">
       <ellipse cx="150" cy="210" rx="82" ry="11" fill="#fff" />
       <ellipse cx="150" cy="208" rx="82" ry="9" fill="none" stroke="#E6E9F2" stroke-width="1.5" />
       <rect x="86" y="146" width="128" height="62" rx="16" fill="#FFD6E0" />
@@ -65,17 +72,18 @@
       <rect x="133" y="88" width="6" height="2.6" fill="#fff" opacity=".85" />
       <rect x="133" y="96" width="6" height="2.6" fill="#fff" opacity=".85" />
       <circle cx="136" cy="72" r="9" fill="#FFD86B" opacity=".28" />
-      <g class="sl-flame"><path d="M136 62C141 68 142 73 136 79C130 73 131 68 136 62Z" fill="#FFC23C" /><path d="M136 68C138.5 71 139 74 136 77C133 74 133.5 71 136 68Z" fill="#FFF4C2" /></g>
+      <g class="sl-flame" style="animation-duration: 0.8s"><path d="M136 62C141 68 142 73 136 79C130 73 131 68 136 62Z" fill="#FFC23C" /><path d="M136 68C138.5 71 139 74 136 77C133 74 133.5 71 136 68Z" fill="#FFF4C2" /></g>
       <rect x="147" y="82" width="6" height="26" rx="3" fill="#FFD36B" />
       <rect x="147" y="88" width="6" height="2.6" fill="#fff" opacity=".85" />
       <rect x="147" y="96" width="6" height="2.6" fill="#fff" opacity=".85" />
       <circle cx="150" cy="72" r="9" fill="#FFD86B" opacity=".28" />
-      <g class="sl-flame"><path d="M150 62C155 68 156 73 150 79C144 73 145 68 150 62Z" fill="#FFC23C" /><path d="M150 68C152.5 71 153 74 150 77C147 74 147.5 71 150 68Z" fill="#FFF4C2" /></g>
+      <g class="sl-flame" style="animation-duration: 1s; animation-delay: -0.3s"><path d="M150 62C155 68 156 73 150 79C144 73 145 68 150 62Z" fill="#FFC23C" /><path d="M150 68C152.5 71 153 74 150 77C147 74 147.5 71 150 68Z" fill="#FFF4C2" /></g>
       <rect x="161" y="82" width="6" height="26" rx="3" fill="#FF9EB1" />
       <rect x="161" y="88" width="6" height="2.6" fill="#fff" opacity=".85" />
       <rect x="161" y="96" width="6" height="2.6" fill="#fff" opacity=".85" />
       <circle cx="164" cy="72" r="9" fill="#FFD86B" opacity=".28" />
-      <g class="sl-flame"><path d="M164 62C169 68 170 73 164 79C158 73 159 68 164 62Z" fill="#FFC23C" /><path d="M164 68C166.5 71 167 74 164 77C161 74 161.5 71 164 68Z" fill="#FFF4C2" /></g>
+      <g class="sl-flame" style="animation-duration: 0.9s; animation-delay: -0.6s"><path d="M164 62C169 68 170 73 164 79C158 73 159 68 164 62Z" fill="#FFC23C" /><path d="M164 68C166.5 71 167 74 164 77C161 74 161.5 71 164 68Z" fill="#FFF4C2" /></g>
+      </g>
     </svg>
   </div>
 </template>
