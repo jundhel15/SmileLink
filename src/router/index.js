@@ -12,7 +12,17 @@ const router = createRouter({
     {
       path: "/celebrate",
       name: "celebrate",
-      component: () => import("../views/CelebrationView.vue"),
+      component: () => import("../views/CelebrateView.vue"),
+    },
+    {
+      path: "/create/occasion",
+      name: "create-occasion",
+      component: () => import("../views/CelebrateView.vue"),
+    },
+    {
+      path: "/create/template",
+      name: "birthday-template",
+      component: () => import("../views/CelebrateView.vue"),
     },
     {
       path: "/about",
