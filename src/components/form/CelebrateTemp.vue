@@ -40,10 +40,13 @@
         v-for="occasion in filteredOccasions"
         :key="occasion.name"
         class="occasion-card"
-        :class="{ selected: selectedOccasion === occasion.name }"
+        :class="[
+          `fx-${occasion.fx}`,
+          { selected: selectedOccasion === occasion.name, 'fx-play': playing === occasion.name },
+        ]"
         type="button"
         :aria-pressed="selectedOccasion === occasion.name"
-        @click="selectOccasion(occasion.name, occasion.action)"
+        @click="selectOccasion(occasion.name, occasion.action, occasion.fx)"
       >
         <span v-if="selectedOccasion === occasion.name" class="selected-check" aria-label="Selected">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -58,6 +61,26 @@
         </span>
 
         <span class="occasion-art">
+          <!-- maliliit na dekorasyon ng animation (confetti, puso, bituin) -->
+          <span v-if="playing === occasion.name" :key="playKey" class="fx-layer" aria-hidden="true">
+            <span
+              v-for="(part, i) in FX_PARTS[occasion.fx]"
+              :key="i"
+              class="fx-part"
+              :class="`fx-${part[0]}`"
+              :style="{
+                '--x': part[1] + '%',
+                '--y': part[2] + '%',
+                '--dx': part[3] + 'cqi',
+                '--dy': part[4] + 'cqi',
+                '--delay': part[5] + 'ms',
+                '--c': part[6],
+                '--rot': (part[7] || 0) + 'deg',
+                '--dur': (part[8] || 900) + 'ms',
+              }"
+              >{{ FX_CHAR[part[0]] }}</span
+            >
+          </span>
           <img
             :src="occasion.image"
             :alt="occasion.alt"
@@ -118,12 +141,14 @@
       <button class="cancel-button" type="button" @click="cancelSelection">Cancel</button>
       <button
         class="continue-button"
+        :class="{ ready: selectedOccasion, going: navigating }"
         type="button"
-        :disabled="!selectedOccasion"
+        :disabled="!selectedOccasion || navigating"
         @click="continueToNext"
       >
-        Continue
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        Let's go!
+        <span class="go-sparkle" aria-hidden="true">✨</span>
+        <svg class="go-arrow" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
             d="M4 12h15M13 5l7 7-7 7"
             stroke="currentColor"
@@ -139,7 +164,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
 
@@ -160,7 +185,105 @@ const selectedOccasion = ref("");
 const selectedAction = ref("");
 const searchQuery = ref("");
 const statusMessage = ref("");
+const navigating = ref(false);
 const savedDraft = readOrderDraft();
+
+/* ===== Animation ng bawat occasion =====
+   FX_PARTS: [uri, x%, y%, galaw-x, galaw-y, delay(ms), kulay, ikot(deg), tagal(ms)]
+   uri: heart | star | spark | confetti | petal  (x/y = simula sa loob ng larawan) */
+const FX_CHAR = { heart: "♥", star: "★", spark: "✦", confetti: "", petal: "" };
+const FX_PARTS = {
+  // 1. Birthday — Cake Pop-Up Surprise: confetti at kislap sa ibabaw ng cake
+  birthday: [
+    ["confetti", 50, 30, -26, -16, 380, "#ffb629", 160],
+    ["confetti", 50, 30, -12, -26, 420, "#ff8fab", -120],
+    ["spark", 50, 28, 0, -30, 460, "#ffb629"],
+    ["confetti", 50, 30, 13, -25, 400, "#3568f5", 140],
+    ["confetti", 50, 30, 26, -15, 440, "#6cc4a1", -160],
+  ],
+  // 2. Monthsary — Floating Love: lumulutang ang heart balloons, may maliliit na pusong umaakyat
+  monthsary: [
+    ["heart", 26, 92, -4, -60, 150, "#ff8fab", 0, 1300],
+    ["heart", 74, 92, 5, -66, 330, "#ff6f91", 0, 1300],
+    ["heart", 50, 96, -2, -72, 520, "#ffb3c6", 0, 1300],
+  ],
+  // 3. Anniversary — Golden Clink: nagkikiskisan ang singsing, kumikinang, may kislap sa paligid
+  anniversary: [
+    ["spark", 50, 58, -36, -4, 460, "#ff8fab", 0, 850],
+    ["spark", 50, 58, 36, -6, 500, "#7cc4ff", 0, 850],
+    ["spark", 50, 58, -24, -30, 540, "#ffb629", 0, 850],
+    ["spark", 50, 58, 26, -28, 580, "#ff8fab", 0, 850],
+    ["heart", 50, 20, 0, -16, 640, "#ff6f91", 0, 900],
+  ],
+  // 4. Wedding — Bouquet Bloom: talulot at kislap na lumulutang
+  wedding: [
+    ["petal", 50, 50, -28, -14, 480, "#ffb3c6", 120],
+    ["petal", 50, 50, 28, -16, 520, "#ffd9c7", -140],
+    ["petal", 50, 50, -18, -30, 560, "#ff8fab", 90],
+    ["spark", 50, 45, 20, -28, 600, "#ffb629"],
+  ],
+  // 5. Graduation — Cap Toss: gintong bituin pagbagsak ng cap
+  graduation: [
+    ["star", 50, 22, -26, -12, 420, "#ffb629"],
+    ["star", 50, 22, 25, -16, 470, "#ffc94d"],
+    ["star", 50, 22, -12, -26, 520, "#ffd166"],
+    ["star", 50, 22, 13, -28, 560, "#ffb629"],
+  ],
+  // 6. Debut — Royal Crown Reveal: kislap na parang diamante
+  debut: [
+    ["spark", 50, 32, -20, -14, 600, "#7cc4ff"],
+    ["spark", 50, 32, 20, -16, 660, "#ffb629"],
+    ["spark", 50, 28, 0, -26, 720, "#ff8fab"],
+  ],
+  // 7. Baby & Reveal — Peekaboo Teddy: isang maliit na puso
+  baby: [
+    ["heart", 50, 34, 0, -26, 620, "#ff8fab", 0, 1000],
+    ["spark", 28, 44, -8, -14, 720, "#8fb5ff"],
+  ],
+  // 8. Thank You — Heartfelt Letter: puso sa itaas ng sobre
+  thanks: [
+    ["heart", 52, 32, 0, -26, 600, "#ff6f91", 0, 1000],
+    ["spark", 30, 40, -10, -16, 700, "#ffb629"],
+    ["spark", 72, 38, 10, -18, 760, "#ffb629"],
+  ],
+  // 9. Congratulations — Trophy Celebration: bituin at confetti
+  congrats: [
+    ["star", 50, 40, -27, -16, 320, "#ffb629"],
+    ["confetti", 50, 38, -14, -28, 360, "#ff8fab", 150],
+    ["star", 50, 36, 0, -32, 400, "#3568f5"],
+    ["confetti", 50, 38, 15, -27, 380, "#6cc4a1", -140],
+    ["star", 50, 40, 27, -16, 440, "#ffb629"],
+  ],
+  // 10. Just Because — Mystery Gift: pusong lumulutang at kislap sa paligid
+  smile: [
+    ["heart", 50, 50, -30, -18, 300, "#ff8fab"],
+    ["spark", 50, 50, 30, -16, 340, "#ffb629"],
+    ["heart", 50, 50, -16, -32, 380, "#ff6f91"],
+    ["spark", 50, 50, 18, -30, 420, "#b9a4ff"],
+  ],
+};
+
+const playing = ref("");
+const playKey = ref(0);
+let playTimer = 0;
+let startTimer = 0;
+
+function playFx(name) {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  clearTimeout(playTimer);
+  clearTimeout(startTimer);
+  playing.value = "";
+  // maliit na pagitan para mag-restart ang animation kahit pindutin ulit
+  startTimer = setTimeout(() => {
+    playing.value = name;
+    playKey.value++;
+    playTimer = setTimeout(() => (playing.value = ""), 2200);
+  }, 30);
+}
+onBeforeUnmount(() => {
+  clearTimeout(playTimer);
+  clearTimeout(startTimer);
+});
 
 const occasions = [
   {
@@ -170,6 +293,7 @@ const occasions = [
     image: birthdayWebp,
     alt: "Birthday cake with candles",
     action: "/birthday",
+    fx: "birthday",
   },
   {
     name: "Monthsary",
@@ -178,6 +302,7 @@ const occasions = [
     image: monthsaryWebp,
     alt: "Pink heart balloons",
     action: "/monthsary",
+    fx: "monthsary",
   },
   {
     name: "Anniversary",
@@ -186,6 +311,7 @@ const occasions = [
     image: anniversaryWebp,
     alt: "Two gold rings with a heart",
     action: "/anniversary",
+    fx: "anniversary",
   },
   {
     name: "Wedding",
@@ -194,6 +320,7 @@ const occasions = [
     image: weddingWebp,
     alt: "Wedding flower bouquet",
     action: "/wedding",
+    fx: "wedding",
   },
   {
     name: "Graduation",
@@ -202,6 +329,7 @@ const occasions = [
     image: graduationWebp,
     alt: "Blue graduation cap",
     action: "/graduation",
+    fx: "graduation",
   },
   {
     name: "Debut",
@@ -210,6 +338,7 @@ const occasions = [
     image: debutWebp,
     alt: "Gold crown with a pink gem",
     action: "/debut",
+    fx: "debut",
   },
   {
     name: "Baby & reveal",
@@ -218,6 +347,7 @@ const occasions = [
     image: babyWebp,
     alt: "Teddy bear with balloons",
     action: "reveal",
+    fx: "baby",
   },
   {
     name: "Thank you",
@@ -226,6 +356,7 @@ const occasions = [
     image: thankYouWebp,
     alt: "Envelope sealed with a heart",
     action: "thanks",
+    fx: "thanks",
   },
   {
     name: "Congratulations",
@@ -234,6 +365,7 @@ const occasions = [
     image: congratsWebp,
     alt: "Gold trophy with confetti",
     action: "/congratulation",
+    fx: "congrats",
   },
   {
     name: "Just because",
@@ -242,6 +374,7 @@ const occasions = [
     image: justBecauseWebp,
     alt: "Smiling yellow star",
     action: "/smile",
+    fx: "smile",
   },
 ];
 
@@ -260,8 +393,9 @@ const filteredOccasions = computed(() => {
   );
 });
 
-function selectOccasion(name, action) {
+function selectOccasion(name, action, fx) {
   selectedOccasion.value = name;
+  if (fx) playFx(name);
   selectedAction.value = action;
   statusMessage.value = "";
   const occasion = action.replace(/^\//, "");
@@ -290,7 +424,8 @@ function cancelSelection() {
 }
 
 function continueToNext() {
-  if (!selectedOccasion.value) return;
+  // iwas dobleng pindot
+  if (!selectedOccasion.value || navigating.value) return;
   if (!selectedAction.value) {
     statusMessage.value = `${selectedOccasion.value} is not available yet.`;
     return;
@@ -301,7 +436,9 @@ function continueToNext() {
       is_group: false,
       template_id: null,
     });
-    router.push("/create/template");
+    navigating.value = true;
+    // maikling pagitan para makita ang pindot (scale + arrow) bago lumipat
+    setTimeout(() => router.push("/create/template"), 160);
     return;
   }
   statusMessage.value = `You selected ${selectedOccasion.value}. Next: choose a template.`;
@@ -461,7 +598,15 @@ function continueToNext() {
   transform: translateY(-4px);
   box-shadow: var(--card-shadow-hover);
 }
+.occasion-card.selected:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+.occasion-card:focus-visible {
+  outline: 3px solid #9bb7ff;
+  outline-offset: 3px;
+}
 .occasion-card.selected {
+  transform: scale(1.02);
   border-color: var(--blue);
   background: #f3f7ff;
   box-shadow:
@@ -477,6 +622,7 @@ function continueToNext() {
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
+  position: relative;
 }
 .occasion-art img {
   display: block;
@@ -674,40 +820,261 @@ function continueToNext() {
   font-weight: 700;
   padding: 12px 10px;
 }
+/* ===== "Let's go! ✨ →" button ===== */
 .continue-button {
   border: 0;
-  border-radius: 14px;
+  border-radius: 999px;
   background: var(--blue);
   color: #fff;
-  padding: 17px 27px;
+  padding: 16px 30px;
   min-width: 171px;
-  font-weight: 700;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
+  font-size: 19px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+  box-shadow: 0 8px 18px rgba(50, 100, 232, 0.22);
   transition:
     transform 0.2s ease,
     background-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
-.continue-button svg {
+.go-sparkle {
+  font-size: 0.95em;
+  line-height: 1;
+}
+.continue-button .go-arrow {
   width: 20px;
   height: 20px;
-  transition: transform 0.2s ease;
+  transition: transform 0.15s ease;
+}
+/* lilitaw nang may maliit na "pop" kapag may napili na */
+.continue-button.ready {
+  animation: go-in 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes go-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .continue-button:hover:not(:disabled) {
   background: var(--sl-blue-dark, #2654d1);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(50, 100, 232, 0.25);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 12px 24px rgba(50, 100, 232, 0.3);
 }
-.continue-button:hover:not(:disabled) svg {
+.continue-button:hover:not(:disabled) .go-arrow {
   transform: translateX(3px);
 }
-.continue-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* pagpindot: liit nang konti, usog ang arrow */
+.continue-button:active:not(:disabled),
+.continue-button.going {
+  transform: scale(0.97);
+  transition-duration: 0.12s;
 }
+.continue-button:active:not(:disabled) .go-arrow,
+.continue-button.going .go-arrow {
+  transform: translateX(6px);
+}
+.continue-button:disabled:not(.going) {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.continue-button.going {
+  cursor: progress;
+}
+
+/* =========================================================
+   OCCASION ANIMATIONS (tumatakbo kapag pinili ang card)
+   ========================================================= */
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.fx-part {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: 1em;
+  height: 1em;
+  margin: -0.5em 0 0 -0.5em;
+  display: grid;
+  place-items: center;
+  color: var(--c);
+  font-size: clamp(12px, 9cqi, 22px);
+  line-height: 1;
+  opacity: 0;
+  animation: fx-fly var(--dur) cubic-bezier(0.2, 0.8, 0.3, 1) var(--delay) both;
+}
+.fx-confetti {
+  width: 0.4em;
+  height: 0.6em;
+  margin: -0.3em 0 0 -0.2em;
+  border-radius: 2px;
+  background: var(--c);
+}
+.fx-petal {
+  width: 0.5em;
+  height: 0.7em;
+  margin: -0.35em 0 0 -0.25em;
+  border-radius: 60% 60% 60% 0;
+  background: var(--c);
+}
+.fx-spark {
+  font-size: clamp(14px, 11cqi, 26px);
+}
+@keyframes fx-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.25), calc(var(--dy) * 0.25)) scale(1.1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.9) rotate(var(--rot));
+  }
+}
+
+/* maliliit na pusong umaakyat nang paikot-ikot (Monthsary) */
+.fx-monthsary .fx-heart {
+  font-size: clamp(12px, 9cqi, 20px);
+  animation-name: fx-rise;
+  animation-timing-function: ease-out;
+}
+@keyframes fx-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+  15% { opacity: 1; }
+  40% { transform: translate(calc(var(--dx) + 2cqi), calc(var(--dy) * 0.4)) scale(1); }
+  70% { opacity: 1; transform: translate(calc(var(--dx) - 2cqi), calc(var(--dy) * 0.75)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.9); }
+}
+
+.fx-anniversary .fx-spark {
+  font-size: clamp(16px, 13cqi, 30px);
+}
+
+/* galaw ng mismong larawan (iisang larawan, kaya transform lang) */
+.fx-play .occasion-art img {
+  transform-origin: 50% 90%;
+}
+.fx-play.fx-birthday .occasion-art img {
+  animation: fx-cake 1.5s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.fx-play.fx-monthsary .occasion-art img {
+  transform-origin: 50% 100%;
+  animation: fx-balloons 1.8s ease-in-out;
+}
+.fx-play.fx-anniversary .occasion-art img {
+  transform-origin: 50% 55%;
+  animation: fx-clink 1.3s ease-out;
+}
+.fx-play.fx-wedding .occasion-art img {
+  animation: fx-bloom 1.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.fx-play.fx-graduation .occasion-art img {
+  animation: fx-toss 1.25s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+.fx-play.fx-debut .occasion-art img {
+  animation: fx-reveal 1.6s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.fx-play.fx-baby .occasion-art img {
+  animation: fx-rock 1.3s ease-in-out;
+}
+.fx-play.fx-thanks .occasion-art img {
+  animation: fx-letter 1.5s cubic-bezier(0.3, 0.9, 0.4, 1);
+}
+.fx-play.fx-congrats .occasion-art img {
+  animation: fx-trophy 1.2s ease-out;
+}
+.fx-play.fx-smile .occasion-art img {
+  animation: fx-gift 1.5s ease-out;
+}
+
+@keyframes fx-cake {
+  0% { transform: translateY(16%) scale(0.92); opacity: 0.6; filter: none; }
+  45% { transform: translateY(-6%) scale(1.04); opacity: 1; filter: drop-shadow(0 0 10px rgba(255, 190, 60, 0.75)); }
+  70% { transform: translateY(2%) scale(0.99); }
+  100% { transform: none; filter: none; }
+}
+/* heart balloons: umaangat at marahang umuugoy na parang hinihipan ng hangin */
+@keyframes fx-balloons {
+  0% { transform: none; }
+  25% { transform: translateY(-9%) rotate(-5deg); }
+  50% { transform: translateY(-12%) rotate(4deg); }
+  75% { transform: translateY(-5%) rotate(-2deg); }
+  100% { transform: none; }
+}
+/* singsing: konting urong, "clink" na pop, kinang na ginto, tapos tahimik */
+@keyframes fx-clink {
+  0% { transform: none; filter: none; }
+  22% { transform: scale(0.93) rotate(-7deg); }
+  42% { transform: scale(1.1) rotate(5deg); filter: brightness(1.12) drop-shadow(0 0 12px rgba(255, 196, 60, 0.85)); }
+  62% { transform: scale(0.98) rotate(-2deg); }
+  80% { transform: scale(1.02) rotate(1deg); filter: drop-shadow(0 0 4px rgba(255, 196, 60, 0.4)); }
+  100% { transform: none; filter: none; }
+}
+@keyframes fx-bloom {
+  0% { transform: scale(0.82); opacity: 0.7; }
+  55% { transform: scale(1.07); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fx-toss {
+  0% { transform: none; }
+  40% { transform: translateY(-26%) rotate(-14deg); }
+  70% { transform: translateY(-3%) rotate(6deg); }
+  85% { transform: translateY(2%) rotate(-2deg); }
+  100% { transform: none; }
+}
+@keyframes fx-reveal {
+  0% { transform: translateY(16%) scale(0.9); opacity: 0.5; filter: none; }
+  45% { transform: translateY(-8%) scale(1.04) rotate(-5deg); opacity: 1; filter: drop-shadow(0 0 9px rgba(255, 200, 80, 0.8)); }
+  70% { transform: translateY(-2%) rotate(4deg); }
+  100% { transform: none; filter: none; }
+}
+@keyframes fx-rock {
+  0% { transform: translateY(22%) scale(0.88); opacity: 0.4; }
+  40% { transform: translateY(-7%) scale(1.03); opacity: 1; }
+  60% { transform: translateY(-4%) rotate(-4deg); }
+  80% { transform: translateY(-2%) rotate(3deg); }
+  100% { transform: none; }
+}
+@keyframes fx-letter {
+  0% { transform: translateX(-18%) rotate(-8deg); opacity: 0.5; }
+  45% { transform: translateY(-8%) rotate(3deg); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes fx-trophy {
+  0% { transform: translateY(14%) scale(0.72); opacity: 0.5; }
+  40% { transform: translateY(-6%) scale(1.12); }
+  60% { transform: scale(0.97); }
+  80% { transform: scale(1.03); }
+  100% { transform: none; }
+}
+@keyframes fx-gift {
+  0%, 100% { transform: none; }
+  20% { transform: translateY(2%) scale(1.06, 0.92); }
+  40% { transform: translateY(-14%) scale(0.96, 1.05); }
+  60% { transform: translateY(0) scale(1.03, 0.97); }
+  78% { transform: translateY(-5%); }
+}
+
 .status-message {
   margin: 12px 0 0;
   color: var(--muted);
@@ -839,8 +1206,9 @@ function continueToNext() {
     margin-top: 28px;
   }
   .continue-button {
-    min-width: 145px;
-    padding: 14px 18px;
+    min-width: 150px;
+    padding: 14px 22px;
+    font-size: 17px;
   }
 }
 @media (max-width: 360px) {
@@ -876,8 +1244,19 @@ function continueToNext() {
   .continue-button:hover:not(:disabled) {
     transform: none;
   }
-  .selected-check {
-    animation: none;
+  .selected-check,
+  .continue-button.ready,
+  .fx-play .occasion-art img {
+    animation: none !important;
+  }
+  .occasion-card.selected,
+  .occasion-card.selected:hover,
+  .continue-button:active:not(:disabled),
+  .continue-button.going {
+    transform: none;
+  }
+  .fx-layer {
+    display: none;
   }
 }
 </style>

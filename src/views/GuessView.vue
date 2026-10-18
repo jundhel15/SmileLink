@@ -156,140 +156,154 @@ onBeforeUnmount(() => {
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Fredoka:wdth,wght@75..125,300..700&family=Nunito:wght@400;500;600;700;800&display=swap");
 
-/* Parehong font ng Celebrate page:
-   Fredoka = title, logo, buttons, notices  |  Nunito = description at maliliit na text */
+/* =========================================================
+   SmileLink landing — kasya sa ISANG screen sa lahat ng device
+   - Laging 100% ng taas ng screen ang page (100svh), walang scroll
+   - Laki ng text: sumusunod sa lapad AT taas ng screen (min(vw, svh))
+   - Phone mockup: kinukuha ang natitirang espasyo at sumasakto doon
+   ========================================================= */
+
+/* ===== FONTS (pareho sa Celebrate page) ===== */
 .landing {
   --display: "Fredoka", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
   --stretch: 86%;
   --body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --navy: #1c2344;
+  --blue: #3265df;
+  --yellow: #ffb629;
   font-family: var(--body);
-  color: #1c2344;
+  color: var(--navy);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
 * {
   box-sizing: border-box;
-}
-html {
-  min-width: 320px;
-  scroll-behavior: smooth;
-}
-body {
-  margin: 0;
 }
 button,
 a {
   font: inherit;
 }
+
+/* ===== PAGE: eksaktong taas ng screen ===== */
 .landing {
   position: relative;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #fff;
-  padding: 5.3vh 6vw 6vh;
+  padding: clamp(14px, 4svh, 48px) clamp(18px, 6vw, 110px) clamp(10px, 3svh, 40px);
 }
+
+/* ===== LOGO ===== */
 .brand {
   position: relative;
   z-index: 2;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: clamp(8px, 1.4svh, 14px);
   width: fit-content;
 }
 .brand-mark {
-  width: 62px;
-  height: 62px;
+  width: clamp(34px, 6.6svh, 62px);
+  height: clamp(34px, 6.6svh, 62px);
   display: grid;
   place-items: center;
-  border-radius: 17px;
-  background: #3265df;
+  border-radius: 28%;
+  background: var(--blue);
 }
 .brand-mark svg {
-  width: 45px;
-  height: 45px;
+  width: 73%;
+  height: 73%;
 }
 .brand-name {
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(27px, 2.5vw, 42px);
+  font-size: clamp(21px, min(2.5vw, 4.4svh), 42px);
   font-weight: 700;
   letter-spacing: -0.4px;
-  color: #1c2344;
+  color: var(--navy);
 }
 .brand-name span {
-  color: #3265df;
+  color: var(--blue);
 }
+
+/* ===== HERO: 2 column (PC / laptop / tablet na pahiga) ===== */
 .hero {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 1720px;
+  margin: clamp(8px, 2svh, 28px) auto 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(400px, 0.95fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
   align-items: center;
   gap: 3vw;
-  max-width: 1720px;
-  margin: 7.2vh auto 0;
 }
 .hero-copy {
   position: relative;
   z-index: 2;
   max-width: 760px;
-  padding-bottom: 1.5rem;
 }
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #ffb629;
+  background: var(--yellow);
   border-radius: 999px;
-  padding: 9px 23px;
+  padding: clamp(5px, 1svh, 9px) clamp(14px, 1.6vw, 23px);
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(16px, 1.3vw, 23px);
+  font-size: clamp(13px, min(1.3vw, 2.3svh), 23px);
   font-weight: 600;
-  margin-bottom: 27px;
-  color: #1c2344;
+  margin-bottom: clamp(10px, 3svh, 27px);
+  color: var(--navy);
 }
 .sparkle {
-  font-size: 25px;
+  font-size: 1.15em;
   line-height: 1;
-  color: #1c2344;
 }
 h1 {
   margin: 0;
-  color: #1c2344;
+  color: var(--navy);
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(54px, 5.65vw, 104px);
+  font-size: clamp(26px, min(5.65vw, 9.5svh), 104px);
   line-height: 1.02;
   letter-spacing: -0.01em;
   font-weight: 700;
 }
 h1 .smile-word {
-  color: #3265df;
+  color: var(--blue);
 }
 .description {
   color: #606981;
   max-width: 720px;
-  font-size: clamp(19px, 1.8vw, 30px);
-  line-height: 1.52;
-  margin: 32px 0 42px;
+  font-size: clamp(13px, min(1.8vw, 3svh), 30px);
+  line-height: 1.5;
+  margin: clamp(8px, 3svh, 32px) 0 clamp(12px, 4.2svh, 42px);
   font-weight: 500;
 }
 .cta {
-  min-height: 82px;
+  position: relative;
+  z-index: 3;
+  min-height: clamp(42px, 8.6svh, 82px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  padding: 20px 42px;
-  border-radius: 24px;
-  color: #1c2344;
-  background: #ffb629;
+  gap: clamp(10px, 1.2vw, 20px);
+  padding: 0 clamp(20px, 2.6vw, 42px);
+  border-radius: clamp(14px, 2.4svh, 24px);
+  color: var(--navy);
+  background: var(--yellow);
   text-decoration: none;
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(20px, 1.75vw, 30px);
+  font-size: clamp(15px, min(1.75vw, 3svh), 30px);
   font-weight: 600;
   transition:
     transform 0.2s ease,
@@ -300,135 +314,144 @@ h1 .smile-word {
   background: #ffc247;
 }
 .cta svg {
-  width: 27px;
-  height: 27px;
+  width: 1.1em;
+  height: 1.1em;
 }
+
+/* ===== PHONE MOCKUP: sumasakto sa natitirang espasyo ===== */
 .hero-art {
   position: relative;
+  height: 100%;
   min-width: 0;
-  min-height: 670px;
+  min-height: 0;
   display: grid;
   place-items: center;
   isolation: isolate;
+  container-type: size;
 }
 .blue-orb {
   position: absolute;
-  width: min(54vw, 790px);
+  width: min(125cqh, 130cqw);
   aspect-ratio: 1;
-  right: -18%;
-  top: -17%;
+  right: -22%;
+  top: -12%;
   border-radius: 50%;
   background: #e7efff;
   z-index: -2;
 }
 .yellow-orb {
   position: absolute;
-  width: 285px;
+  width: min(40cqh, 45cqw);
   aspect-ratio: 1;
-  left: 0;
-  bottom: -17%;
+  left: 2%;
+  bottom: -14%;
   border-radius: 50%;
   background: #fff2cf;
   z-index: -2;
 }
 .phone {
   position: relative;
-  width: clamp(270px, 24vw, 440px);
-  height: clamp(510px, 45vw, 790px);
-  padding: 12px;
-  border: 12px solid #1c2344;
-  border-radius: 54px;
-  background: #1c2344;
-  transform: rotate(6deg) translate(2%, -1%);
+  height: min(94cqh, 790px);
+  width: auto;
+  max-width: 64cqw;
+  aspect-ratio: 0.56;
+  padding: clamp(5px, 1.4cqh, 12px);
+  border: clamp(6px, 1.4cqh, 12px) solid var(--navy);
+  border-radius: clamp(22px, 6.6cqh, 54px);
+  background: var(--navy);
+  transform: rotate(6deg);
   box-shadow: 0 36px 60px rgba(27, 35, 68, 0.22);
   z-index: 1;
+  container-type: inline-size;
 }
 .phone-screen {
   height: 100%;
   width: 100%;
-  border-radius: 35px;
+  border-radius: clamp(14px, 4.4cqh, 35px);
   overflow: hidden;
   background: white;
 }
+/* text sa loob ng phone: sumusunod sa laki ng phone (cqi) */
 .greeting {
-  padding: 10% 8%;
+  padding: 8cqi 7cqi 0;
   text-align: center;
 }
 .greeting h2 {
   color: #244eae;
-  font-size: clamp(19px, 1.9vw, 32px);
   font-family: var(--display);
   font-stretch: var(--stretch);
+  font-size: 10cqi;
   line-height: 1.1;
   letter-spacing: -0.01em;
-  margin: 0 0 12px;
+  margin: 0 0 3cqi;
   font-weight: 700;
 }
 .greeting p {
   color: #68718a;
-  font-size: clamp(11px, 1.05vw, 17px);
+  font-size: 5.2cqi;
   line-height: 1.45;
-  margin: 0 auto 18px;
-  max-width: 260px;
+  margin: 0 auto 5cqi;
+  max-width: 85%;
 }
 .open-button {
   border: 0;
   color: white;
-  background: #3265df;
-  border-radius: 14px;
-  padding: 13px 19px;
+  background: var(--blue);
+  border-radius: 4cqi;
+  padding: 3.6cqi 5.5cqi;
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(11px, 1.1vw, 17px);
+  font-size: 5.4cqi;
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ===== NOTICES ===== */
 .notice {
-  max-width: 100%;
   position: absolute;
   z-index: 3;
+  max-width: 62%;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 17px 24px;
+  gap: clamp(6px, 1.4cqh, 14px);
+  padding: clamp(7px, 1.9cqh, 17px) clamp(10px, 2.6cqh, 24px);
   background: #fff;
-  border-radius: 23px;
+  border-radius: clamp(12px, 2.6cqh, 23px);
   box-shadow: 0 16px 42px rgba(28, 35, 68, 0.13);
   white-space: nowrap;
   font-family: var(--display);
   font-stretch: var(--stretch);
-  font-size: clamp(15px, 1.5vw, 26px);
+  font-size: clamp(10.5px, 2.8cqh, 26px);
   font-weight: 500;
+  color: var(--navy);
 }
 .notice-open {
-  top: 17%;
-  right: -1%;
-  color: #1c2344;
+  top: 16%;
+  right: 0;
 }
 .notice-sent {
-  bottom: 17%;
-  left: -9%;
-  color: #1c2344;
+  bottom: 14%;
+  left: 0;
 }
 .heart-icon,
 .check-icon {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 43px;
-  height: 43px;
+  width: clamp(22px, 4.8cqh, 43px);
+  height: clamp(22px, 4.8cqh, 43px);
   border-radius: 50%;
   color: white;
-  font-size: 32px;
+  font-size: clamp(16px, 3.4cqh, 32px);
   font-weight: 700;
   line-height: 1;
 }
 .heart-icon {
-  background: #3265df;
+  background: var(--blue);
 }
 .check-icon {
   background: #3b9d35;
-  font-size: 26px;
+  font-size: clamp(14px, 2.8cqh, 26px);
 }
 .sr-only {
   position: absolute;
@@ -442,479 +465,93 @@ h1 .smile-word {
   border: 0;
 }
 
-/* Responsive layout */
-@media (max-width: 1280px) {
-  .landing {
-    padding: 32px 5vw 48px;
-  }
-  .hero {
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
-    gap: 2vw;
-    margin-top: 6vh;
-  }
-  .hero-art {
-    min-height: 560px;
-    min-width: 0;
-  }
-  .phone {
-    width: clamp(250px, 29vw, 340px);
-    height: clamp(470px, 53vw, 620px);
-    border-width: 10px;
-    border-radius: 43px;
-    padding: 8px;
-  }
-  .phone-screen {
-    border-radius: 28px;
-  }
-  .notice {
-    max-width: calc(100% - 8px);
-    padding: 12px 15px;
-    gap: 9px;
-    border-radius: 17px;
-    font-size: clamp(13px, 1.45vw, 19px);
-  }
-  .heart-icon,
-  .check-icon {
-    width: 34px;
-    height: 34px;
-  }
-  .notice-open {
-    right: -2%;
-  }
-  .notice-sent {
-    left: -3%;
-  }
-  h1 {
-    font-size: clamp(54px, 5.6vw, 76px);
-  }
-  .description {
-    font-size: clamp(18px, 1.8vw, 23px);
-    margin: 24px 0 30px;
-  }
-  .cta {
-    min-height: 66px;
-    padding: 17px 25px;
-    border-radius: 18px;
-  }
-}
-
-@media (min-width: 761px) and (max-width: 1024px) {
-  .hero {
-    grid-template-columns: minmax(0, 1fr);
-    max-width: 760px;
-    gap: 0;
-    margin-top: 48px;
-  }
-  .hero-copy {
-    max-width: 720px;
-    padding-bottom: 0;
-  }
-  .hero-art {
-    min-height: clamp(500px, 65vw, 620px);
-    margin-top: 24px;
-  }
-  .phone {
-    width: clamp(260px, 34vw, 340px);
-    height: clamp(480px, 62vw, 620px);
-  }
-  .notice-open {
-    right: 5%;
-  }
-  .notice-sent {
-    left: 5%;
-  }
-}
-
-@media (max-width: 760px) {
-  .landing {
-    min-height: 100svh;
-    padding: 24px 22px 36px;
-    overflow: hidden;
-  }
-  .brand {
-    gap: 10px;
-  }
-  .brand-mark {
-    width: 47px;
-    height: 47px;
-    border-radius: 13px;
-  }
-  .brand-mark svg {
-    width: 35px;
-    height: 35px;
-  }
-  .brand-name {
-    font-size: clamp(26px, 6vw, 31px);
-    letter-spacing: -0.3px;
-  }
-
+/* ===== PATAYO (tablet na nakatayo + phone): isang column =====
+   pagkakasunod: logo → Now open → title → description → phone → button */
+@media (orientation: portrait) and (max-width: 1100px) {
   .hero {
     display: flex;
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    width: 100%;
-    margin: 42px auto 0;
   }
   .hero-copy {
-    width: 100%;
-    max-width: none;
-    padding: 0;
+    display: contents;
   }
   .eyebrow {
-    font-size: 15px;
-    padding: 8px 16px;
-    margin-bottom: 20px;
+    align-self: flex-start;
+    font-size: clamp(13px, min(2.4vw, 2svh), 20px);
   }
   h1 {
-    font-size: clamp(44px, 11.8vw, 76px);
-    line-height: 1.02;
-    letter-spacing: -0.01em;
-    overflow-wrap: normal;
+    flex: none;
+    font-size: clamp(30px, min(11vw, 6.2svh), 84px);
   }
   .description {
-    max-width: 580px;
-    font-size: clamp(17px, 4.2vw, 20px);
-    line-height: 1.5;
-    margin: 21px 0 25px;
+    flex: none;
+    max-width: 640px;
+    font-size: clamp(14px, min(4.2vw, 2.3svh), 22px);
+    line-height: 1.45;
+    margin: clamp(8px, 1.8svh, 20px) 0 0;
   }
-  .cta {
-    display: flex;
-    width: 100%;
-    max-width: 440px;
-    min-height: 60px;
-    gap: 12px;
-    padding: 15px 18px;
-    border-radius: 16px;
-    font-size: clamp(17px, 4.4vw, 20px);
-  }
-  .cta svg {
-    width: 22px;
-    height: 22px;
-  }
-
   .hero-art {
-    width: 100%;
-    min-width: 0;
-    min-height: clamp(430px, 125vw, 540px);
-    margin: 28px auto 0;
-    display: grid;
-    place-items: center;
-  }
-  .blue-orb {
-    width: min(118vw, 620px);
-    right: -32%;
-    top: 0;
-  }
-  .yellow-orb {
-    width: clamp(140px, 45vw, 200px);
-    left: -8%;
-    bottom: 0;
+    order: 1;
+    flex: 1 1 0;
+    height: auto;
+    margin-top: clamp(6px, 1.6svh, 24px);
   }
   .phone {
-    width: clamp(225px, 62vw, 280px);
-    height: clamp(415px, 115vw, 510px);
-    max-width: 78%;
-    border-width: 9px;
-    border-radius: 38px;
-    padding: 7px;
+    height: min(calc(100cqh - 12px), 790px);
+    max-width: 70cqw;
     transform: rotate(4deg);
   }
-  .phone-screen {
-    border-radius: 24px;
-  }
-  .birthday-scene {
-    height: 47%;
-  }
-  .greeting {
-    padding: 9% 7%;
-  }
-  .greeting h2 {
-    font-size: clamp(20px, 5.7vw, 24px);
-  }
-  .greeting p {
-    font-size: clamp(11px, 3vw, 13px);
-    margin-bottom: 14px;
-  }
-  .open-button {
-    font-size: clamp(10px, 2.8vw, 12px);
-    padding: 11px 13px;
-  }
-  .notice {
-    gap: 7px;
-    max-width: 78%;
-    padding: 9px 12px;
-    border-radius: 14px;
-    font-size: clamp(11px, 3.1vw, 14px);
-    white-space: normal;
-    line-height: 1.2;
-  }
-  .heart-icon,
-  .check-icon {
-    width: 29px;
-    height: 29px;
-    font-size: 22px;
-  }
-  .check-icon {
-    font-size: 19px;
-  }
-  .notice-open {
-    top: 12%;
-    right: 0;
-  }
-  .notice-sent {
-    bottom: 10%;
-    left: 0;
-  }
-}
-
-@media (max-width: 390px) {
-  .landing {
-    padding: 20px 16px 30px;
-  }
-  .brand-mark {
-    width: 43px;
-    height: 43px;
-  }
-  .brand-name {
-    font-size: 25px;
-  }
-  .hero {
-    margin-top: 35px;
-  }
-  h1 {
-    font-size: clamp(41px, 11.5vw, 48px);
-  }
-  .description {
-    font-size: 16px;
-  }
-  .hero-art {
-    min-height: 420px;
-    margin-top: 20px;
-  }
-  .phone {
-    width: 220px;
-    height: 405px;
-    max-width: 76%;
-    border-radius: 34px;
-  }
-  .phone-screen {
-    border-radius: 22px;
-  }
-  .notice {
-    max-width: 75%;
-    font-size: 10.5px;
-    padding: 8px 9px;
-  }
-  .heart-icon,
-  .check-icon {
-    width: 25px;
-    height: 25px;
-  }
-  .notice-open {
-    right: -1px;
-    top: 12%;
-  }
-  .notice-sent {
-    left: -1px;
-    bottom: 9%;
-  }
-}
-
-@media (max-width: 340px) {
-  .landing {
-    padding-left: 12px;
-    padding-right: 12px;
-  }
-  .brand-name {
-    font-size: 23px;
-  }
-  h1 {
-    font-size: 39px;
-  }
-  .notice {
-    max-width: 72%;
-    font-size: 10px;
-    gap: 6px;
-  }
-  .phone {
-    width: 205px;
-    height: 380px;
-  }
-}
-
-
-/* ===== MOBILE: kasya sa isang screen, walang scroll =====
-   Buong taas ng screen ang page (100svh). Ang text ay sumusunod sa taas ng screen,
-   at ang phone ang lumiliit/lumalaki para sakto sa natitirang espasyo. */
-@media (max-width: 760px) {
-  .landing {
-    height: 100vh;
-    height: 100svh;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    padding: clamp(14px, 3svh, 24px) 20px clamp(8px, 2svh, 18px);
-  }
-  .brand {
-    flex: none;
-  }
-  .brand-mark {
-    width: clamp(38px, 6svh, 47px);
-    height: clamp(38px, 6svh, 47px);
-    border-radius: 12px;
-  }
-  .brand-mark svg {
-    width: 74%;
-    height: 74%;
-  }
-  .brand-name {
-    font-size: clamp(22px, 3.6svh, 30px);
-  }
-  .hero {
-    flex: 1 1 auto;
-    min-height: 0;
-    margin: clamp(12px, 3.5svh, 40px) 0 0;
-  }
-  .hero-copy {
-    flex: none;
-  }
-  .eyebrow {
-    font-size: clamp(13px, 2svh, 15px);
-    padding: clamp(5px, 0.9svh, 8px) 15px;
-    margin-bottom: clamp(10px, 2.2svh, 20px);
-  }
-  .sparkle {
-    font-size: 1.3em;
-  }
-  h1 {
-    font-size: clamp(32px, min(11.8vw, 6.4svh), 64px);
-  }
-  .description {
-    font-size: clamp(14px, min(4.2vw, 2.4svh), 19px);
-    line-height: 1.45;
-    margin: clamp(8px, 2svh, 20px) 0 clamp(12px, 2.6svh, 24px);
-  }
-  .cta {
-    min-height: clamp(46px, 7.4svh, 60px);
-    padding-block: 0;
-    font-size: clamp(16px, 2.6svh, 20px);
-  }
-
-  /* lugar ng phone: kukunin lahat ng natitirang taas */
-  .hero-art {
-    flex: 1 1 0;
-    min-height: 0;
-    margin: clamp(6px, 1.6svh, 20px) 0 0;
-    container-type: size;
-  }
   .blue-orb {
-    width: 120cqw;
-    right: -38%;
-    top: 4%;
+    width: min(115cqw, 105cqh);
+    right: -30%;
+    top: 2%;
   }
   .yellow-orb {
-    width: 40cqw;
+    width: min(42cqw, 38cqh);
     left: -10%;
     bottom: -8%;
   }
-  .phone {
-    height: max(calc(100cqh - 14px), 200px);
-    width: auto;
-    max-width: 70cqw;
-    aspect-ratio: 0.54;
-    border-width: 7px;
-    border-radius: clamp(22px, 7cqh, 36px);
-    padding: 5px;
-    transform: rotate(4deg);
-    container-type: inline-size;
-  }
-  .phone-screen {
-    border-radius: clamp(15px, 5cqh, 26px);
-  }
-  /* text sa loob ng phone: sumusunod sa laki ng phone */
-  .greeting {
-    padding: 7cqi 7cqi 0;
-  }
-  .greeting h2 {
-    font-size: 10.5cqi;
-    margin-bottom: 3cqi;
-  }
-  .greeting p {
-    font-size: 5.4cqi;
-    margin-bottom: 5cqi;
-  }
-  .open-button {
-    font-size: 5.6cqi;
-    padding: 3.6cqi 5.5cqi;
-    border-radius: 4cqi;
-  }
-  .notice {
-    max-width: 60%;
-    padding: 7px 10px;
-    gap: 6px;
-    border-radius: 12px;
-    font-size: clamp(10.5px, 1.8svh, 13px);
-  }
-  .heart-icon,
-  .check-icon {
-    width: clamp(22px, 3.6svh, 28px);
-    height: clamp(22px, 3.6svh, 28px);
-    font-size: clamp(16px, 2.6svh, 20px);
-  }
   .notice-open {
     top: 8%;
-    right: 0;
   }
   .notice-sent {
     bottom: 8%;
-    left: 0;
+  }
+  .cta {
+    order: 2;
+    flex: none;
+    display: flex;
+    width: 100%;
+    min-height: clamp(46px, 7svh, 66px);
+    margin-top: clamp(8px, 1.8svh, 18px);
+    font-size: clamp(16px, min(4.4vw, 2.6svh), 24px);
+    box-shadow: 0 8px 20px rgba(255, 182, 41, 0.3);
   }
 }
 
-/* ===== MOBILE: itago ang logo at "Now open", ilipat sa ibaba ang button ===== */
+/* ===== PHONE (maliit na screen): itago ang logo at "Now open" ===== */
 @media (max-width: 760px) {
   .brand,
   .eyebrow {
     display: none;
   }
+  .landing {
+    padding-inline: 20px;
+  }
   .hero {
-    margin-top: clamp(4px, 1.5svh, 16px);
-  }
-  /* para maayos ang pagkakasunod: title → description → phone → button */
-  .hero-copy {
-    display: contents;
-  }
-  h1,
-  .description {
-    flex: none;
-  }
-  .description {
-    margin-bottom: 0;
-  }
-  .hero-art {
-    order: 1;
-  }
-  .cta {
-    order: 2;
-    flex: none;
-    position: relative;
-    z-index: 3;
-    box-shadow: 0 8px 20px rgba(255, 182, 41, 0.3);
-    max-width: none;
-    margin-top: clamp(8px, 1.8svh, 16px);
+    margin-top: 0;
   }
 }
 
-/* phone na naka-landscape (sobrang baba ng screen): payagan ulit ang scroll */
-@media (max-width: 760px) and (max-height: 480px) {
-  .landing {
-    height: auto;
-    min-height: 100svh;
+/* ===== PHONE NA PAHIGA (sobrang baba ng screen) ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+  .eyebrow {
+    display: none;
   }
-  .hero-art {
-    flex: none;
-    height: 420px;
+  .notice {
+    display: none;
   }
 }
 
@@ -925,7 +562,5 @@ h1 .smile-word {
     scroll-behavior: auto !important;
     transition: none !important;
   }
-}
-
-
+} 
 </style>
