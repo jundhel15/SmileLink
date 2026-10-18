@@ -27,9 +27,7 @@
       >
         <span v-if="packageOption.isPopular" class="popular-badge">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path
-              d="m12 2 2.9 6 6.6 1-4.8 4.7 1.1 6.6-5.8-3.1-5.8 3.1 1.1-6.6L2.5 9l6.6-1L12 2Z"
-            />
+            <path d="m12 2 2.9 6 6.6 1-4.8 4.7 1.1 6.6-5.8-3.1-5.8 3.1 1.1-6.6L2.5 9l6.6-1L12 2Z" />
           </svg>
           Most popular
         </span>
@@ -124,7 +122,7 @@
           :class="{ 'selected-button': selectedPackageId === packageOption.id }"
           type="button"
           :aria-pressed="selectedPackageId === packageOption.id"
-          @click.stop="selectPackage(packageOption)"
+          @click.stop="confirmPackage(packageOption)"
         >
           <template v-if="selectedPackageId === packageOption.id">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -136,7 +134,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            Selected
+            Confirm
           </template>
           <template v-else>Choose</template>
         </button>
@@ -147,7 +145,10 @@
 
 <script setup>
 import { ref } from "vue";
+import { useRouter } from "vue-router";
 import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+
+const router = useRouter();
 
 const packages = [
   {
@@ -219,6 +220,15 @@ function selectPackage(packageOption) {
   selectedPackageId.value = packageOption.id;
   updateOrderDraft({ package_id: packageOption.id });
 }
+
+function confirmPackage(packageOption) {
+  if (selectedPackageId.value !== packageOption.id) {
+    selectPackage(packageOption);
+    return;
+  }
+
+  router.push("/create/recipient");
+}
 </script>
 
 <style scoped>
@@ -282,7 +292,7 @@ function selectPackage(packageOption) {
   border: 2px solid #ffb629;
 }
 .package-card.selected:not(.popular) {
-  border: 2px solid #3265df;
+  /* border: 2px solid #3265df; */
 }
 .popular-badge {
   position: absolute;
