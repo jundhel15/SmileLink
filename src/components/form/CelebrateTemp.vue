@@ -5,7 +5,12 @@
         <h1>
           What are we <span class="accent">celebrating?</span>
           <svg class="deco deco-heading" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-            <path d="M9 24c3-7 8-12 15-15M12 36l17-3" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+            <path
+              d="M9 24c3-7 8-12 15-15M12 36l17-3"
+              stroke="currentColor"
+              stroke-width="5"
+              stroke-linecap="round"
+            />
           </svg>
         </h1>
         <p>
@@ -30,7 +35,12 @@
           aria-label="Search occasions"
         />
         <svg class="deco deco-search" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-          <path d="M17 31 9 19M24 28V12M31 31l8-12" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
+          <path
+            d="M17 31 9 19M24 28V12M31 31l8-12"
+            stroke="currentColor"
+            stroke-width="4.5"
+            stroke-linecap="round"
+          />
         </svg>
       </label>
     </section>
@@ -43,9 +53,13 @@
         :class="{ selected: selectedOccasion === occasion.name }"
         type="button"
         :aria-pressed="selectedOccasion === occasion.name"
-        @click="selectOccasion(occasion.name, occasion.action)"
+        @click="selectOccasion(occasion.name)"
       >
-        <span v-if="selectedOccasion === occasion.name" class="selected-check" aria-label="Selected">
+        <span
+          v-if="selectedOccasion === occasion.name"
+          class="selected-check"
+          aria-label="Selected"
+        >
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
               d="m5 12 4.3 4.3L19 6.8"
@@ -78,10 +92,20 @@
 
     <aside class="group-banner">
       <svg class="deco deco-banner-left" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <path d="M17 31 9 19M24 28V12M31 31l8-12" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
+        <path
+          d="M17 31 9 19M24 28V12M31 31l8-12"
+          stroke="currentColor"
+          stroke-width="4.5"
+          stroke-linecap="round"
+        />
       </svg>
       <svg class="deco deco-banner-right" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <path d="M17 31 9 19M24 28V12M31 31l8-12" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
+        <path
+          d="M17 31 9 19M24 28V12M31 31l8-12"
+          stroke="currentColor"
+          stroke-width="4.5"
+          stroke-linecap="round"
+        />
       </svg>
 
       <span class="group-icon" aria-hidden="true">
@@ -89,9 +113,15 @@
           <circle cx="16" cy="10" r="5" fill="#F59E2B" />
           <path d="M7.5 25c.6-5 4-8 8.5-8s7.9 3 8.5 8z" fill="#F59E2B" />
           <circle cx="7.5" cy="12.5" r="3.6" fill="#FBC15E" />
-          <path d="M1.5 24c.4-3.8 2.8-6 6-6 1.3 0 2.4.3 3.3 1-1.9 1.4-3.1 3.2-3.6 5z" fill="#FBC15E" />
+          <path
+            d="M1.5 24c.4-3.8 2.8-6 6-6 1.3 0 2.4.3 3.3 1-1.9 1.4-3.1 3.2-3.6 5z"
+            fill="#FBC15E"
+          />
           <circle cx="24.5" cy="12.5" r="3.6" fill="#FBC15E" />
-          <path d="M30.5 24c-.4-3.8-2.8-6-6-6-1.3 0-2.4.3-3.3 1 1.9 1.4 3.1 3.2 3.6 5z" fill="#FBC15E" />
+          <path
+            d="M30.5 24c-.4-3.8-2.8-6-6-6-1.3 0-2.4.3-3.3 1 1.9 1.4 3.1 3.2 3.6 5z"
+            fill="#FBC15E"
+          />
         </svg>
       </span>
       <div class="group-copy">
@@ -113,28 +143,15 @@
         </svg>
       </button>
     </aside>
-
-    <footer class="page-actions">
-      <button class="cancel-button" type="button" @click="cancelSelection">Cancel</button>
-      <button
-        class="continue-button"
-        type="button"
-        :disabled="!selectedOccasion"
-        @click="continueToNext"
-      >
-        Continue
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M4 12h15M13 5l7 7-7 7"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
-    </footer>
-    <p v-if="statusMessage" class="status-message" role="status">{{ statusMessage }}</p>
+    <ConFirm
+      v-if="pendingOccasion"
+      :template-name="pendingOccasion"
+      message="Would you like to continue with this occasion?"
+      cancel-label="Cancel"
+      confirm-label="Continue"
+      @cancel="cancelOccasionConfirmation"
+      @confirm="confirmOccasion"
+    />
   </main>
 </template>
 
@@ -155,11 +172,14 @@ import thankYouWebp from "@/assets/occasions/thank-you-envelope.webp";
 import congratsWebp from "@/assets/occasions/congratulations-trophy.webp";
 import justBecauseWebp from "@/assets/occasions/just-because-star.webp";
 
+import ConFirm from "../dialog/ConFirm.vue";
+
 const router = useRouter();
 const selectedOccasion = ref("");
 const selectedAction = ref("");
 const searchQuery = ref("");
-const statusMessage = ref("");
+const pendingOccasion = ref("");
+const pendingAction = ref("");
 const savedDraft = readOrderDraft();
 
 const occasions = [
@@ -217,7 +237,7 @@ const occasions = [
     pill: "blue",
     image: babyWebp,
     alt: "Teddy bear with balloons",
-    action: "reveal",
+    action: "/reveal",
   },
   {
     name: "Thank you",
@@ -225,7 +245,7 @@ const occasions = [
     pill: "yellow",
     image: thankYouWebp,
     alt: "Envelope sealed with a heart",
-    action: "thanks",
+    action: "/thanks",
   },
   {
     name: "Congratulations",
@@ -260,11 +280,15 @@ const filteredOccasions = computed(() => {
   );
 });
 
-function selectOccasion(name, action) {
-  selectedOccasion.value = name;
-  selectedAction.value = action;
-  statusMessage.value = "";
-  const occasion = action.replace(/^\//, "");
+function selectOccasion(name) {
+  const selectedTemplate = occasions.find((occasion) => occasion.name === name);
+  if (!selectedTemplate) return;
+
+  selectedOccasion.value = selectedTemplate.name;
+  selectedAction.value = selectedTemplate.action;
+  pendingOccasion.value = selectedTemplate.name;
+  pendingAction.value = selectedTemplate.action;
+  const occasion = selectedTemplate.action.replace(/^\//, "");
   const draft = readOrderDraft();
   updateOrderDraft({
     occasion,
@@ -278,33 +302,27 @@ function startGroupCard() {
     ...(selectedAction.value ? { occasion: selectedAction.value.replace(/^\//, "") } : {}),
     is_group: true,
   });
-  statusMessage.value = "Group card selected. You can invite friends and family in the next step.";
 }
 
-function cancelSelection() {
-  selectedOccasion.value = "";
-  selectedAction.value = "";
-  searchQuery.value = "";
-  statusMessage.value = "";
-  updateOrderDraft({ occasion: null, is_group: false, template_id: null });
+function cancelOccasionConfirmation() {
+  pendingOccasion.value = "";
+  pendingAction.value = "";
 }
 
-function continueToNext() {
-  if (!selectedOccasion.value) return;
-  if (!selectedAction.value) {
-    statusMessage.value = `${selectedOccasion.value} is not available yet.`;
-    return;
-  }
-  if (selectedAction.value === "/birthday") {
-    updateOrderDraft({
-      occasion: "birthday",
-      is_group: false,
-      template_id: null,
-    });
-    router.push("/create/template");
-    return;
-  }
-  statusMessage.value = `You selected ${selectedOccasion.value}. Next: choose a template.`;
+function confirmOccasion() {
+  const action = pendingAction.value;
+  if (!action) return;
+  pendingOccasion.value = "";
+  pendingAction.value = "";
+
+  if (action !== "/birthday") return;
+
+  updateOrderDraft({
+    occasion: "birthday",
+    is_group: false,
+    template_id: null,
+  });
+  router.push("/create/template");
 }
 </script>
 
@@ -516,12 +534,24 @@ function continueToNext() {
   background: var(--pill);
   filter: blur(4px);
 }
-.pill-yellow { --pill: #ffeaa8; }
-.pill-pink { --pill: #ffd3df; }
-.pill-blue { --pill: #d3e2ff; }
-.pill-peach { --pill: #ffd9c7; }
-.pill-lavender { --pill: #e2dbff; }
-.pill-mint { --pill: #cdeedc; }
+.pill-yellow {
+  --pill: #ffeaa8;
+}
+.pill-pink {
+  --pill: #ffd3df;
+}
+.pill-blue {
+  --pill: #d3e2ff;
+}
+.pill-peach {
+  --pill: #ffd9c7;
+}
+.pill-lavender {
+  --pill: #e2dbff;
+}
+.pill-mint {
+  --pill: #cdeedc;
+}
 .occasion-card.selected .occasion-name {
   color: #1f4fc9;
 }
@@ -660,61 +690,6 @@ function continueToNext() {
   transform: translateX(3px);
 }
 
-/* ===== Footer actions ===== */
-.page-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 40px;
-}
-.cancel-button {
-  border: 0;
-  background: transparent;
-  color: var(--blue);
-  font-weight: 700;
-  padding: 12px 10px;
-}
-.continue-button {
-  border: 0;
-  border-radius: 14px;
-  background: var(--blue);
-  color: #fff;
-  padding: 17px 27px;
-  min-width: 171px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  transition:
-    transform 0.2s ease,
-    background-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-.continue-button svg {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.2s ease;
-}
-.continue-button:hover:not(:disabled) {
-  background: var(--sl-blue-dark, #2654d1);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(50, 100, 232, 0.25);
-}
-.continue-button:hover:not(:disabled) svg {
-  transform: translateX(3px);
-}
-.continue-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.status-message {
-  margin: 12px 0 0;
-  color: var(--muted);
-  text-align: right;
-  font-size: 13px;
-}
-
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
   .page-content {
@@ -835,13 +810,6 @@ function continueToNext() {
     justify-content: center;
     margin-top: 2px;
   }
-  .page-actions {
-    margin-top: 28px;
-  }
-  .continue-button {
-    min-width: 145px;
-    padding: 14px 18px;
-  }
 }
 @media (max-width: 360px) {
   .page-content {
@@ -853,29 +821,18 @@ function continueToNext() {
   .occasion-art img {
     height: 100px;
   }
-  .page-actions {
-    gap: 12px;
-  }
-  .continue-button {
-    min-width: 130px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .occasion-card,
   .occasion-art img,
   .secondary-button,
   .secondary-button svg,
-  .continue-button,
-  .continue-button svg,
   .search-box input {
     transition: none;
   }
   .occasion-card:hover,
   .occasion-card:hover .occasion-art img,
   .secondary-button:hover,
-  .continue-button:hover:not(:disabled) {
-    transform: none;
-  }
   .selected-check {
     animation: none;
   }
