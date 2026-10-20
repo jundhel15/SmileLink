@@ -165,36 +165,22 @@
       </section>
     </div>
 
-    <div
+    <ConFirm
       v-if="pendingTemplate"
-      ref="confirmEl"
-      class="confirm-overlay"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="`Use ${pendingTemplate.name} template`"
-      tabindex="-1"
-      @click.self="cancelTemplate"
-      @keydown.esc="cancelTemplate"
-    >
-      <section class="confirm-dialog">
-        <h2>{{ pendingTemplate.name }}</h2>
-        <p>Would you like to use this birthday template?</p>
-        <div class="confirm-actions">
-          <button class="cancel-template-button" type="button" @click="cancelTemplate">
-            Cancel
-          </button>
-          <button class="use-template-button" type="button" @click="useSelectedTemplate">
-            Use template
-          </button>
-        </div>
-      </section>
-    </div>
+      :template-name="pendingTemplate.name"
+      message="Would you like to use this birthday template?"
+      cancel-label="Cancel"
+      confirm-label="Use template"
+      @cancel="cancelTemplate"
+      @confirm="useSelectedTemplate"
+    />
   </main>
 </template>
 
 <script setup>
 import { computed, nextTick, ref } from "vue";
 import { useRouter } from "vue-router";
+import ConFirm from "../dialog/ConFirm.vue";
 import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
 
 /* ===== DAGDAG: mga larawan ng Birthday templates (WebP) =====
@@ -328,9 +314,7 @@ const templates = [
 const activeStyle = ref("All");
 const draft = readOrderDraft();
 const selectedTemplateId = ref(
-  templates.some((template) => template.id === draft.template_id)
-    ? draft.template_id
-    : "",
+  templates.some((template) => template.id === draft.template_id) ? draft.template_id : "",
 );
 const previewTemplate = ref(null);
 const pendingTemplate = ref(null);
@@ -720,52 +704,6 @@ function changeOccasion() {
 .preview-dialog > .use-template-button {
   display: block;
   margin: 16px 24px 22px auto;
-}
-.confirm-overlay {
-  position: fixed;
-  z-index: 11;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(20 25 47 / 68%);
-}
-.confirm-dialog {
-  width: min(420px, 100%);
-  padding: 28px;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 20px 70px rgb(0 0 0 / 25%);
-  text-align: center;
-}
-.confirm-dialog h2 {
-  margin: 0 0 8px;
-  color: var(--navy);
-  font-family: var(--display);
-  font-stretch: var(--stretch);
-  font-size: 26px;
-  font-weight: 700;
-}
-.confirm-dialog p {
-  margin: 0;
-  color: #606981;
-}
-.confirm-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 24px;
-}
-.cancel-template-button {
-  border: 1px solid #d9d0c0;
-  border-radius: 12px;
-  background: #fff;
-  color: #1c2344;
-  padding: 12px 22px;
-  font-family: var(--display);
-  font-stretch: var(--stretch);
-  font-size: 17px;
-  font-weight: 600;
 }
 @media (max-width: 1100px) {
   .template-page {
