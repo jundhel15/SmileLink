@@ -372,6 +372,7 @@ function removePhoto(id) {
 function saveContent() {
   clearTimeout(autosaveTimer);
   persistDraft();
+  router.push("/create/review");
 }
 </script>
 

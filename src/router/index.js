@@ -40,6 +40,11 @@ const router = createRouter({
       component: () => import("../views/CelebrateView.vue"),
     },
     {
+      path: "/create/review",
+      name: "create-review",
+      component: () => import("../views/CelebrateView.vue"),
+    },
+    {
       path: "/about",
       name: "about",
       // route level code-splitting

@@ -74,6 +74,7 @@
     <PackageTemp v-else-if="isPackageStep" />
     <RecipientTemp v-else-if="isRecipientStep" />
     <ContentTemp v-else-if="isContentStep" />
+    <ReviewpayTemp v-else-if="isReviewStep" />
     <CelebrateTemp v-else />
   </div>
 </template>
@@ -86,13 +87,16 @@ import CelebrateTemp from "@/components/form/CelebrateTemp.vue";
 import ContentTemp from "@/components/form/ContentTemp.vue";
 import PackageTemp from "@/components/form/PackageTemp.vue";
 import RecipientTemp from "@/components/form/RecipientTemp.vue";
+import ReviewpayTemp from "@/components/form/ReviewpayTemp.vue";
 
 const route = useRoute();
 const isTemplateStep = computed(() => route.name === "birthday-template");
 const isPackageStep = computed(() => route.name === "create-package");
 const isRecipientStep = computed(() => route.name === "create-recipient");
 const isContentStep = computed(() => route.name === "create-content");
+const isReviewStep = computed(() => route.name === "create-review");
 const activeStep = computed(() => {
+  if (isReviewStep.value) return 5;
   if (isContentStep.value) return 4;
   if (isRecipientStep.value) return 3;
   if (isPackageStep.value) return 2;
