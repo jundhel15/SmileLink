@@ -282,7 +282,7 @@ function saveRecipient() {
       form.delivery_mode === "scheduled" ? new Date(scheduledDateTimeUtc()).toISOString() : null,
     send_copy: form.send_copy,
   });
-  router.push("/create/content");
+  statusMessage.value = "Recipient and delivery details saved.";
 }
 </script>
 
