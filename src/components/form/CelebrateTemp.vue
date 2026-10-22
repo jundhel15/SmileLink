@@ -175,7 +175,6 @@
       @cancel="cancelOccasionConfirmation"
       @confirm="continueToNext"
     />
-    >>>>>>> origin/main
   </main>
 </template>
 
@@ -416,6 +415,8 @@ function selectOccasion(name, action, fx) {
   selectedOccasion.value = name;
   if (fx) playFx(name);
   selectedAction.value = action;
+  pendingOccasion.value = name;
+  pendingAction.value = action;
   const occasion = action.replace(/^\//, "");
   const draft = readOrderDraft();
   updateOrderDraft({

@@ -35,7 +35,6 @@ const router = createRouter({
       component: () => import("../views/CelebrateView.vue"),
     },
     {
-<<<<<<< HEAD
       path: "/create/content",
       name: "create-content",
       component: () => import("../views/CelebrateView.vue"),
@@ -46,8 +45,6 @@ const router = createRouter({
       component: () => import("../views/CelebrateView.vue"),
     },
     {
-=======
->>>>>>> rowen
       path: "/about",
       name: "about",
       // route level code-splitting
