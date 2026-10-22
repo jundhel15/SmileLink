@@ -8,7 +8,11 @@
         <h3 id="summary-heading">Order summary</h3>
 
         <div class="product-row">
-          <span class="product-thumb" :style="{ background: template.background }" aria-hidden="true">
+          <span
+            class="product-thumb"
+            :style="{ background: template.background }"
+            aria-hidden="true"
+          >
             <svg viewBox="0 0 120 80" fill="none">
               <path d="M22 28v30M98 24v34M60 14v22" stroke="#9aa6c0" stroke-width="1" />
               <ellipse cx="22" cy="20" rx="8" ry="10" :fill="template.accent" />
@@ -24,7 +28,12 @@
             <p class="muted">{{ occasionLabel }} template</p>
             <span class="package-pill">{{ selectedPackage.name }}</span>
           </div>
-          <a class="edit-link product-edit" href="/create/template" @click.prevent="router.push('/create/template')">Edit</a>
+          <!-- <a
+            class="edit-link product-edit"
+            href="/create/template"
+            @click.prevent="router.push('/create/template')"
+            >Edit</a -->
+          >
         </div>
 
         <dl class="summary-list">
@@ -44,11 +53,23 @@
       <section class="review-card payment-card" aria-labelledby="payment-heading">
         <h3 id="payment-heading">Payment</h3>
 
-        <label class="method-option">
-          <input type="radio" name="payment-method" value="card" checked />
+        <label
+          v-if="card_payment_enabled"
+          class="method-option"
+          :class="{ selected: paymentMethod === 'card' }"
+        >
+          <input v-model="paymentMethod" type="radio" name="payment-method" value="card" />
           <span class="card-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="5.5" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8" />
+              <rect
+                x="3"
+                y="5.5"
+                width="18"
+                height="13"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
               <path d="M3 10h18" stroke="currentColor" stroke-width="1.8" />
             </svg>
           </span>
@@ -62,12 +83,54 @@
           </span>
         </label>
 
+        <label class="method-option" :class="{ selected: paymentMethod === 'gcash' }">
+          <input v-model="paymentMethod" type="radio" name="payment-method" value="gcash" />
+          <span class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect
+                x="6"
+                y="2.5"
+                width="12"
+                height="19"
+                rx="2.5"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path d="M10.5 18.5h3" stroke="currentColor" stroke-width="1.8" />
+            </svg>
+          </span>
+          <span class="method-text">
+            <strong>GCash</strong>
+            <span class="muted">Pay with your GCash wallet</span>
+          </span>
+          <span class="card-brands">
+            <span class="brand-gcash">GCash</span>
+          </span>
+        </label>
+
         <div class="secure-note">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" />
-            <path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path
+              d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
-          <p>You will pay on PayMongo's secure checkout. SmileLink never sees or stores your card number.</p>
+          <p v-if="paymentMethod === 'gcash'">
+            A GCash QR code will appear. Scan it with your GCash app to approve the payment.
+          </p>
+          <p v-else>
+            You will pay on PayMongo's secure checkout. SmileLink never sees or stores your card
+            number.
+          </p>
         </div>
 
         <div class="price-line">
@@ -84,12 +147,24 @@
           <span>I agree to the Terms. Payments can't be refunded once the link has been sent.</span>
         </label>
 
-        <button class="pay-button" type="button" :disabled="!canPay" @click="startCheckout">
+        <button class="pay-button" type="button" :disabled="!canPay" @click="onPayClick">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="5" y="10" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.8" />
+            <rect
+              x="5"
+              y="10"
+              width="14"
+              height="11"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
             <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" />
           </svg>
-          {{ isPaying ? "Opening secure checkout..." : `Pay ${formatPeso(selectedPackage.price)} securely` }}
+          {{
+            isPaying
+              ? "Opening secure checkout..."
+              : `Pay ${formatPeso(selectedPackage.price)} securely`
+          }}
         </button>
         <p v-if="missingStep" class="field-error" role="alert">
           {{ missingStep.message }}
@@ -99,27 +174,184 @@
       </section>
 
       <footer class="form-actions">
-        <button class="back-button" type="button" @click="router.push('/create/content')">Back</button>
+        <button class="back-button" type="button" @click="router.push('/create/content')">
+          Back
+        </button>
       </footer>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showGcashModal" class="qr-backdrop" @click.self="closeGcashModal">
+        <div
+          class="qr-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qr-heading"
+          @keydown.esc="closeGcashModal"
+        >
+          <button class="qr-close" type="button" aria-label="Close" @click="closeGcashModal">
+            &times;
+          </button>
+
+          <template v-if="!gcashPaid">
+            <div class="qr-header">
+              <span class="brand-gcash qr-brand">GCash</span>
+              <h3 id="qr-heading">Scan to pay</h3>
+              <p class="muted">Open your GCash app, tap <strong>Scan QR</strong>, then scan this code.</p>
+            </div>
+
+            <div class="qr-box" :class="{ expired: secondsLeft === 0 }">
+              <svg
+                :viewBox="`0 0 ${QR_SIZE + 2} ${QR_SIZE + 2}`"
+                shape-rendering="crispEdges"
+                role="img"
+                aria-label="Sample GCash QR code"
+              >
+                <rect :width="QR_SIZE + 2" :height="QR_SIZE + 2" fill="#fff" />
+                <rect
+                  v-for="cell in qrCells"
+                  :key="cell"
+                  :x="(cell % QR_SIZE) + 1"
+                  :y="Math.floor(cell / QR_SIZE) + 1"
+                  width="1"
+                  height="1"
+                  fill="#1c2344"
+                />
+              </svg>
+              <span v-if="secondsLeft === 0" class="qr-expired-label">QR expired</span>
+            </div>
+
+            <dl class="qr-details">
+              <div>
+                <dt>Amount</dt>
+                <dd class="qr-amount">{{ formatPeso(selectedPackage.price) }}</dd>
+              </div>
+              <div>
+                <dt>Merchant</dt>
+                <dd>SmileLink</dd>
+              </div>
+              <div>
+                <dt>Reference no.</dt>
+                <dd>{{ gcashReference }}</dd>
+              </div>
+              <div>
+                <dt>Expires in</dt>
+                <dd :class="{ 'qr-warning': secondsLeft < 60 }">{{ countdownLabel }}</dd>
+              </div>
+            </dl>
+
+            <p class="qr-sample-note">Sample only — this QR code is not a real payment request.</p>
+
+            <button
+              v-if="secondsLeft > 0"
+              class="pay-button"
+              type="button"
+              @click="confirmGcashPaid"
+            >
+              I've completed the payment
+            </button>
+            <button v-else class="pay-button" type="button" @click="openGcashModal">
+              Generate a new QR code
+            </button>
+            <button class="qr-cancel" type="button" @click="closeGcashModal">Cancel</button>
+          </template>
+
+          <div v-else class="qr-success">
+            <span class="qr-check" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="m6 12.5 4 4 8-9"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+            <h3 id="qr-heading">Payment received</h3>
+            <p class="muted">
+              Reference {{ gcashReference }}. We'll email a receipt to
+              {{ draft.sender_email || "you" }}.
+            </p>
+            <button class="pay-button" type="button" @click="closeGcashModal">Done</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </main>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
 
 // kapareho ng templates sa BirthdayTemp
-const TEMPLATES = {
-  "sky-balloons": { name: "Sky Balloons", background: "#c9e7ff", accent: "#2865d8", secondary: "#ffb629", icing: "#ff8f88", cake: "#fff0c4" },
-  "starry-night": { name: "Starry Night", background: "#292b70", accent: "#ffd036", secondary: "#8997ff", icing: "#fff3d0", cake: "#f6bd42" },
-  "golden-confetti": { name: "Golden Confetti", background: "#fff0cf", accent: "#e6a51b", secondary: "#4881ed", icing: "#fff8e8", cake: "#f4c35c" },
-  "garden-bloom": { name: "Garden Bloom", background: "#e5f4df", accent: "#45a767", secondary: "#ff8580", icing: "#fff4dc", cake: "#76c279" },
-  "pastel-party": { name: "Pastel Party", background: "#f4dcf4", accent: "#a879dc", secondary: "#f6b642", icing: "#fff9ff", cake: "#c5a9ee" },
-  "midnight-sparkle": { name: "Midnight Sparkle", background: "#22233c", accent: "#f5b932", secondary: "#ff8580", icing: "#fff0c7", cake: "#304b9a" },
-  "sunny-picnic": { name: "Sunny Picnic", background: "#fff0c8", accent: "#3879e8", secondary: "#fa856c", icing: "#fffaf0", cake: "#ffca4f" },
-  "ocean-breeze": { name: "Ocean Breeze", background: "#ccecf0", accent: "#287bda", secondary: "#ff906f", icing: "#f7fbf8", cake: "#3a82da" },
+const Template = {
+  "sky-balloons": {
+    name: "Sky Balloons",
+    background: "#c9e7ff",
+    accent: "#2865d8",
+    secondary: "#ffb629",
+    icing: "#ff8f88",
+    cake: "#fff0c4",
+  },
+  "starry-night": {
+    name: "Starry Night",
+    background: "#292b70",
+    accent: "#ffd036",
+    secondary: "#8997ff",
+    icing: "#fff3d0",
+    cake: "#f6bd42",
+  },
+  "golden-confetti": {
+    name: "Golden Confetti",
+    background: "#fff0cf",
+    accent: "#e6a51b",
+    secondary: "#4881ed",
+    icing: "#fff8e8",
+    cake: "#f4c35c",
+  },
+  "garden-bloom": {
+    name: "Garden Bloom",
+    background: "#e5f4df",
+    accent: "#45a767",
+    secondary: "#ff8580",
+    icing: "#fff4dc",
+    cake: "#76c279",
+  },
+  "pastel-party": {
+    name: "Pastel Party",
+    background: "#f4dcf4",
+    accent: "#a879dc",
+    secondary: "#f6b642",
+    icing: "#fff9ff",
+    cake: "#c5a9ee",
+  },
+  "midnight-sparkle": {
+    name: "Midnight Sparkle",
+    background: "#22233c",
+    accent: "#f5b932",
+    secondary: "#ff8580",
+    icing: "#fff0c7",
+    cake: "#304b9a",
+  },
+  "sunny-picnic": {
+    name: "Sunny Picnic",
+    background: "#fff0c8",
+    accent: "#3879e8",
+    secondary: "#fa856c",
+    icing: "#fffaf0",
+    cake: "#ffca4f",
+  },
+  "ocean-breeze": {
+    name: "Ocean Breeze",
+    background: "#ccecf0",
+    accent: "#287bda",
+    secondary: "#ff906f",
+    icing: "#f7fbf8",
+    cake: "#3a82da",
+  },
 };
 
 // kapareho ng packages sa PackageTemp; display lang, sa server kinukuwenta ang totoong halaga
@@ -130,15 +362,20 @@ const PACKAGES = {
 };
 
 const CHECKOUT_ENDPOINT = "/api/checkout-sessions";
+// naka-off muna ang card; gawing true para ipakita ulit
+const card_payment_enabled = false;
 
 const router = useRouter();
 const draft = readOrderDraft();
-const template = TEMPLATES[draft.template_id] || TEMPLATES["sky-balloons"];
+const template = Template[draft.template_id] || Template["sky-balloons"];
 const selectedPackage = PACKAGES[draft.package_id] || PACKAGES["surprise-website"];
 const occasionLabel = draft.occasion
   ? draft.occasion.charAt(0).toUpperCase() + draft.occasion.slice(1)
   : "Birthday";
 
+const paymentMethod = ref(
+  card_payment_enabled && draft.payment_method === "card" ? "card" : "gcash",
+);
 const agreedToTerms = ref(false);
 const isPaying = ref(false);
 const paymentError = ref("");
@@ -165,7 +402,8 @@ const deliveryRow = computed(() => {
 const contentRow = computed(() => {
   const parts = [];
   if (draft.message?.trim()) parts.push("Message");
-  if (draft.photo_count) parts.push(`${draft.photo_count} photo${draft.photo_count === 1 ? "" : "s"}`);
+  if (draft.photo_count)
+    parts.push(`${draft.photo_count} photo${draft.photo_count === 1 ? "" : "s"}`);
   if (draft.music_track) parts.push("music");
   if (draft.video_link?.trim()) parts.push("video");
   return {
@@ -195,8 +433,17 @@ const missingStep = computed(() => {
   if (!draft.template_id) {
     return { label: "Template", to: "/create/template", message: "Choose a template first." };
   }
-  if (!draft.recipient_name || !draft.recipient_email || !draft.sender_name || !draft.sender_email) {
-    return { label: "Recipient", to: "/create/recipient", message: "Add the recipient and sender details first." };
+  if (
+    !draft.recipient_name ||
+    !draft.recipient_email ||
+    !draft.sender_name ||
+    !draft.sender_email
+  ) {
+    return {
+      label: "Recipient",
+      to: "/create/recipient",
+      message: "Add the recipient and sender details first.",
+    };
   }
   if (!draft.message?.trim()) {
     return { label: "Content", to: "/create/content", message: "Write your message first." };
@@ -210,6 +457,98 @@ function formatPeso(amount) {
   return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 }
 
+// sample GCash QR popup; palitan ng totoong QR galing sa server kapag may PayMongo QR Ph na
+const QR_SIZE = 25;
+const QR_TTL_SECONDS = 5 * 60;
+
+const showGcashModal = ref(false);
+const gcashPaid = ref(false);
+const gcashReference = ref("");
+const secondsLeft = ref(QR_TTL_SECONDS);
+let countdownTimer = null;
+
+const countdownLabel = computed(() => {
+  const minutes = Math.floor(secondsLeft.value / 60);
+  const seconds = String(secondsLeft.value % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+});
+
+// mukhang QR lang: tatlong finder pattern sa sulok, random na tuldok sa gitna batay sa reference
+const qrCells = computed(() => {
+  let seed = [...gcashReference.value].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const finderAt = (x, y) => {
+    for (const [ox, oy] of [
+      [0, 0],
+      [QR_SIZE - 7, 0],
+      [0, QR_SIZE - 7],
+    ]) {
+      const dx = x - ox;
+      const dy = y - oy;
+      if (dx >= -1 && dx <= 7 && dy >= -1 && dy <= 7) {
+        if (dx < 0 || dx > 6 || dy < 0 || dy > 6) return false;
+        const ring = Math.min(dx, dy, 6 - dx, 6 - dy);
+        return ring !== 1;
+      }
+    }
+    return null;
+  };
+  const cells = [];
+  for (let y = 0; y < QR_SIZE; y++) {
+    for (let x = 0; x < QR_SIZE; x++) {
+      const finder = finderAt(x, y);
+      if (finder ?? random() < 0.48) cells.push(y * QR_SIZE + x);
+    }
+  }
+  return cells;
+});
+
+function onPayClick() {
+  if (paymentMethod.value === "gcash") openGcashModal();
+  else startCheckout();
+}
+
+async function openGcashModal() {
+  if (!canPay.value && !showGcashModal.value) return;
+  const orderId = draft.order_id || crypto.randomUUID();
+  updateOrderDraft({ order_id: orderId, payment_method: "gcash" });
+
+  gcashReference.value = `SL-${Date.now().toString(36).toUpperCase()}`;
+  gcashPaid.value = false;
+  secondsLeft.value = QR_TTL_SECONDS;
+  showGcashModal.value = true;
+
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    if (secondsLeft.value > 0) secondsLeft.value--;
+    else clearInterval(countdownTimer);
+  }, 1000);
+
+  await nextTick();
+  document.querySelector(".qr-modal .qr-close")?.focus();
+}
+
+function closeGcashModal() {
+  clearInterval(countdownTimer);
+  showGcashModal.value = false;
+}
+
+// hindi dito minamarkahang paid; ang processing screen ang naghihintay sa webhook ng server
+function confirmGcashPaid() {
+  clearInterval(countdownTimer);
+  const { order_id: orderId } = updateOrderDraft({
+    order_status: "pending_payment",
+    payment_reference: gcashReference.value,
+  });
+  showGcashModal.value = false;
+  router.push(`/order/${orderId}/processing`);
+}
+
+onBeforeUnmount(() => clearInterval(countdownTimer));
+
 // gumagawa ang server ng PayMongo Checkout Session; walang halaga o card number na galing dito
 async function startCheckout() {
   if (!canPay.value) return;
@@ -217,13 +556,18 @@ async function startCheckout() {
   paymentError.value = "";
 
   const orderId = draft.order_id || crypto.randomUUID();
-  updateOrderDraft({ order_id: orderId });
+  updateOrderDraft({ order_id: orderId, payment_method: paymentMethod.value });
 
   try {
     const response = await fetch(CHECKOUT_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order_id: orderId, order: { ...readOrderDraft(), order_id: orderId } }),
+      body: JSON.stringify({
+        order_id: orderId,
+        payment_method: paymentMethod.value,
+        success_url: `${window.location.origin}/order/${orderId}/processing`,
+        order: { ...readOrderDraft(), order_id: orderId },
+      }),
     });
     if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
 
@@ -371,10 +715,16 @@ async function startCheckout() {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1.5px solid #3265df;
+  border: 1.5px solid #e2dacb;
   border-radius: 10px;
   padding: 12px 14px;
   cursor: pointer;
+}
+.method-option + .method-option {
+  margin-top: 10px;
+}
+.method-option.selected {
+  border-color: #3265df;
 }
 .method-option input {
   width: 16px;
@@ -419,6 +769,10 @@ async function startCheckout() {
   border: 1px solid #e2dacb;
   background: #fffaf2;
   color: #27314f;
+}
+.brand-gcash {
+  background: #007dfe;
+  color: #fff;
 }
 .secure-note {
   display: flex;
@@ -530,6 +884,133 @@ async function startCheckout() {
   color: #1c2344;
   font-size: 13px;
   font-weight: 800;
+}
+.qr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(20, 26, 48, 0.55);
+  padding: 16px;
+}
+.qr-modal {
+  position: relative;
+  width: min(380px, 100%);
+  border-radius: 16px;
+  background: #fff;
+  padding: 24px 22px 18px;
+  box-shadow: 0 20px 50px rgba(20, 26, 48, 0.25);
+  text-align: center;
+}
+.qr-modal h3 {
+  margin: 8px 0 4px;
+  color: #1c2344;
+  font-size: 17px;
+  font-weight: 900;
+}
+.qr-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: none;
+  color: #69738a;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.qr-brand {
+  display: inline-block;
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.qr-box {
+  position: relative;
+  width: 200px;
+  margin: 16px auto 14px;
+  border: 3px solid #007dfe;
+  border-radius: 12px;
+  padding: 8px;
+}
+.qr-box svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.qr-box.expired svg {
+  opacity: 0.15;
+}
+.qr-expired-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #d83a3a;
+  font-size: 13px;
+  font-weight: 800;
+}
+.qr-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0;
+  border-radius: 10px;
+  background: #f7f4ee;
+  padding: 12px;
+  text-align: left;
+}
+.qr-details dt {
+  color: #69738a;
+  font-size: 10px;
+}
+.qr-details dd {
+  margin: 2px 0 0;
+  color: #1c2344;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.qr-amount {
+  color: #3265df !important;
+  font-size: 15px !important;
+}
+.qr-warning {
+  color: #d83a3a !important;
+}
+.qr-sample-note {
+  margin: 10px 0 0;
+  color: #b07a12;
+  font-size: 10px;
+}
+.qr-cancel {
+  margin-top: 8px;
+  border: 0;
+  background: none;
+  padding: 6px;
+  color: #69738a;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qr-success {
+  padding: 10px 0 4px;
+}
+.qr-check {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e3f6e8;
+  color: #2f9a55;
+}
+.qr-check svg {
+  width: 28px;
+  height: 28px;
 }
 @media (max-width: 760px) {
   .review-page {

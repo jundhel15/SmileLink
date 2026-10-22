@@ -29,6 +29,26 @@
       </nav>
 
       <div class="account-actions">
+        <a
+          class="orders-link"
+          :class="{ active: isOrdersPage }"
+          href="/orders"
+          :aria-current="isOrdersPage ? 'page' : undefined"
+          @click.prevent="router.push('/orders')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M3 4h2.2l2.3 10.6a1.5 1.5 0 0 0 1.5 1.2h8.3a1.5 1.5 0 0 0 1.5-1.1L20.5 8H6.1"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="9.5" cy="19.5" r="1.4" fill="currentColor" />
+            <circle cx="17" cy="19.5" r="1.4" fill="currentColor" />
+          </svg>
+          <span>My orders</span>
+        </a>
         <button class="avatar" type="button" aria-label="Account menu">
           <span class="avatar-circle" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -49,7 +69,7 @@
       </div>
     </header>
 
-    <nav class="progress-nav" aria-label="Creation progress">
+    <nav v-if="!isOrdersPage" class="progress-nav" aria-label="Creation progress">
       <div class="progress-track">
         <template v-for="(step, index) in steps" :key="step">
           <div
@@ -70,33 +90,44 @@
       </div>
     </nav>
 
-    <BirthdayTemp v-if="isTemplateStep" />
+    <OrdersTemp v-if="isOrdersPage" />
+    <BirthdayTemp v-else-if="isTemplateStep" />
     <PackageTemp v-else-if="isPackageStep" />
     <RecipientTemp v-else-if="isRecipientStep" />
     <ContentTemp v-else-if="isContentStep" />
     <ReviewpayTemp v-else-if="isReviewStep" />
+    <ProccessingTemp v-else-if="isProcessingStep" />
+    <OrdercompleteTemp v-else-if="isCompleteStep" />
     <CelebrateTemp v-else />
   </div>
 </template>
 
 <script setup>
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import BirthdayTemp from "@/components/form/BirthdayTemp.vue";
 import CelebrateTemp from "@/components/form/CelebrateTemp.vue";
 import ContentTemp from "@/components/form/ContentTemp.vue";
+import OrdercompleteTemp from "@/components/form/OrdercompleteTemp.vue";
+import OrdersTemp from "@/components/form/OrdersTemp.vue";
+import ProccessingTemp from "@/components/form/ProccessingTemp.vue";
 import PackageTemp from "@/components/form/PackageTemp.vue";
 import RecipientTemp from "@/components/form/RecipientTemp.vue";
 import ReviewpayTemp from "@/components/form/ReviewpayTemp.vue";
 
 const route = useRoute();
+const router = useRouter();
+const isOrdersPage = computed(() => route.name === "my-orders");
 const isTemplateStep = computed(() => route.name === "birthday-template");
 const isPackageStep = computed(() => route.name === "create-package");
 const isRecipientStep = computed(() => route.name === "create-recipient");
 const isContentStep = computed(() => route.name === "create-content");
 const isReviewStep = computed(() => route.name === "create-review");
+const isProcessingStep = computed(() => route.name === "order-processing");
+const isCompleteStep = computed(() => route.name === "order-complete");
 const activeStep = computed(() => {
-  if (isReviewStep.value) return 5;
+  if (isCompleteStep.value) return 6;
+  if (isReviewStep.value || isProcessingStep.value) return 5;
   if (isContentStep.value) return 4;
   if (isRecipientStep.value) return 3;
   if (isPackageStep.value) return 2;
@@ -249,6 +280,30 @@ input:focus-visible {
   align-items: center;
   gap: 22px;
 }
+.orders-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sl-navy);
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.orders-link svg {
+  width: 20px;
+  height: 20px;
+}
+.orders-link:hover,
+.orders-link.active {
+  border-color: #c9d7ff;
+  background: #f1f5ff;
+  color: var(--sl-blue);
+}
 .avatar {
   display: flex;
   align-items: center;
@@ -397,6 +452,12 @@ input:focus-visible {
   .avatar-circle {
     width: 36px;
     height: 36px;
+  }
+  .orders-link {
+    padding: 7px 9px;
+  }
+  .orders-link span {
+    display: none;
   }
   .progress-nav {
     padding: 12px 18px;
