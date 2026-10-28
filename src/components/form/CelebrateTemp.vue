@@ -202,7 +202,6 @@ const selectedOccasion = ref("");
 const selectedAction = ref("");
 const searchQuery = ref("");
 const pendingOccasion = ref("");
-const pendingAction = ref("");
 const savedDraft = readOrderDraft();
 const navigating = ref(false);
 
@@ -310,7 +309,7 @@ const occasions = [
     pill: "yellow",
     image: birthdayWebp,
     alt: "Birthday cake with candles",
-    action: "/birthday",
+    action: "birthday",
     fx: "birthday",
   },
   {
@@ -319,7 +318,7 @@ const occasions = [
     pill: "pink",
     image: monthsaryWebp,
     alt: "Pink heart balloons",
-    action: "/monthsary",
+    action: "monthsary",
     fx: "monthsary",
   },
   {
@@ -328,7 +327,7 @@ const occasions = [
     pill: "blue",
     image: anniversaryWebp,
     alt: "Two gold rings with a heart",
-    action: "/anniversary",
+    action: "anniversary",
     fx: "anniversary",
   },
   {
@@ -337,7 +336,7 @@ const occasions = [
     pill: "peach",
     image: weddingWebp,
     alt: "Wedding flower bouquet",
-    action: "/wedding",
+    action: "wedding",
     fx: "wedding",
   },
   {
@@ -346,7 +345,7 @@ const occasions = [
     pill: "lavender",
     image: graduationWebp,
     alt: "Blue graduation cap",
-    action: "/graduation",
+    action: "graduation",
     fx: "graduation",
   },
   {
@@ -355,7 +354,7 @@ const occasions = [
     pill: "pink",
     image: debutWebp,
     alt: "Gold crown with a pink gem",
-    action: "/debut",
+    action: "debut",
     fx: "debut",
   },
   {
@@ -365,7 +364,7 @@ const occasions = [
     image: babyWebp,
     alt: "Teddy bear with balloons",
     fx: "baby",
-    action: "/reveal",
+    action: "reveal",
   },
   {
     name: "Thank you",
@@ -374,7 +373,7 @@ const occasions = [
     image: thankYouWebp,
     alt: "Envelope sealed with a heart",
     fx: "thanks",
-    action: "/thanks",
+    action: "thanks",
   },
   {
     name: "Congratulations",
@@ -382,7 +381,7 @@ const occasions = [
     pill: "mint",
     image: congratsWebp,
     alt: "Gold trophy with confetti",
-    action: "/congratulation",
+    action: "congrats",
     fx: "congrats",
   },
   {
@@ -391,14 +390,12 @@ const occasions = [
     pill: "lavender",
     image: justBecauseWebp,
     alt: "Smiling yellow star",
-    action: "/smile",
+    action: "smile",
     fx: "smile",
   },
 ];
 
-const savedOccasion = occasions.find(
-  (occasion) => occasion.action.replace(/^\//, "") === savedDraft.occasion,
-);
+const savedOccasion = occasions.find((occasion) => occasion.action === savedDraft.occasion);
 if (savedOccasion) {
   selectedOccasion.value = savedOccasion.name;
   selectedAction.value = savedOccasion.action;
@@ -416,8 +413,7 @@ function selectOccasion(name, action, fx) {
   if (fx) playFx(name);
   selectedAction.value = action;
   pendingOccasion.value = name;
-  pendingAction.value = action;
-  const occasion = action.replace(/^\//, "");
+  const occasion = action;
   const draft = readOrderDraft();
   updateOrderDraft({
     occasion,
@@ -426,17 +422,15 @@ function selectOccasion(name, action, fx) {
   });
 }
 
-
 function startGroupCard() {
   updateOrderDraft({
-    ...(selectedAction.value ? { occasion: selectedAction.value.replace(/^\//, "") } : {}),
+    ...(selectedAction.value ? { occasion: selectedAction.value } : {}),
     is_group: true,
   });
 }
 
 function cancelOccasionConfirmation() {
   pendingOccasion.value = "";
-  pendingAction.value = "";
 }
 
 function continueToNext() {
@@ -446,17 +440,16 @@ function continueToNext() {
     // statusMessage.value = `${selectedOccasion.value} is not available yet.`;
     return;
   }
-  if (selectedAction.value === "/birthday") {
-    updateOrderDraft({
-      occasion: "birthday",
-      is_group: false,
-      template_id: null,
-    });
-    navigating.value = true;
-    // maikling pagitan para makita ang pindot (scale + arrow) bago lumipat
-    setTimeout(() => router.push("/create/template"), 160);
-    return;
-  }
+  updateOrderDraft({
+    occasion: `${selectedAction.value}`,
+    is_group: false,
+    template_id: null,
+  });
+  navigating.value = true;
+  // maikling pagitan para makita ang pindot (scale + arrow) bago lumipat
+  setTimeout(() => router.push(`/create/${selectedAction.value}`), 160);
+  return;
+
   // statusMessage.value = `You selected ${selectedOccasion.value}. Next: choose a template.`;
 }
 </script>

@@ -1,0 +1,1 @@
+//npm run dev:all starts Vue and Express together.
