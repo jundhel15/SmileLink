@@ -66,7 +66,8 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 // ang status ay galing lang sa server (PayMongo webhook na checkout_session.payment.paid na na-verify ang signature)
 const orders_endpoint = "/api/orders";
@@ -78,6 +79,7 @@ const failed_status = ["failed", "cancelled", "expired"];
 
 const route = useRoute();
 const router = useRouter();
+const orderStore = useOrderStore();
 const draft = readOrderDraft();
 const orderId = route.params.orderId;
 
@@ -116,7 +118,7 @@ async function checkStatus() {
 
     if (paid_status.includes(order.order_status)) {
       stopPolling();
-      updateOrderDraft({ order_status: order.order_status, link_slug: order.link_slug });
+      orderStore.updateOrderDraft({ order_status: order.order_status, link_slug: order.link_slug });
       router.replace(`/order/${encodeURIComponent(orderId)}/complete`);
     } else if (failed_status.includes(order.order_status)) {
       stopPolling();
@@ -157,7 +159,7 @@ async function retryCheckout() {
     const { checkout_url: checkoutUrl } = await response.json();
     if (!checkoutUrl?.startsWith("https://")) throw new Error("Checkout URL is missing.");
 
-    updateOrderDraft({ order_status: "pending_payment" });
+    orderStore.updateOrderDraft({ order_status: "pending_payment" });
     window.location.assign(checkoutUrl);
   } catch (error) {
     console.error(error);

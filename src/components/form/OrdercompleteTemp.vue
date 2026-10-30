@@ -140,7 +140,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import QRCode from "qrcode";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 // ang link_slug ay gawa ng server (random, 8+ characters) para hindi mahulaan
 const orders_endpoint = "/api/orders";
@@ -148,6 +149,7 @@ const min_slug_length = 8;
 const toast_duration_ms = 2000;
 
 const route = useRoute();
+const orderStore = useOrderStore();
 const draft = readOrderDraft();
 const orderId = route.params.orderId;
 
@@ -207,7 +209,7 @@ async function loadOrder() {
     const order = await response.json();
     if (order.link_slug) linkSlug.value = order.link_slug;
     if (order.scheduled_at) scheduledAt.value = order.scheduled_at;
-    updateOrderDraft({ link_slug: linkSlug.value, order_status: order.order_status });
+    orderStore.updateOrderDraft({ link_slug: linkSlug.value, order_status: order.order_status });
   } catch (error) {
     console.error(error);
     if (!surpriseLink.value) loadError.value = "We couldn't load your link. Please refresh the page.";

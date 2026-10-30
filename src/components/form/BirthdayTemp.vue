@@ -181,7 +181,8 @@
 import { computed, nextTick, ref } from "vue";
 import { useRouter } from "vue-router";
 import ConFirm from "../dialog/ConFirm.vue";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 /* ===== DAGDAG: mga larawan ng Birthday templates (WebP) =====
    birthday-*.webp      = maliit, para sa gallery (mabilis mag-load)
@@ -204,6 +205,7 @@ import cozyCorner from "@/assets/templates/birthday/birthday-cozy-corner.webp";
 import cozyCornerFull from "@/assets/templates/birthday/birthday-cozy-corner-full.webp";
 
 const router = useRouter();
+const orderStore = useOrderStore();
 const styles = ["All", "Cute", "Elegant", "Fun", "Minimal", "Dark"];
 /* ===== Listahan ng 8 Birthday templates (pinalitan ang lumang SVG drawing) =====
    image        = maliit na WebP para sa gallery
@@ -328,7 +330,7 @@ const filteredTemplates = computed(() =>
 
 function selectTemplate(template) {
   selectedTemplateId.value = template.id;
-  updateOrderDraft({ occasion: "birthday", template_id: template.id });
+  orderStore.updateOrderDraft({ occasion: "birthday", template_id: template.id });
 }
 
 function confirmTemplate(template) {

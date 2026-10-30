@@ -171,10 +171,12 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 const PHILIPPINE_OFFSET_HOURS = 8;
 const router = useRouter();
+const orderStore = useOrderStore();
 const draft = readOrderDraft();
 const currentTime = ref(Date.now());
 const clock = setInterval(() => {
@@ -224,7 +226,7 @@ const scheduleError = computed(() => {
 watch(
   form,
   (details) => {
-    updateOrderDraft({
+    orderStore.updateOrderDraft({
       recipient_name: details.recipient_name,
       recipient_email: details.recipient_email,
       sender_name: details.sender_name,
@@ -272,7 +274,7 @@ function saveRecipient() {
   const hasInvalidContact = Object.keys(touched).some((field) => fieldError(field));
   if (hasInvalidContact || scheduleError.value) return;
 
-  updateOrderDraft({
+  orderStore.updateOrderDraft({
     recipient_name: form.recipient_name.trim(),
     recipient_email: form.recipient_email.trim(),
     sender_name: form.sender_name.trim(),

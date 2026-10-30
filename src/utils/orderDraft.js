@@ -1,4 +1,4 @@
-const ORDER_DRAFT_KEY = "smilelink-order-draft";
+export const ORDER_DRAFT_KEY = "smilelink-order-draft";
 
 export function readOrderDraft() {
   const savedDraft = localStorage.getItem(ORDER_DRAFT_KEY);
@@ -10,9 +10,7 @@ export function readOrderDraft() {
   }
   return draft;
 }
-
-export function updateOrderDraft(updates) {
-  const draft = { ...readOrderDraft(), ...updates };
-  localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(draft));
-  return draft;
+// bagong surprise pagkatapos ng bayad na order
+export function clearOrderDraft() {
+  localStorage.removeItem(ORDER_DRAFT_KEY);
 }

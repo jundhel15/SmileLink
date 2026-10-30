@@ -181,7 +181,8 @@
 <script setup>
 import { computed, ref, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 /* ===== Occasion illustrations (WebP) ===== */
 import birthdayWebp from "@/assets/occasions/birthday-cake.webp";
@@ -198,6 +199,7 @@ import justBecauseWebp from "@/assets/occasions/just-because-star.webp";
 import ConFirm from "../dialog/ConFirm.vue";
 
 const router = useRouter();
+const orderStore = useOrderStore();
 const selectedOccasion = ref("");
 const selectedAction = ref("");
 const searchQuery = ref("");
@@ -415,7 +417,7 @@ function selectOccasion(name, action, fx) {
   pendingOccasion.value = name;
   const occasion = action;
   const draft = readOrderDraft();
-  updateOrderDraft({
+  orderStore.updateOrderDraft({
     occasion,
     is_group: false,
     template_id: draft.occasion === occasion ? (draft.template_id ?? null) : null,
@@ -423,7 +425,7 @@ function selectOccasion(name, action, fx) {
 }
 
 function startGroupCard() {
-  updateOrderDraft({
+  orderStore.updateOrderDraft({
     ...(selectedAction.value ? { occasion: selectedAction.value } : {}),
     is_group: true,
   });
@@ -440,7 +442,7 @@ function continueToNext() {
     // statusMessage.value = `${selectedOccasion.value} is not available yet.`;
     return;
   }
-  updateOrderDraft({
+  orderStore.updateOrderDraft({
     occasion: `${selectedAction.value}`,
     is_group: false,
     template_id: null,

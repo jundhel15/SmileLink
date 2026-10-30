@@ -284,7 +284,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 // kapareho ng templates sa BirthdayTemp
 const Template = {
@@ -366,6 +367,7 @@ const CHECKOUT_ENDPOINT = "/api/checkout-sessions";
 const card_payment_enabled = false;
 
 const router = useRouter();
+const orderStore = useOrderStore();
 const draft = readOrderDraft();
 const template = Template[draft.template_id] || Template["sky-balloons"];
 const selectedPackage = PACKAGES[draft.package_id] || PACKAGES["surprise-website"];
@@ -514,7 +516,7 @@ function onPayClick() {
 async function openGcashModal() {
   if (!canPay.value && !showGcashModal.value) return;
   const orderId = draft.order_id || crypto.randomUUID();
-  updateOrderDraft({ order_id: orderId, payment_method: "gcash" });
+  orderStore.updateOrderDraft({ order_id: orderId, payment_method: "gcash" });
 
   gcashReference.value = `SL-${Date.now().toString(36).toUpperCase()}`;
   gcashPaid.value = false;
@@ -539,7 +541,7 @@ function closeGcashModal() {
 // hindi dito minamarkahang paid; ang processing screen ang naghihintay sa webhook ng server
 function confirmGcashPaid() {
   clearInterval(countdownTimer);
-  const { order_id: orderId } = updateOrderDraft({
+  const { order_id: orderId } = orderStore.updateOrderDraft({
     order_status: "pending_payment",
     payment_reference: gcashReference.value,
   });
@@ -556,7 +558,7 @@ async function startCheckout() {
   paymentError.value = "";
 
   const orderId = draft.order_id || crypto.randomUUID();
-  updateOrderDraft({ order_id: orderId, payment_method: paymentMethod.value });
+  orderStore.updateOrderDraft({ order_id: orderId, payment_method: paymentMethod.value });
 
   try {
     const response = await fetch(CHECKOUT_ENDPOINT, {
@@ -574,7 +576,7 @@ async function startCheckout() {
     const { checkout_url: checkoutUrl } = await response.json();
     if (!checkoutUrl?.startsWith("https://")) throw new Error("Checkout URL is missing.");
 
-    updateOrderDraft({ order_status: "pending_payment" });
+    orderStore.updateOrderDraft({ order_status: "pending_payment" });
     window.location.assign(checkoutUrl);
   } catch (error) {
     console.error(error);

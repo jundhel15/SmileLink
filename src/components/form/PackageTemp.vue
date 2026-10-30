@@ -145,65 +145,29 @@
 
 <script setup>
 import { ref } from "vue";
-import { useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { useRouter, useRoute } from "vue-router";
+import { readOrderDraft } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
+import { PACKAGES } from "@/shared/catalog";
 
 const router = useRouter();
+const route = useRoute();
+const orderId = route.params.orderId;
+console.log(encodeURIComponent(orderId));
+const orderStore = useOrderStore();
 
-const packages = [
-  {
-    id: "greeting-card",
-    name: "Greeting Card",
-    description: "One animated card with your message",
-    price: 149,
-    max_photos: 3,
-    has_music: false,
-    has_video: false,
-    has_password: false,
-    has_group: false,
-    isPopular: false,
-    icon: "mail",
-    tone: "blue",
-  },
-  {
-    id: "surprise-website",
-    name: "Surprise Website",
-    description: "A full page with photo and music",
-    price: 299,
-    max_photos: 10,
-    has_music: true,
-    has_video: false,
-    has_password: true,
-    has_group: false,
-    isPopular: true,
-    icon: "image",
-    tone: "gold",
-  },
-  {
-    id: "complete-surprise",
-    name: "Complete Surprise",
-    description: "Everything, plus video and group wishes",
-    price: 449,
-    max_photos: 20,
-    has_music: true,
-    has_video: true,
-    has_password: true,
-    has_group: true,
-    isPopular: false,
-    icon: "sparkles",
-    tone: "blue",
-  },
-];
+const packages = Object.values(PACKAGES);
 
 const savedPackageId = readOrderDraft().package_id;
 const popularPackage = packages.find((packageOption) => packageOption.isPopular);
+console.log(popularPackage);
 const selectedPackageId = ref(
   packages.some((packageOption) => packageOption.id === savedPackageId)
     ? savedPackageId
     : popularPackage.id,
 );
 
-updateOrderDraft({ package_id: selectedPackageId.value });
+orderStore.updateOrderDraft({ package_id: selectedPackageId.value });
 
 function packageFeatures(packageOption) {
   return [
@@ -218,7 +182,7 @@ function packageFeatures(packageOption) {
 
 function selectPackage(packageOption) {
   selectedPackageId.value = packageOption.id;
-  updateOrderDraft({ package_id: packageOption.id });
+  orderStore.updateOrderDraft({ package_id: packageOption.id });
 }
 
 function confirmPackage(packageOption) {
@@ -226,6 +190,7 @@ function confirmPackage(packageOption) {
     selectPackage(packageOption);
     return;
   }
+  console.log(orderStore.orders);
 
   router.push("/create/recipient");
 }
