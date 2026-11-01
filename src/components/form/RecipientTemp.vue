@@ -4,7 +4,7 @@
     <p class="section-intro">We email the surprise link only after your payment is confirmed.</p>
 
     <form class="recipient-layout" novalidate @submit.prevent="saveRecipient">
-      <section class="form-card sender-card" aria-labelledby="sender-heading">
+      <section class="form-card sender-card" :class="{ busy: isBusy }" :inert="isBusy" aria-labelledby="sender-heading">
         <h3 id="sender-heading">Recipient and sender</h3>
 
         <div class="field-grid">
@@ -97,7 +97,7 @@
         </div>
       </section>
 
-      <section class="form-card delivery-card" aria-labelledby="delivery-heading">
+      <section class="form-card delivery-card" :class="{ busy: isBusy }" :inert="isBusy" aria-labelledby="delivery-heading">
         <h3 id="delivery-heading">Delivery</h3>
 
         <label class="radio-option">
@@ -153,25 +153,42 @@
       </section>
 
       <footer class="form-actions">
-        <button class="back-button" type="button" @click="router.push('/create/package')">
+        <button class="back-button" type="button" :disabled="isBusy" @click="router.push('/create/package')">
           Back
         </button>
-        <button class="continue-button" type="submit">
-          Continue
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+        <button class="continue-button" :class="isBusy && 'state-saving'" type="submit" :disabled="isBusy">
+          <span v-if="isBusy" class="button-message">
+            <span class="spinner" aria-hidden="true"></span>
+            {{ saveState === "saving" ? "Saving details..." : "Navigating to content..." }}
+          </span>
+          <template v-else>
+            Save details
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </template>
         </button>
       </footer>
-      <p v-if="statusMessage" class="status-message" role="status">{{ statusMessage }}</p>
     </form>
+
+    <Transition name="toast">
+      <div v-if="toast.message" class="toast" :class="`toast-${toast.type}`" role="status" aria-live="polite">
+        <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 8v5m0 3.5v.5M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {{ toast.message }}
+      </div>
+    </Transition>
   </main>
 </template>
 
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
 const PHILIPPINE_OFFSET_HOURS = 8;
@@ -201,7 +218,23 @@ const touched = reactive({
   sender_email: false,
 });
 const submitted = ref(false);
-const statusMessage = ref("");
+
+// "" | "saving" | "navigating"
+const saveState = ref("");
+const isBusy = computed(() => saveState.value !== "");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toast_duration_ms = 2500;
+const toast = reactive({ message: "", type: "success" });
+let toastTimer;
+onUnmounted(() => clearTimeout(toastTimer));
+
+function showToast(message, type = "success") {
+  clearTimeout(toastTimer);
+  toast.message = message;
+  toast.type = type;
+  toastTimer = setTimeout(() => (toast.message = ""), toast_duration_ms);
+}
 
 const minimumTimestamp = computed(
   () => Math.ceil((currentTime.value + 10 * 60 * 1000) / 60_000) * 60_000,
@@ -264,12 +297,12 @@ function fieldError(field) {
   return field.endsWith("_email") ? emailError(value) : "";
 }
 
-function saveRecipient() {
+async function saveRecipient() {
+  if (isBusy.value) return;
   submitted.value = true;
   Object.keys(touched).forEach((field) => {
     touched[field] = true;
   });
-  statusMessage.value = "";
 
   const hasInvalidContact = Object.keys(touched).some((field) => fieldError(field));
   if (hasInvalidContact || scheduleError.value) return;
@@ -284,7 +317,21 @@ function saveRecipient() {
       form.delivery_mode === "scheduled" ? new Date(scheduledDateTimeUtc()).toISOString() : null,
     send_copy: form.send_copy,
   });
-  statusMessage.value = "Recipient and delivery details saved.";
+
+  saveState.value = "saving";
+  try {
+    await saveServerOrder();
+  } catch (error) {
+    console.error(error);
+    saveState.value = "";
+    showToast("Couldn't save your details. Please try again.", "error");
+    return;
+  }
+
+  // maikling pagitan para mabasa ang toast bago lumipat
+  showToast("Recipient details saved");
+  saveState.value = "navigating";
+  await wait(3000);
   router.push("/create/content");
 }
 </script>
@@ -512,12 +559,95 @@ function saveRecipient() {
   width: 17px;
   height: 17px;
 }
-.status-message {
-  grid-column: 1 / -1;
-  margin: -7px 0 0;
-  color: #247a3b;
+.back-button:disabled,
+.continue-button:disabled {
+  cursor: not-allowed;
+}
+.back-button:disabled {
+  opacity: 0.5;
+}
+.form-card.busy {
+  opacity: 0.6;
+}
+.button-message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.button-message svg {
+  width: 16px;
+  height: 16px;
+}
+.continue-button.state-saving,
+.continue-button.state-navigating {
+  background: #eaf0ff;
+  color: #3265df;
+  box-shadow: inset 0 0 0 1px #3265df;
+}
+.toast {
+  position: fixed;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
+  z-index: 50;
+  display: flex;
+  max-width: min(360px, calc(100vw - 40px));
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 16px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(28, 35, 68, 0.18);
+}
+.toast svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.toast-success {
+  background: #39964c;
+  color: #fff;
+}
+.toast-error {
+  background: #c03434;
+  color: #fff;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-from,
+  .toast-leave-to {
+    transform: none;
+  }
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
 }
 @media (max-width: 760px) {
   .recipient-page {

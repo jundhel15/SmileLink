@@ -284,7 +284,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
 // kapareho ng templates sa BirthdayTemp
@@ -515,8 +515,15 @@ function onPayClick() {
 
 async function openGcashModal() {
   if (!canPay.value && !showGcashModal.value) return;
-  const orderId = draft.order_id || crypto.randomUUID();
-  orderStore.updateOrderDraft({ order_id: orderId, payment_method: "gcash" });
+  paymentError.value = "";
+  try {
+    await saveServerOrder();
+  } catch (error) {
+    console.error(error);
+    paymentError.value = "We couldn't save your order. Please try again.";
+    return;
+  }
+  orderStore.updateOrderDraft({ payment_method: "gcash" });
 
   gcashReference.value = `SL-${Date.now().toString(36).toUpperCase()}`;
   gcashPaid.value = false;
@@ -557,10 +564,10 @@ async function startCheckout() {
   isPaying.value = true;
   paymentError.value = "";
 
-  const orderId = draft.order_id || crypto.randomUUID();
-  orderStore.updateOrderDraft({ order_id: orderId, payment_method: paymentMethod.value });
-
   try {
+    const { order_id: orderId } = await saveServerOrder();
+    orderStore.updateOrderDraft({ payment_method: paymentMethod.value });
+
     const response = await fetch(CHECKOUT_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

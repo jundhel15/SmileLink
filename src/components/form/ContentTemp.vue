@@ -7,7 +7,7 @@
     </p>
 
     <div class="content-layout">
-      <nav class="content-card section-menu" aria-label="Content sections">
+      <nav class="content-card section-menu" :class="{ busy: isBusy }" :inert="isBusy" aria-label="Content sections">
         <button
           v-for="section in sections"
           :key="section.id"
@@ -37,7 +37,7 @@
         </button>
       </nav>
 
-      <section class="content-card editor-card" aria-label="Editor">
+      <section class="content-card editor-card" :class="{ busy: isBusy }" :inert="isBusy" aria-label="Editor">
         <template v-if="activeSection === 'message'">
           <label class="field">
             <span>Headline</span>
@@ -211,22 +211,41 @@
       </section>
 
       <footer class="form-actions">
-        <button class="back-button" type="button" @click="router.push('/create/recipient')">Back</button>
-        <button class="continue-button" type="button" @click="saveContent">
-          Continue
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+        <button class="back-button" type="button" :disabled="isBusy" @click="router.push('/create/recipient')">Back</button>
+        <button class="continue-button" :class="isBusy && 'state-saving'" type="button" :disabled="isBusy" @click="saveContent">
+          <span v-if="isBusy" class="button-message">
+            <span class="spinner" aria-hidden="true"></span>
+            {{ saveState === "saving" ? "Saving content..." : "Navigating to review..." }}
+          </span>
+          <template v-else>
+            Continue
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </template>
         </button>
       </footer>
     </div>
+
+    <Transition name="toast">
+      <div v-if="toast.message" class="toast" :class="`toast-${toast.type}`" role="status" aria-live="polite">
+        <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 8v5m0 3.5v.5M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {{ toast.message }}
+      </div>
+    </Transition>
   </main>
 </template>
 
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import { useOrderStore } from "@/stores/order";
 
 const MESSAGE_LIMIT = 1000;
 const MAX_PHOTO_WIDTH = 1600;
@@ -256,6 +275,7 @@ const TRACKS = [
 ];
 
 const router = useRouter();
+const orderStore = useOrderStore();
 const draft = readOrderDraft();
 const packageLimits = PACKAGE_LIMITS[draft.package_id] || PACKAGE_LIMITS["surprise-website"];
 
@@ -284,6 +304,23 @@ const previewDevice = ref("phone");
 const photos = ref([]);
 const photoError = ref("");
 const saveStatus = ref("");
+
+// "" | "saving" | "navigating"
+const saveState = ref("");
+const isBusy = computed(() => saveState.value !== "");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toast_duration_ms = 2500;
+const toast = reactive({ message: "", type: "success" });
+let toastTimer;
+onUnmounted(() => clearTimeout(toastTimer));
+
+function showToast(message, type = "success") {
+  clearTimeout(toastTimer);
+  toast.message = message;
+  toast.type = type;
+  toastTimer = setTimeout(() => (toast.message = ""), toast_duration_ms);
+}
 
 const previewMessage = computed(() => {
   const text = form.message.trim() || "Your message will appear here.";
@@ -316,7 +353,7 @@ onUnmounted(() => {
 });
 
 function persistDraft() {
-  updateOrderDraft({ ...form, photo_count: photos.value.length });
+  orderStore.updateOrderDraft({ ...form, photo_count: photos.value.length });
   saveStatus.value = "Saved";
 }
 
@@ -369,9 +406,25 @@ function removePhoto(id) {
   persistDraft();
 }
 
-function saveContent() {
+async function saveContent() {
+  if (isBusy.value) return;
   clearTimeout(autosaveTimer);
   persistDraft();
+
+  saveState.value = "saving";
+  try {
+    await saveServerOrder();
+  } catch (error) {
+    console.error(error);
+    saveState.value = "";
+    showToast("Couldn't save your content. Please try again.", "error");
+    return;
+  }
+
+  // maikling pagitan para mabasa ang toast bago lumipat
+  showToast("Content saved");
+  saveState.value = "navigating";
+  await wait(3000);
   router.push("/create/review");
 }
 </script>
@@ -892,6 +945,89 @@ function saveContent() {
 .continue-button svg {
   width: 17px;
   height: 17px;
+}
+.back-button:disabled,
+.continue-button:disabled {
+  cursor: not-allowed;
+}
+.back-button:disabled {
+  opacity: 0.5;
+}
+.content-card.busy {
+  opacity: 0.6;
+}
+.button-message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.continue-button.state-saving {
+  background: #eaf0ff;
+  color: #3265df;
+  box-shadow: inset 0 0 0 1px #3265df;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.toast {
+  position: fixed;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
+  z-index: 50;
+  display: flex;
+  max-width: min(360px, calc(100vw - 40px));
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(28, 35, 68, 0.18);
+}
+.toast svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.toast-success {
+  background: #39964c;
+  color: #fff;
+}
+.toast-error {
+  background: #c03434;
+  color: #fff;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+  .toast-enter-from,
+  .toast-leave-to {
+    transform: none;
+  }
 }
 
 @media (max-width: 1000px) {

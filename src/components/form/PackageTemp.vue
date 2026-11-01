@@ -14,7 +14,12 @@
       </span>
     </section>
 
-    <section class="package-grid" aria-label="Choose a package">
+    <section
+      class="package-grid"
+      :class="{ busy: isBusy }"
+      aria-label="Choose a package"
+      :aria-busy="isBusy"
+    >
       <article
         v-for="packageOption in packages"
         :key="packageOption.id"
@@ -119,12 +124,20 @@
 
         <button
           class="choose-package-button"
-          :class="{ 'selected-button': selectedPackageId === packageOption.id }"
+          :class="[
+            { 'selected-button': selectedPackageId === packageOption.id },
+            { 'state-saving': isBusy && selectedPackageId === packageOption.id },
+          ]"
           type="button"
           :aria-pressed="selectedPackageId === packageOption.id"
+          :disabled="isBusy"
           @click.stop="confirmPackage(packageOption)"
         >
-          <template v-if="selectedPackageId === packageOption.id">
+          <span v-if="isBusy && selectedPackageId === packageOption.id" class="button-message">
+            <span class="spinner" aria-hidden="true"></span>
+            {{ saveState === "saving" ? "Saving package..." : "Navigating to recipient..." }}
+          </span>
+          <template v-else-if="selectedPackageId === packageOption.id">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="m5 12 4 4L19 6"
@@ -140,13 +153,25 @@
         </button>
       </article>
     </section>
+
+    <Transition name="toast">
+      <div v-if="toast.message" class="toast" :class="`toast-${toast.type}`" role="status" aria-live="polite">
+        <svg v-if="toast.type === 'success'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m5 12 4 4L19 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 8v5m0 3.5v.5M10.3 3.9 2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        {{ toast.message }}
+      </div>
+    </Transition>
   </main>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { computed, onUnmounted, reactive, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { readOrderDraft } from "@/utils/orderDraft";
+import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 import { PACKAGES } from "@/shared/catalog";
 
@@ -169,6 +194,23 @@ const selectedPackageId = ref(
 
 orderStore.updateOrderDraft({ package_id: selectedPackageId.value });
 
+// "" | "saving" | "navigating"
+const saveState = ref("");
+const isBusy = computed(() => saveState.value !== "");
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const toast_duration_ms = 2500;
+const toast = reactive({ message: "", type: "success" });
+let toastTimer;
+onUnmounted(() => clearTimeout(toastTimer));
+
+function showToast(message, type = "success") {
+  clearTimeout(toastTimer);
+  toast.message = message;
+  toast.type = type;
+  toastTimer = setTimeout(() => (toast.message = ""), toast_duration_ms);
+}
+
 function packageFeatures(packageOption) {
   return [
     { label: "Personal message", included: true },
@@ -181,17 +223,32 @@ function packageFeatures(packageOption) {
 }
 
 function selectPackage(packageOption) {
+  if (isBusy.value) return;
   selectedPackageId.value = packageOption.id;
   orderStore.updateOrderDraft({ package_id: packageOption.id });
 }
 
-function confirmPackage(packageOption) {
+async function confirmPackage(packageOption) {
+  if (isBusy.value) return;
   if (selectedPackageId.value !== packageOption.id) {
     selectPackage(packageOption);
     return;
   }
-  console.log(orderStore.orders);
 
+  saveState.value = "saving";
+  try {
+    await saveServerOrder();
+  } catch (error) {
+    console.error(error);
+    saveState.value = "";
+    showToast(`Couldn't save ${packageOption.name}. Please try again.`, "error");
+    return;
+  }
+
+  // maikling pagitan para mabasa ang toast bago lumipat
+  showToast(`${packageOption.name} saved`);
+  saveState.value = "navigating";
+  await wait(3000);
   router.push("/create/recipient");
 }
 </script>
@@ -387,6 +444,91 @@ function confirmPackage(packageOption) {
 .choose-package-button svg {
   width: 15px;
   height: 15px;
+}
+.choose-package-button:disabled {
+  cursor: not-allowed;
+}
+.package-grid.busy .package-card {
+  cursor: not-allowed;
+}
+.package-grid.busy .package-card:not(.selected) {
+  opacity: 0.5;
+}
+.button-message {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-align: center;
+}
+.choose-package-button.state-saving {
+  border-color: #3265df;
+  background: #eaf0ff;
+  color: #3265df;
+}
+.toast {
+  position: fixed;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
+  z-index: 50;
+  display: flex;
+  max-width: min(360px, calc(100vw - 40px));
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 30px rgba(28, 35, 68, 0.18);
+}
+.toast svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.toast-success {
+  background: #39964c;
+  color: #fff;
+}
+.toast-error {
+  background: #c03434;
+  color: #fff;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-from,
+  .toast-leave-to {
+    transform: none;
+  }
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
 }
 @media (max-width: 900px) {
   .package-page {

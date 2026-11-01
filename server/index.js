@@ -7,6 +7,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Logs each API request and its status, to debug saves from the browser
+app.use("/api", (req, res, next) => {
+  res.on("finish", () => {
+    const fields = req.body ? Object.keys(req.body).join(", ") : "";
+    console.log(`[api] ${req.method} ${req.originalUrl} -> ${res.statusCode}${fields ? ` | fields: ${fields}` : ""}`);
+  });
+  next();
+});
+
 registerRoutes(app);
 
 app.get("/", (req, res) => {
