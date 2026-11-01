@@ -1,30 +1,15 @@
 <template>
-  <!-- INTERACTIVE PREVIEW ng 01 Soft Celebration: cover + 5 eksena sa loob ng phone.
-       Lahat ng laman ay galing sa `content` prop (sample muna habang wala pang form). -->
-  <div
-    ref="overlayEl"
-    class="surprise-overlay"
-    role="dialog"
-    aria-modal="true"
-    aria-label="Soft Celebration interactive preview"
-    tabindex="-1"
+  <!-- INTERACTIVE PREVIEW ng 01 Soft Celebration: cover + 5 eksena sa loob ng device.
+       Lahat ng laman ay galing sa `content` prop (sample muna habang wala pang form).
+       Top bar + pilian ng device (Cellphone / iPad / Laptop) ay nasa SurpriseShell. -->
+  <SurpriseShell
+    class="soft-shell"
+    title="01 Soft Celebration"
+    @close="emit('close')"
+    @use="emit('use')"
+    @device-change="goTo('cover')"
   >
-    <header class="surprise-topbar">
-      <div class="topbar-title">
-        <strong>01 Soft Celebration</strong>
-        <span>Interactive preview</span>
-      </div>
-      <div class="topbar-actions">
-        <button class="use-button" type="button" @click="emit('use')">Use this template</button>
-        <button class="close-button" type="button" aria-label="Close preview" @click="emit('close')">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-        </button>
-      </div>
-    </header>
-
-    <div class="surprise-stage">
+    <template #side>
       <aside class="flow-info">
         <h2>Birthday surprise <span>flow</span></h2>
         <p>
@@ -48,6 +33,7 @@
           coupons come from the form the customer fills out. Photos needed: 1 to 3.
         </p>
       </aside>
+    </template>
 
       <div ref="phoneEl" class="phone" :class="{ 'is-dark': scene === 'finale' }">
         <!-- SVG DEFS: ribbon bow, bulaklak, puso, sparkle, garland (ginagamit sa lahat ng eksena) -->
@@ -133,13 +119,27 @@
           <svg v-else class="garland" aria-hidden="true"><use href="#sl-garland" /></svg>
         </template>
 
+        <!-- PANG-IBABANG DEKORASYON (bulaklak sa kanto + puso sa gitna); sa Cover at Lock lang -->
+        <img
+          v-if="bottomArt && (scene === 'cover' || scene === 'lock')"
+          class="bottom-decor"
+          :src="bottomArt"
+          alt=""
+          aria-hidden="true"
+        />
+
         <div v-if="sceneIndex >= 0" class="progress">
           <span v-for="(step, index) in scenes" :key="step.id" :class="{ on: index <= sceneIndex }" />
         </div>
 
         <Transition name="scene" mode="out-in">
           <!-- COVER -->
-          <section v-if="scene === 'cover'" key="cover" class="scene scene-light scene-cover">
+          <section
+            v-if="scene === 'cover'"
+            key="cover"
+            class="scene scene-light scene-cover"
+            :class="{ 'has-bottom-decor': bottomArt }"
+          >
             <p class="eyebrow">A surprise for {{ c.recipient }}</p>
             <h3 class="scene-title">Someone made this just for you</h3>
             <div class="divider" aria-hidden="true"><svg><use href="#sl-heart" /></svg></div>
@@ -148,11 +148,16 @@
               Start the surprise <span aria-hidden="true">→</span>
             </button>
             <p class="script-line">From {{ c.sender }}, with love 💗</p>
-            <div class="divider" aria-hidden="true"><svg><use href="#sl-heart" /></svg></div>
+            <div v-if="!bottomArt" class="divider" aria-hidden="true"><svg><use href="#sl-heart" /></svg></div>
           </section>
 
           <!-- 1. SECRET LOCK -->
-          <section v-else-if="scene === 'lock'" key="lock" class="scene scene-light">
+          <section
+            v-else-if="scene === 'lock'"
+            key="lock"
+            class="scene scene-light scene-lock"
+            :class="{ 'has-bottom-decor': bottomArt }"
+          >
             <p class="eyebrow">A surprise for {{ c.recipient }}</p>
             <h3 class="scene-title">
               <svg class="title-sparkle" aria-hidden="true"><use href="#sl-sparkle" /></svg>
@@ -185,7 +190,11 @@
                 <use href="#sl-bow" x="52" y="112" width="56" height="41" />
               </svg>
             </div>
-            <p class="hint">Hint: {{ c.hint }}</p>
+            <p class="hint">
+              Hint: {{ c.hint }}
+              <img v-if="letterArt" class="hint-icon" :src="letterArt" alt="" aria-hidden="true" />
+              <span v-else aria-hidden="true">💌</span>
+            </p>
             <div class="divider" aria-hidden="true"><svg><use href="#sl-heart" /></svg></div>
             <div class="code-dots" aria-live="polite" :aria-label="`${entered.length} of ${c.code.length} digits`">
               <span v-for="n in c.code.length" :key="n" :class="{ filled: n <= entered.length }" />
@@ -232,9 +241,7 @@
             <p class="scene-sub">Each balloon hides a birthday wish.</p>
             <div class="wish-card" aria-live="polite">
               <img v-if="smallBowArt" class="card-bow art" :src="smallBowArt" alt="" aria-hidden="true" />
-              <svg v-else class="card-bow" aria-hidden="true"><use href="#sl-bow" /></svg>
-              <svg class="card-flower" aria-hidden="true"><use href="#sl-flower" /></svg>
-              <Transition name="pop-in" mode="out-in">
+              <svg v-else class="card-bow" aria-hidden="true"><use href="#sl-bow" /></svg>              <Transition name="pop-in" mode="out-in">
                 <div :key="popped.length">
                   <template v-if="popped.length">
                     <span>Wish {{ popped.length }} of {{ wishes.length }}</span>
@@ -256,7 +263,15 @@
                 :style="balloonStyle(index)"
                 @click="popBalloon(index, $event)"
               >
-                <svg viewBox="0 0 70 140" aria-hidden="true">
+                <img
+                  v-if="balloonArt[index]"
+                  class="balloon-art"
+                  :src="balloonArt[index]"
+                  alt=""
+                  aria-hidden="true"
+                  draggable="false"
+                />
+                <svg v-else viewBox="0 0 70 140" aria-hidden="true">
                   <path d="M35 80c-7 12 7 20 0 32s6 14 0 26" fill="none" stroke="#e8809c" stroke-width="1.6" />
                   <ellipse cx="35" cy="37" rx="30" ry="34" fill="currentColor" />
                   <ellipse cx="35" cy="37" rx="30" ry="34" fill="url(#sl-shine)" />
@@ -289,7 +304,9 @@
             <p class="scene-sub">Tap or rub the polaroid to reveal it.</p>
             <div class="divider" aria-hidden="true"><svg><use href="#sl-heart" /></svg></div>
             <div class="polaroid-stage">
-              <template v-if="sprayArt">
+              <!-- frame na bulaklak + ribbon sa likod ng polaroid (inuuna kaysa sa spray) -->
+              <img v-if="borderArt" class="polaroid-border" :src="borderArt" alt="" aria-hidden="true" />
+              <template v-else-if="sprayArt">
                 <img class="spray spray-top" :src="sprayArt.left" alt="" aria-hidden="true" />
                 <img class="spray spray-bottom" :src="sprayArt.right" alt="" aria-hidden="true" />
               </template>
@@ -456,12 +473,12 @@
           </div>
         </div>
       </div>
-    </div>
-  </div>
+  </SurpriseShell>
 </template>
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import SurpriseShell from "./SurpriseShell.vue";
 import softCelebrationFull from "@/assets/templates/birthday/birthday-soft-celebration-full.webp";
 import birthdayCake from "@/assets/occasions/birthday-cake.webp";
 
@@ -474,6 +491,10 @@ import birthdayCake from "@/assets/occasions/birthday-cake.webp";
    soft-bow-small   = bow sa ibabaw ng wish card at coupon
    soft-spray-left / -right = bulaklak + ribbon sa paligid ng polaroid
    soft-cover-art   = larawan sa Cover (walang text)
+   pastel-pink-floral-heart-divider = dekorasyon sa ibaba ng Cover at Lock
+   glossy-heart-sealed-love-letter  = sobre sa dulo ng hint sa Secret Lock (kapalit ng 💌)
+   glossy-*-balloon-*  = 5 painted na lobo sa Balloon Pop (tingnan ang balloonArt)
+   pastel-floral-ribbon-border = bulaklak + ribbon sa likod ng polaroid (kapalit ng soft-spray-*)
    Habang wala pa, CSS/SVG ang pamalit. */
 const artFiles = import.meta.glob("@/assets/surprise/*.webp", { eager: true, import: "default" });
 const art = Object.fromEntries(
@@ -488,6 +509,9 @@ const garlandArt =
       }
     : null;
 const smallBowArt = art["soft-bow-small"];
+const bottomArt = art["pastel-pink-floral-heart-divider"];
+const borderArt = art["pastel-floral-ribbon-border"];
+const letterArt = art["glossy-heart-sealed-love-letter"];
 const sprayArt =
   art["soft-spray-left"] && art["soft-spray-right"]
     ? { left: art["soft-spray-left"], right: art["soft-spray-right"] }
@@ -499,7 +523,7 @@ const sampleContent = {
   recipient: "Maria",
   sender: "Juan",
   code: "0214",
-  hint: "the date of our first date 💌",
+  hint: "the date of our first date",
   wishes: [
     "May all your dreams come true this year.",
     "More laughter than ever, every single day.",
@@ -536,7 +560,6 @@ const scenes = [
 ];
 const scene = ref("cover");
 const sceneIndex = computed(() => scenes.findIndex((step) => step.id === scene.value));
-const overlayEl = ref(null);
 const phoneEl = ref(null);
 
 /* ===== Timers: lahat ng setTimeout ay naka-track para malinis kapag lumipat/nagsara ===== */
@@ -590,13 +613,23 @@ function checkCode() {
 
 /* ===== 2. Balloon Pop Wishes ===== */
 const balloonColors = ["#f98fab", "#e8607f", "#f5a8cf", "#f7a3b8", "#ffc19a"];
+/* puwesto ng mga lobo: x = % mula kaliwa, t = % mula sa ITAAS ng balloon field (hindi aakyat sa wish card).
+   Mga 48% ng taas ng field ang laki ng lobo, kaya hanggang t: 46 lang para kasya pa rin sa ibaba. */
 const balloonSpots = [
-  { x: 6, b: 44, d: 0 },
-  { x: 38, b: 56, d: 0.6 },
-  { x: 70, b: 46, d: 1.2 },
-  { x: 20, b: 4, d: 0.3 },
-  { x: 56, b: 10, d: 0.9 },
+  { x: 4, t: 6, d: 0 },
+  { x: 38, t: 0, d: 0.6 },
+  { x: 70, t: 8, d: 1.2 },
+  { x: 18, t: 42, d: 0.3 },
+  { x: 56, t: 46, d: 0.9 },
 ];
+// painted na lobo (webp) para sa ilang lobo; ang iba ay SVG pa rin. index = pang-ilang lobo (0–4)
+const balloonArt = {
+  0: art["glossy-pink-heart-balloon-with-gift-tag"], // unang lobo (kaliwa sa itaas)
+  1: art["glossy-heart-balloon-with-ribbon-tag"], // ikalawang lobo (gitna sa itaas)
+  2: art["glossy-pink-valentine-balloon"], // ikatlong lobo (kanan sa itaas)
+  3: art["glossy-pink-heart-balloon-with-ribbon-tag"], // ikaapat na lobo (kaliwa sa ibaba)
+  4: art["glossy-peach-balloon-with-heart-tag"], // ikalimang lobo (kanan sa ibaba)
+};
 const popped = ref([]);
 
 function balloonStyle(index) {
@@ -604,7 +637,7 @@ function balloonStyle(index) {
   return {
     color: balloonColors[index % balloonColors.length],
     left: `${spot.x}%`,
-    bottom: `${spot.b}%`,
+    top: `${spot.t}%`,
     animationDelay: `${spot.d}s`,
   };
 }
@@ -723,18 +756,21 @@ const fireworkPalettes = [
   ["#f7a8d8", "#ffe0ef", "#ffffff"],
 ];
 
-// posisyon ng pointer/button relative sa loob ng phone
+// posisyon ng pointer/button relative sa loob ng phone.
+// Hinahati sa scale kasi pinaliliit ng SurpriseShell ang device preview.
 function pointFrom(event) {
   const phone = phoneEl.value;
   const rect = phone.getBoundingClientRect();
-  const offsetX = rect.left + phone.clientLeft;
-  const offsetY = rect.top + phone.clientTop;
+  const scale = rect.width / phone.offsetWidth || 1;
   if (event?.clientX || event?.clientY) {
-    return { x: event.clientX - offsetX, y: event.clientY - offsetY };
+    return { x: (event.clientX - rect.left) / scale, y: (event.clientY - rect.top) / scale };
   }
   const target = event?.currentTarget?.getBoundingClientRect?.();
   if (target) {
-    return { x: target.left + target.width / 2 - offsetX, y: target.top + target.height / 2 - offsetY };
+    return {
+      x: (target.left + target.width / 2 - rect.left) / scale,
+      y: (target.top + target.height / 2 - rect.top) / scale,
+    };
   }
   return { x: phone.clientWidth / 2, y: phone.clientHeight / 3 };
 }
@@ -793,27 +829,20 @@ function goTo(id) {
   scene.value = id;
 }
 
-/* Esc = isara; sa Secret Lock, gumagana rin ang number keys ng keyboard */
+/* sa Secret Lock, gumagana rin ang number keys ng keyboard (ang Esc ay nasa SurpriseShell).
+   Enter = Unlock, maliban kung button ang naka-focus (pipindutin na iyon mismo ng Enter). */
 function onKeydown(event) {
-  if (event.key === "Escape") {
-    emit("close");
-  } else if (scene.value === "lock") {
-    if (/^[0-9]$/.test(event.key)) pressKey(event.key);
-    else if (event.key === "Backspace") pressKey("back");
-    else if (event.key === "Enter" && event.target === overlayEl.value) pressKey("ok");
-  }
+  if (scene.value !== "lock") return;
+  if (/^[0-9]$/.test(event.key)) pressKey(event.key);
+  else if (event.key === "Backspace") pressKey("back");
+  else if (event.key === "Enter" && !event.target.closest?.("button")) pressKey("ok");
 }
 
-let previousOverflow = "";
 onMounted(() => {
-  previousOverflow = document.body.style.overflow;
-  document.body.style.overflow = "hidden";
   window.addEventListener("keydown", onKeydown);
-  overlayEl.value?.focus();
 });
 onUnmounted(() => {
   clearTimers();
-  document.body.style.overflow = previousOverflow;
   window.removeEventListener("keydown", onKeydown);
 });
 </script>
@@ -821,7 +850,23 @@ onUnmounted(() => {
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap");
 
-.surprise-overlay {
+/* kulay ng SurpriseShell (light na pink theme) + mga variable ng eksena at step list */
+.soft-shell {
+  --shell-bg:
+    radial-gradient(circle at 12% 18%, #ffd3df 0, transparent 38%),
+    radial-gradient(circle at 88% 82%, #ffe0cc 0, transparent 40%),
+    linear-gradient(160deg, #fff3f6, #ffe6ee 55%, #fff1ea);
+  --shell-bar: rgb(255 250 247 / 0.85);
+  --shell-ink: #192448;
+  --shell-muted: #5f6680;
+  --shell-line: #f6d3dd;
+  --shell-line-strong: #f0cbd6;
+  --shell-close-bg: #fff;
+  --shell-switch-bg: #fff;
+  --shell-use-bg: #e8597a;
+  --shell-use-ink: #fff;
+  --shell-use-shadow: 0 6px 16px rgb(232 89 122 / 0.3);
+  --shell-frame: #192448;
   --navy: var(--sl-navy, #192448);
   --display: var(--sl-font-display, "Fredoka", sans-serif);
   --stretch: var(--sl-display-stretch, 86%);
@@ -833,95 +878,12 @@ onUnmounted(() => {
   --cream: #fdf6f3;
   --gold: #e2c07a;
   --muted: #5f6680;
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  background:
-    radial-gradient(circle at 12% 18%, #ffd3df 0, transparent 38%),
-    radial-gradient(circle at 88% 82%, #ffe0cc 0, transparent 40%),
-    linear-gradient(160deg, #fff3f6, #ffe6ee 55%, #fff1ea);
-  color: var(--navy);
-  font-family: var(--sl-font-body, "Nunito", sans-serif);
-  outline: none;
 }
 
-/* ===== Top bar ===== */
-.surprise-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px clamp(16px, 4vw, 40px);
-  border-bottom: 1px solid #f6d3dd;
-  background: rgb(255 250 247 / 0.85);
-  backdrop-filter: blur(8px);
-}
-.topbar-title {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-.topbar-title strong {
-  font-family: var(--display);
-  font-stretch: var(--stretch);
-  font-size: 19px;
-}
-.topbar-title span {
-  color: var(--muted);
-  font-size: 13px;
-}
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.use-button {
-  border: 0;
-  border-radius: 999px;
-  padding: 10px 20px;
-  background: var(--rose);
-  color: #fff;
-  font-family: var(--display);
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgb(232 89 122 / 0.3);
-  transition: background 0.2s, transform 0.2s;
-}
-.use-button:hover {
-  background: var(--rose-deep);
-  transform: translateY(-1px);
-}
-.close-button {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border: 1px solid #f0cbd6;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--navy);
-  cursor: pointer;
-}
-.close-button svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* ===== Stage: info sa kaliwa + phone sa kanan ===== */
-.surprise-stage {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(32px, 6vw, 96px);
-  padding: 20px 16px;
-}
+/* ===== Step list sa kaliwa ng device (side slot ng SurpriseShell) ===== */
 .flow-info {
   max-width: 420px;
+  color: var(--navy);
 }
 .flow-info h2 {
   margin: 0 0 8px;
@@ -991,18 +953,14 @@ onUnmounted(() => {
   color: var(--navy);
 }
 
-/* ===== Phone + manipis na pink frame sa loob ===== */
+/* ===== Laman ng screen (puno ang device ng SurpriseShell) + manipis na pink frame sa loob ===== */
 .phone {
-  position: relative;
-  flex: none;
-  width: min(390px, 100%);
-  height: min(780px, calc(100dvh - 110px));
-  min-height: 620px;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  border: 12px solid var(--navy);
-  border-radius: 48px;
   background: var(--cream);
-  box-shadow: 0 30px 60px rgb(25 36 72 / 0.22);
+  color: var(--navy);
+  font-family: var(--sl-font-body, "Nunito", sans-serif);
 }
 .phone::after {
   content: "";
@@ -1010,7 +968,8 @@ onUnmounted(() => {
   z-index: 4;
   inset: 8px;
   border: 1.5px solid var(--pink-line);
-  border-radius: 32px;
+  /* sumusunod sa kurba ng screen ng napiling device */
+  border-radius: max(12px, calc(var(--screen-radius, 36px) - 4px));
   pointer-events: none;
   transition: border-color 0.4s;
 }
@@ -1054,7 +1013,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 116px 22px 26px;
+  /* sa iPad/laptop: laman sa gitnang column (max 440px), pero puno pa rin ang background */
+  padding: 116px max(22px, calc(50% - 220px)) 26px;
   overflow-x: hidden;
   overflow-y: auto;
   text-align: center;
@@ -1067,27 +1027,28 @@ onUnmounted(() => {
 .scene-light {
   background: radial-gradient(circle at 50% 45%, #fffbf8 0, transparent 70%), var(--cream);
 }
+/* garland: nakagitna, max 520px ang lapad para hindi lumaki nang sobra sa iPad/laptop */
 .garland {
   position: absolute;
   z-index: 3;
   top: 26px;
-  left: 14px;
-  width: calc(100% - 28px);
+  left: 0;
+  right: 0;
+  width: min(calc(100% - 28px), 520px);
   height: 86px;
+  margin-inline: auto;
   pointer-events: none;
 }
 /* image garland (transparent webp): bow sa gitna, bulaklak sa dalawang kanto */
 div.garland {
   top: 26px;
-  left: 10px;
-  width: calc(100% - 20px);
+  width: min(calc(100% - 20px), 520px);
   height: 124px;
 }
 /* isang piraso na garland (soft-garland-top.webp): bow + bulaklak, buong lapad */
 .garland.garland-full {
   top: 20px;
-  left: 10px;
-  width: calc(100% - 20px);
+  width: min(calc(100% - 20px), 520px);
   height: auto;
 }
 /* mas maliit na bow: ang dulo ng tails ay tumatapat sa ribbon na lumalabas sa bulaklak sa kanto */
@@ -1108,6 +1069,27 @@ div.garland {
 }
 .garland-corner.right {
   right: -4px;
+}
+/* pang-ibabang dekorasyon: nakapatong sa frame, buong lapad (gaya ng garland sa itaas) */
+.bottom-decor {
+  position: absolute;
+  z-index: 3;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  width: min(calc(100% - 20px), 520px);
+  margin-inline: auto;
+  pointer-events: none;
+}
+.scene-cover.has-bottom-decor {
+  padding-bottom: 84px;
+}
+.scene-lock.has-bottom-decor {
+  padding-bottom: 46px;
+}
+/* demo code: nasa gitna ng dalawang bulaklak, sa itaas lang ng linya */
+.scene-lock .demo-code {
+  margin-top: auto;
 }
 .eyebrow {
   margin: 0;
@@ -1258,6 +1240,16 @@ div.garland {
   font-size: 24px;
   line-height: 1.1;
 }
+/* sobre sa dulo ng hint: kasing-taas ng text, may kaunting tagilid */
+.hint-icon {
+  display: inline-block;
+  width: 1.35em;
+  height: auto;
+  margin-left: 4px;
+  vertical-align: -0.12em;
+  filter: drop-shadow(0 2px 3px rgb(232 89 122 / 0.25));
+  transform: rotate(-6deg);
+}
 .code-dots {
   display: flex;
   gap: 14px;
@@ -1314,16 +1306,17 @@ div.garland {
 .scene-balloons {
   background:
     linear-gradient(180deg, var(--cream) 0%, #fbe9ee 22%, #f6d6e3 45%, #f3cde0 62%, #ffd9c4 82%, #ffe6cf 100%);
-  background-position: center;
+  /* naka-angkla sa ibaba: sa maikli/malapad na screen, langit sa itaas lang ang napuputol */
+  background-position: center bottom;
   background-size: cover;
 }
 .scene-balloons::before {
-  /* cream na fade sa itaas para mabasa ang title kahit may background image */
+  /* cream na fade sa itaas para mabasa ang title at wish card kahit may background image */
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 46%;
-  background: linear-gradient(180deg, var(--cream) 45%, rgb(253 246 243 / 0));
+  height: 40%;
+  background: linear-gradient(180deg, var(--cream) 50%, rgb(253 246 243 / 0.7) 75%, rgb(253 246 243 / 0));
   pointer-events: none;
 }
 .sky-fallback {
@@ -1397,13 +1390,6 @@ div.garland {
   width: 150px;
   height: auto;
 }
-.card-flower {
-  position: absolute;
-  top: -8px;
-  right: -6px;
-  width: 30px;
-  height: 30px;
-}
 .wish-card span {
   color: var(--rose);
   font-family: var(--display);
@@ -1419,13 +1405,16 @@ div.garland {
   font-size: 27px;
   line-height: 1.05;
 }
+/* container query: ang laki ng lobo ay sumusunod sa lapad AT taas ng field, kaya kasya kahit maikli ang screen */
 .balloon-field {
-  flex: 1 0 280px;
+  flex: 1 0 220px;
   width: 100%;
+  margin-top: 18px; /* puwang para hindi sumagi sa wish card habang lumulutang */
+  container-type: size;
 }
 .balloon {
   position: absolute;
-  width: 26%;
+  width: min(26cqw, 22cqh);
   padding: 0;
   border: 0;
   background: none;
@@ -1434,10 +1423,15 @@ div.garland {
   animation: bob 3.2s ease-in-out infinite;
   transition: transform 0.25s, opacity 0.25s;
 }
-.balloon svg {
+.balloon svg,
+.balloon-art {
   display: block;
   width: 100%;
   overflow: visible;
+}
+.balloon-art {
+  height: auto;
+  user-select: none;
 }
 .balloon.popped {
   opacity: 0;
@@ -1457,6 +1451,16 @@ div.garland {
   place-items: center;
   width: 300px;
   height: 330px;
+}
+/* frame na hugis U sa likod ng polaroid: bulaklak sa gilid, ribbon sa ilalim ng larawan */
+.polaroid-border {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  width: 330px;
+  max-width: none;
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 /* bulaklak + ribbon (webp) sa likod ng polaroid */
 .spray {
@@ -2117,32 +2121,7 @@ div.garland {
   100% { transform: scale(1); opacity: 0; }
 }
 
-/* ===== Responsive: sa phone, buong screen na ang "phone" ===== */
-@media (max-width: 900px) {
-  .flow-info {
-    display: none;
-  }
-}
-@media (max-width: 480px) {
-  .surprise-stage {
-    padding: 0;
-  }
-  .phone {
-    width: 100%;
-    height: calc(100dvh - 65px);
-    min-height: 580px;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-  .topbar-title span {
-    display: none;
-  }
-  .use-button {
-    padding: 9px 14px;
-    font-size: 14px;
-  }
-}
+/* (Responsive ng top bar, frame at step list: nasa SurpriseShell na) */
 @media (prefers-reduced-motion: reduce) {
   .cover-art,
   .balloon,

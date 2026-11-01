@@ -41,3 +41,6 @@ __screenshots__/
 #env
 .env
 
+# Asset Cutter (tools/asset-cutter.mjs)
+assets-inbox/
+tools/.models/
