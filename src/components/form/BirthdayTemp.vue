@@ -77,13 +77,14 @@
           </span>
         </button>
         <!-- DAGDAG: totoong "Start the surprise" button (HTML, hindi bahagi ng larawan).
-             Nakapatong sa bakanteng espasyo sa ilalim ng mensahe; tuloy agad sa Package. -->
+             Nakapatong sa bakanteng espasyo sa ilalim ng mensahe; tuloy agad sa Package.
+             (Soft Celebration: bubuksan muna ang interactive surprise preview) -->
         <button
           class="surprise-button"
           :class="`btn-${template.buttonStyle}`"
           type="button"
           :aria-label="`Start the surprise with ${template.name}`"
-          @click="useTemplate(template)"
+          @click="startSurprise(template)"
         >
           Start the surprise <span aria-hidden="true">→</span>
         </button>
@@ -174,6 +175,13 @@
       @cancel="cancelTemplate"
       @confirm="useSelectedTemplate"
     />
+
+    <!-- DAGDAG: interactive surprise ng 01 Soft Celebration -->
+    <BirthdaySoftCelebration
+      v-if="surpriseTemplate"
+      @close="closeSurprise"
+      @use="useSurpriseTemplate"
+    />
   </main>
 </template>
 
@@ -181,6 +189,7 @@
 import { computed, nextTick, ref } from "vue";
 import { useRouter } from "vue-router";
 import ConFirm from "../dialog/ConFirm.vue";
+import BirthdaySoftCelebration from "../surprise/BirthdaySoftCelebration.vue";
 import { readOrderDraft } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
@@ -361,6 +370,24 @@ function usePreviewTemplate() {
   if (!previewTemplate.value) return;
   useTemplate(previewTemplate.value);
   closePreview();
+}
+
+/* DAGDAG: Soft Celebration lang ang may interactive surprise; ang iba ay diretso sa Package */
+const surpriseTemplate = ref(null);
+
+function startSurprise(template) {
+  if (template.id === "soft-celebration") surpriseTemplate.value = template;
+  else useTemplate(template);
+}
+
+function closeSurprise() {
+  surpriseTemplate.value = null;
+}
+
+function useSurpriseTemplate() {
+  if (!surpriseTemplate.value) return;
+  useTemplate(surpriseTemplate.value);
+  closeSurprise();
 }
 
 let navigating = false; // DAGDAG: iwas dobleng pindot sa "Start the surprise"
