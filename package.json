@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
-    "lint:eslint": "eslint . --fix --cache"
+    "lint:eslint": "eslint . --fix --cache",
+    "assets": "node tools/asset-cutter.mjs"
   },
   "dependencies": {
     "@primeuix/themes": "^3.0.1",
@@ -29,7 +30,9 @@
     "eslint-plugin-vue": "~10.11.0",
     "globals": "^17.12.0",
     "npm-run-all2": "^9.0.3",
+    "onnxruntime-node": "^1.31.1",
     "oxlint": "~1.82.0",
+    "sharp": "^0.35.5",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1",
     "vue-eslint-parser": "^10.4.1"

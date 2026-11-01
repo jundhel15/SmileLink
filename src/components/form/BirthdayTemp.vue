@@ -176,8 +176,9 @@
       @confirm="useSelectedTemplate"
     />
 
-    <!-- DAGDAG: interactive surprise ng 01 Soft Celebration -->
-    <BirthdaySoftCelebration
+    <!-- DAGDAG: interactive surprise (01 Soft Celebration, 02 Starry Night, 03 Memory Lane, 08 Cozy Corner) -->
+    <component
+      :is="surpriseComponents[surpriseTemplate.id]"
       v-if="surpriseTemplate"
       @close="closeSurprise"
       @use="useSurpriseTemplate"
@@ -190,6 +191,9 @@ import { computed, nextTick, ref } from "vue";
 import { useRouter } from "vue-router";
 import ConFirm from "../dialog/ConFirm.vue";
 import BirthdaySoftCelebration from "../surprise/BirthdaySoftCelebration.vue";
+import BirthdayStarryNight from "../surprise/BirthdayStarryNight.vue";
+import BirthdayCozyCorner from "../surprise/BirthdayCozyCorner.vue";
+import BirthdayMemoryLane from "../surprise/BirthdayMemoryLane.vue";
 import { readOrderDraft, updateOrderDraft } from "@/utils/orderDraft";
 
 /* ===== DAGDAG: mga larawan ng Birthday templates (WebP) =====
@@ -370,11 +374,17 @@ function usePreviewTemplate() {
   closePreview();
 }
 
-/* DAGDAG: Soft Celebration lang ang may interactive surprise; ang iba ay diretso sa Package */
+/* DAGDAG: mga template na may interactive surprise; ang wala rito ay diretso sa Package */
+const surpriseComponents = {
+  "soft-celebration": BirthdaySoftCelebration,
+  "starry-night": BirthdayStarryNight,
+  "memory-lane": BirthdayMemoryLane,
+  "cozy-corner": BirthdayCozyCorner,
+};
 const surpriseTemplate = ref(null);
 
 function startSurprise(template) {
-  if (template.id === "soft-celebration") surpriseTemplate.value = template;
+  if (surpriseComponents[template.id]) surpriseTemplate.value = template;
   else useTemplate(template);
 }
 

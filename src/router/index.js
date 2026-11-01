@@ -67,6 +67,16 @@ const router = createRouter({
       // which is lazy-loaded when the route is visited.
       component: () => import("../views/AboutView.vue"),
     },
+    // DAGDAG: Asset Studio (upload + preview ng mga asset) — sa `npm run dev` lang, wala sa build
+    ...(import.meta.env.DEV
+      ? [
+          {
+            path: "/dev/assets",
+            name: "asset-studio",
+            component: () => import("../views/AssetStudioView.vue"),
+          },
+        ]
+      : []),
   ],
 });
 

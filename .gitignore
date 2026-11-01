@@ -37,3 +37,7 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Asset Cutter (tools/asset-cutter.mjs)
+assets-inbox/
+tools/.models/
