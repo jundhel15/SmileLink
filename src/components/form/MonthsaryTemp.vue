@@ -200,6 +200,8 @@ import monthsary3 from "@/assets/templates/monthsary/monthsary-template-3.webp";
 
 /* ===== Mga surprise component ===== */
 import MonthsaryTemplate1 from "../surprise/MonthsaryTemplate1.vue";
+import MonthsaryTemplate2 from "../surprise/MonthsaryTemplate2.vue";
+import MonthsaryTemplate3 from "../surprise/MonthsaryTemplate3.vue";
 
 const router = useRouter();
 const orderStore = useOrderStore();
@@ -293,6 +295,8 @@ function usePreviewTemplate() {
 /* mga template na may interactive surprise; ang wala rito ay diretso sa Package */
 const surpriseComponents = {
   "monthsary-template-1": MonthsaryTemplate1,
+  "monthsary-template-2": MonthsaryTemplate2,
+  "monthsary-template-3": MonthsaryTemplate3,
 };
 const surpriseTemplate = ref(null);
 
