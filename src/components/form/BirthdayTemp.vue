@@ -194,6 +194,10 @@ import BirthdaySoftCelebration from "../surprise/BirthdaySoftCelebration.vue";
 import BirthdayStarryNight from "../surprise/BirthdayStarryNight.vue";
 import BirthdayCozyCorner from "../surprise/BirthdayCozyCorner.vue";
 import BirthdayMemoryLane from "../surprise/BirthdayMemoryLane.vue";
+import BirthdayGoldenHour from "../surprise/BirthdayGoldenHour.vue";
+import BirthdayTimelessElegance from "../surprise/BirthdayTimelessElegance.vue";
+import BirthdayOceanBreeze from "../surprise/BirthdayOceanBreeze.vue";
+import BirthdayGardenBloom from "../surprise/BirthdayGardenBloom.vue";
 import { readOrderDraft } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
@@ -382,6 +386,10 @@ const surpriseComponents = {
   "starry-night": BirthdayStarryNight,
   "memory-lane": BirthdayMemoryLane,
   "cozy-corner": BirthdayCozyCorner,
+  "happy-vibes": BirthdayGoldenHour,
+  "timeless-elegance": BirthdayTimelessElegance,
+  "ocean-breeze": BirthdayOceanBreeze,
+  "garden-bloom": BirthdayGardenBloom,
 };
 const surpriseTemplate = ref(null);
 

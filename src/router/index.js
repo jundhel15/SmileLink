@@ -25,6 +25,11 @@ const router = createRouter({
       component: () => import("../views/CelebrateView.vue"),
     },
     {
+      path: "/create/monthsary",
+      name: "monthsary-template",
+      component: () => import("../views/CelebrateView.vue"),
+    },
+    {
       path: "/create/package",
       name: "create-package",
       component: () => import("../views/CelebrateView.vue"),

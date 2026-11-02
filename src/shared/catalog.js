@@ -115,6 +115,30 @@ export const TEMPLATES = [
     heading: "Cozy Moments",
     style: "Dark",
   },
+  {
+    id: "monthsary-template-1",
+    occasion: "monthsary",
+    number: "01",
+    name: "Template 1",
+    heading: "Happy Monthsary",
+    style: "Cute",
+  },
+  {
+    id: "monthsary-template-2",
+    occasion: "monthsary",
+    number: "02",
+    name: "Template 2",
+    heading: "Happy Monthsary",
+    style: "Elegant",
+  },
+  {
+    id: "monthsary-template-3",
+    occasion: "monthsary",
+    number: "03",
+    name: "Template 3",
+    heading: "Happy Monthsary",
+    style: "Fun",
+  },
 ];
 
 // kapareho ng "action" sa CelebrateTemp (walang "/")

@@ -92,6 +92,7 @@
 
     <OrdersTemp v-if="isOrdersPage" />
     <BirthdayTemp v-else-if="isTemplateStep" />
+    <MonthsaryTemp v-else-if="isMonthsaryStep" />
     <PackageTemp v-else-if="isPackageStep" />
     <RecipientTemp v-else-if="isRecipientStep" />
     <ContentTemp v-else-if="isContentStep" />
@@ -108,6 +109,7 @@ import { useRoute, useRouter } from "vue-router";
 import BirthdayTemp from "@/components/form/BirthdayTemp.vue";
 import CelebrateTemp from "@/components/form/CelebrateTemp.vue";
 import ContentTemp from "@/components/form/ContentTemp.vue";
+import MonthsaryTemp from "@/components/form/MonthsaryTemp.vue";
 import OrdercompleteTemp from "@/components/form/OrdercompleteTemp.vue";
 import OrdersTemp from "@/components/form/OrdersTemp.vue";
 import ProccessingTemp from "@/components/form/ProccessingTemp.vue";
@@ -119,6 +121,7 @@ const route = useRoute();
 const router = useRouter();
 const isOrdersPage = computed(() => route.name === "my-orders");
 const isTemplateStep = computed(() => route.name === "birthday-template");
+const isMonthsaryStep = computed(() => route.name === "monthsary-template");
 const isPackageStep = computed(() => route.name === "create-package");
 const isRecipientStep = computed(() => route.name === "create-recipient");
 const isContentStep = computed(() => route.name === "create-content");
@@ -131,7 +134,7 @@ const activeStep = computed(() => {
   if (isContentStep.value) return 4;
   if (isRecipientStep.value) return 3;
   if (isPackageStep.value) return 2;
-  return isTemplateStep.value ? 1 : 0;
+  return isTemplateStep.value || isMonthsaryStep.value ? 1 : 0;
 });
 const steps = ["Celebration", "Template", "Package", "Recipient", "Content", "Review & pay"];
 </script>
