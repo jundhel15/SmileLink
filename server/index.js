@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import process from "node:process";
-import { registerRoutes } from "./apiservice.js";
+import { registerRoutes } from "./config/apiserver.js";
 
 const app = express();
 app.use(cors());

@@ -546,14 +546,25 @@ function closeGcashModal() {
 }
 
 // hindi dito minamarkahang paid; ang processing screen ang naghihintay sa webhook ng server
-function confirmGcashPaid() {
+async function confirmGcashPaid() {
   clearInterval(countdownTimer);
-  const { order_id: orderId } = orderStore.updateOrderDraft({
+  const { order_id: orderId, order_token: orderToken } = orderStore.updateOrderDraft({
     order_status: "pending_payment",
     payment_reference: gcashReference.value,
   });
+
+  // DEV ONLY: pansamantalang kapalit ng webhook; gumagana lang kapag DEV_FAKE_PAYMENT=true sa server
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/dev-confirm`, {
+    method: "POST",
+    headers: { "x-order-token": orderToken },
+  });
+  if (!response.ok && response.status !== 404) {
+    const { error } = await response.json().catch(() => ({}));
+    paymentError.value = error || "We couldn't confirm your payment. Please try again.";
+  }
+
   showGcashModal.value = false;
-  router.push(`/order/${orderId}/processing`);
+  if (!paymentError.value) router.push(`/order/${orderId}/processing`);
 }
 
 onBeforeUnmount(() => clearInterval(countdownTimer));

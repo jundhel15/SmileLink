@@ -10,7 +10,7 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "server": "node --watch --env-file=.env server/index.js",
+    "server": "node --watch --env-file=server/.env server/index.js",
     "dev:all": "run-p dev server",
     "assets": "node tools/asset-cutter.mjs"
   },
@@ -23,6 +23,7 @@
     "pinia": "^4.0.3",
     "primevue": "^5.0.2",
     "qrcode": "^1.5.4",
+    "resend": "^6.37.0",
     "tailwindcss": "^4.3.3",
     "vue": "rc",
     "vue-router": "^5.3.1"

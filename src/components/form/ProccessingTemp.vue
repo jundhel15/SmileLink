@@ -108,6 +108,7 @@ async function checkStatus() {
   try {
     const response = await fetch(`${orders_endpoint}/${encodeURIComponent(orderId)}`, {
       credentials: "include",
+      headers: { "x-order-token": readOrderDraft().order_token ?? "" },
     });
     if (!response.ok)
       throw new Error(`Order status request failed with status ${response.status}.`);

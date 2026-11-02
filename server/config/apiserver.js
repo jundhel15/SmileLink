@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import process from "node:process";
 import { supabase } from "./supabase.js";
+import { sendSmileLinkEmail } from "./email.js";
 export let registerapp = null;
 
 // Fields the client may save, per table. Anything else in the draft is ignored.
@@ -36,7 +38,9 @@ function hashPassword(password) {
 }
 
 function pick(source, fields) {
-  return Object.fromEntries(fields.filter((field) => field in source).map((field) => [field, source[field]]));
+  return Object.fromEntries(
+    fields.filter((field) => field in source).map((field) => [field, source[field]]),
+  );
 }
 
 // Updates the order's row in a child table, or inserts one if it does not exist yet.
@@ -72,11 +76,11 @@ async function findAuthorizedOrder(req) {
 
 export function registerRoutes(app) {
   // Confirms Express handed us the app
-  console.log("[apiservice] registerRoutes connected:", typeof app?.get === "function");
+  console.log("[apiserver] registerRoutes connected:", typeof app?.get === "function");
 
   // Test route: proves this file's routes are mounted
   app.get("/api/ping", (req, res) => {
-    res.json({ ok: true, from: "apiservice.js" });
+    res.json({ ok: true, from: "apiserver.js" });
   });
 
   // Optional: also checks the Supabase connection
@@ -113,7 +117,8 @@ export function registerRoutes(app) {
 
     const draft = req.body ?? {};
     const content = pick(draft, CONTENT_FIELDS);
-    if (draft.password_enabled && draft.password) content.password_hash = hashPassword(draft.password);
+    if (draft.password_enabled && draft.password)
+      content.password_hash = hashPassword(draft.password);
     if (draft.password_enabled === false) content.password_hash = null;
 
     const { error: orderError } = await supabase
@@ -128,6 +133,85 @@ export function registerRoutes(app) {
     if (childError) return res.status(500).json({ error: childError.message });
 
     res.json({ ok: true, order_id: order.id });
+  });
+
+  // Status for the processing and complete screens. The slug is the order id, shown only once paid.
+  app.get("/api/orders/:id", async (req, res) => {
+    const order = await findAuthorizedOrder(req);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+
+    const { data: delivery } = await supabase
+      .from("order_delivery")
+      .select("scheduled_at")
+      .eq("order_id", order.id)
+      .maybeSingle();
+
+    const isPaid = ["paid", "scheduled", "sent"].includes(order.order_status);
+    res.json({
+      order_id: order.id,
+      order_status: order.order_status,
+      link_slug: isPaid ? order.id : null,
+      scheduled_at: delivery?.scheduled_at ?? null,
+    });
+  });
+
+  // DEV ONLY: stands in for the PayMongo webhook so "I've completed the payment" marks the order
+  // paid and emails the link. Only runs when DEV_FAKE_PAYMENT=true; remove once the webhook exists.
+  app.post("/api/orders/:id/dev-confirm", async (req, res) => {
+    if (process.env.DEV_FAKE_PAYMENT !== "true") {
+      return res.status(404).json({ error: "Not found." });
+    }
+
+    const order = await findAuthorizedOrder(req);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    // "paid" is allowed so a failed email can be retried
+    if (!["draft", "paid"].includes(order.order_status)) {
+      return res.status(409).json({ error: "This order was already processed." });
+    }
+
+    const { data: delivery, error: deliveryError } = await supabase
+      .from("order_delivery")
+      .select("recipient_name, recipient_email, sender_name, delivery_mode")
+      .eq("order_id", order.id)
+      .maybeSingle();
+    if (deliveryError) return res.status(500).json({ error: deliveryError.message });
+    if (!delivery?.recipient_email) {
+      return res.status(400).json({ error: "The recipient email is missing." });
+    }
+
+    const setStatus = (order_status) =>
+      supabase
+        .from("orders")
+        .update({ order_status, updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+
+    const { error: paidError } = await setStatus("paid");
+    if (paidError) return res.status(500).json({ error: paidError.message });
+
+    // There is no scheduler yet, so scheduled orders stay "scheduled" and are not emailed.
+    if (delivery.delivery_mode === "scheduled") {
+      await setStatus("scheduled");
+      return res.json({ ok: true, order_status: "scheduled", link_slug: order.id });
+    }
+
+    const link = `${process.env.APP_URL || "http://localhost:5173"}/s/${order.id}`;
+    try {
+      await sendSmileLinkEmail({
+        to: delivery.recipient_email,
+        recipientName: delivery.recipient_name,
+        senderName: delivery.sender_name,
+        link,
+      });
+    } catch (error) {
+      // The order stays "paid" so the email can be retried without charging again.
+      console.error("[email]", error.message);
+      return res.status(502).json({ error: "Payment saved, but the email could not be sent." });
+    }
+
+    const { error: sentError } = await setStatus("sent");
+    if (sentError) return res.status(500).json({ error: sentError.message });
+
+    res.json({ ok: true, order_status: "sent", link_slug: order.id });
   });
 
   registerapp = app;
