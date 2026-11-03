@@ -1,10 +1,10 @@
 <template>
   <!-- INTERACTIVE PREVIEW ng 01 Soft Celebration (PURE CODE · CINEMATIC REDESIGN)
        Walang png/webp. SVG + CSS + <canvas> lang.
-       - 3D na gift box (CSS 3D) na bubuksan
+       - 3D na pop-up birthday card (CSS 3D): hilahin ang cover para bumukas, lalabas ang cake
        - Aurora background na gumagalaw + grain texture
        - Glossy 3D na lobo, holographic na memory cards (3D flip + swipe) para sa mga litrato
-       - Totoong fireworks (rocket → pagsabog, may trail, hugis-puso) at confetti sa canvas
+       - Finale: ikonekta ang mga bituin para mabuo ang puso, tapos fireworks at confetti sa canvas
        Lahat ng laman ay galing sa `content` prop. -->
   <SurpriseShell
     class="soft-shell"
@@ -242,22 +242,100 @@
       </div>
 
       <Transition name="scene" mode="out-in">
-        <!-- COVER: 3D gift box -->
+        <!-- COVER: pop-up birthday card -->
         <section v-if="scene === 'cover'" key="cover" class="scene scene-cover">
           <p class="eyebrow"><span class="eyebrow-line" /> A surprise for {{ c.recipient }} <span class="eyebrow-line" /></p>
           <h3 class="scene-title">Someone made this <em>just for you</em></h3>
 
-          <div class="gift-stage" :style="{ '--px': par.x, '--py': par.y }" @pointerdown="openGift" @pointermove="onGiftMove" @pointerleave="par = { x: 0, y: 0 }">
+          <div ref="cardStageEl" class="gift-stage">
             <div class="gift-halo" />
-            <div class="gift-beam" :class="{ on: giftOpen }" />
-            <div class="orb-wrap">
-              <div class="orb-ring r1"><i /></div><div class="orb-ring r2"><i /></div><div class="orb-ring r3"><i /></div>
-              <div class="orb-float"><div class="orb" :class="{ open: giftOpen }" /></div>
-              <div class="orb-reflect" />
+            <div
+              class="pc-wrap"
+              :class="{ drag: cardDragging, done: cardDone }"
+              :style="{ '--p': cardP, '--pop': cardPop }"
+              role="button"
+              tabindex="0"
+              aria-label="Open the birthday card"
+              @pointerdown="cardDown"
+              @pointermove="cardMove"
+              @pointerup="cardUp"
+              @pointercancel="cardUp"
+              @keydown.enter.prevent="openCard"
+              @keydown.space.prevent="openCard"
+            >
+              <span class="pc-shadow" />
+              <div ref="cardEl" class="pc-card">
+                <div class="pc-right" />
+                <div class="pc-pop">
+                  <svg viewBox="0 0 260 220" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="pc-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc9db" /><stop offset="1" stop-color="#ff8fb0" /></linearGradient>
+                    <linearGradient id="pc-lilac" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6dbff" /><stop offset="1" stop-color="#b79cf2" /></linearGradient>
+                    <linearGradient id="pc-rose" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe3ec" /><stop offset="1" stop-color="#ffa5c1" /></linearGradient>
+                    <radialGradient id="pc-b1" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#ffc2d6" /><stop offset="1" stop-color="#e8507b" /></radialGradient>
+                    <radialGradient id="pc-b2" cx="35%" cy="30%" r="75%"><stop offset="0" stop-color="#eadfff" /><stop offset="1" stop-color="#9f80ee" /></radialGradient>
+                    <radialGradient id="pc-flame" cx="50%" cy="70%" r="60%"><stop offset="0" stop-color="#fff6c0" /><stop offset="0.55" stop-color="#ffc247" /><stop offset="1" stop-color="#ff7a2f" /></radialGradient>
+                    <radialGradient id="pc-glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffe9a8" stop-opacity="0.8" /><stop offset="1" stop-color="#ffe9a8" stop-opacity="0" /></radialGradient>
+                  </defs>
+                  <g class="pc-bunting">
+                    <path d="M14 22Q130 58 246 22" fill="none" stroke="#e9c18a" stroke-width="1.6" />
+                    <polygon v-for="(f, i) in BUNTING" :key="i" :points="`${f.x - 9},${f.y - 1} ${f.x + 9},${f.y - 1} ${f.x},${f.y + 20}`" :fill="f.c" />
+                  </g>
+                  <g class="pc-bal b1">
+                    <path d="M44 122C46 150 60 172 72 198" fill="none" stroke="#e7b3c4" stroke-width="1.2" />
+                    <ellipse cx="44" cy="94" rx="23" ry="27" fill="url(#pc-b1)" />
+                    <ellipse cx="36" cy="83" rx="5" ry="8" fill="#fff" opacity="0.55" transform="rotate(-20 36 83)" />
+                    <path d="M41 120l3 6 3-6z" fill="#e8507b" />
+                  </g>
+                  <g class="pc-bal b2">
+                    <path d="M216 111C214 144 200 172 190 198" fill="none" stroke="#cbbbee" stroke-width="1.2" />
+                    <ellipse cx="216" cy="86" rx="21" ry="25" fill="url(#pc-b2)" />
+                    <ellipse cx="209" cy="76" rx="4.5" ry="7" fill="#fff" opacity="0.55" transform="rotate(-20 209 76)" />
+                    <path d="M213 111l3 6 3-6z" fill="#9f80ee" />
+                  </g>
+                  <ellipse cx="130" cy="210" rx="98" ry="8" fill="rgb(180 60 100 / .22)" />
+                  <ellipse cx="130" cy="207" rx="96" ry="9" fill="#fff" stroke="#f3cfda" />
+                  <rect x="52" y="150" width="156" height="56" rx="10" fill="url(#pc-pink)" />
+                  <path d="M52 150h156v10q-13 14-26 0q-13 14-26 0q-13 14-26 0q-13 14-26 0q-13 14-26 0q-13 14-26 0Z" fill="#fff8f2" />
+                  <text x="130" y="190" text-anchor="middle" class="pc-cake-text">Happy Birthday</text>
+                  <rect x="78" y="110" width="104" height="44" rx="9" fill="url(#pc-lilac)" />
+                  <path d="M78 110h104v9q-13 13-26 0q-13 13-26 0q-13 13-26 0q-13 13-26 0Z" fill="#fff8f2" />
+                  <use href="#sl-heart" x="120" y="126" width="20" height="20" fill="#fff" opacity="0.92" />
+                  <rect x="100" y="76" width="60" height="38" rx="8" fill="url(#pc-rose)" />
+                  <path d="M100 76h60v8q-7.5 11-15 0q-7.5 11-15 0q-7.5 11-15 0q-7.5 11-15 0Z" fill="#fff8f2" />
+                  <circle class="pc-glow" cx="130" cy="46" r="30" fill="url(#pc-glow)" />
+                  <g v-for="x in [112, 130, 148]" :key="x">
+                    <rect :x="x - 3" y="52" width="6" height="24" rx="2" fill="#fff" stroke="#ffc2d4" stroke-width="0.8" />
+                    <rect :x="x - 3" y="58" width="6" height="3" fill="#ff9fbd" />
+                    <rect :x="x - 3" y="66" width="6" height="3" fill="#ff9fbd" />
+                    <ellipse class="pc-flame" :cx="x" cy="45" rx="4.2" ry="7" fill="url(#pc-flame)" />
+                  </g>
+                  <use class="pc-tw t1" href="#sl-sparkle" x="20" y="132" width="16" height="16" fill="#ffd37a" />
+                  <use class="pc-tw t2" href="#sl-sparkle" x="228" y="126" width="14" height="14" fill="#ff9fbd" />
+                  <use class="pc-tw t3" href="#sl-sparkle" x="70" y="52" width="12" height="12" fill="#c9b5ff" />
+                  <use class="pc-tw t4" href="#sl-sparkle" x="182" y="48" width="14" height="14" fill="#ffd37a" />
+                </svg>
+                </div>
+                <div class="pc-cover">
+                  <div class="pc-face pc-front">
+                    <span class="pc-frame" />
+                    <svg class="pc-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
+                    <p class="pc-small">for {{ c.recipient }}</p>
+                    <p class="pc-big">Happy<br />Birthday</p>
+                    <span class="pc-pull" aria-hidden="true"><i>←</i> open</span>
+                  </div>
+                  <div class="pc-face pc-back">
+                    <span class="pc-frame" />
+                    <p class="pc-hi">Dear {{ c.recipient }},</p>
+                    <p class="pc-msg">I made a little something, just for you.</p>
+                    <p class="pc-sign">— {{ c.sender }}</p>
+                  </div>
+                </div>
+              </div>
             </div>
+            <p class="pc-hint" :class="{ off: cardP > 0.04 }">Drag the card open · or tap</p>
           </div>
-
-          <button class="primary-button" type="button" @click.stop="openGift">
+          <button class="primary-button" type="button" :disabled="cardDone" @click.stop="openCard">
             Open your surprise <span aria-hidden="true">→</span>
           </button>
           <p class="script-line">From {{ c.sender }}, with love 💗</p>
@@ -507,15 +585,13 @@
           </button>
         </section>
 
-        <!-- 5. FIREWORKS FINALE -->
+        <!-- 5. TRACE THE HEART FINALE -->
         <section
           v-else
           key="finale"
           class="scene scene-finale"
           tabindex="0"
-          aria-label="Tap the sky to launch fireworks"
-          @pointerdown="tapSky"
-          @keydown.enter.self.prevent="tapSky"
+          aria-label="Trace a heart among the stars"
         >
           <span class="stars" aria-hidden="true" />
           <span class="moon" aria-hidden="true" />
@@ -530,10 +606,52 @@
               <rect v-for="(b, i) in skyline" :key="i" :x="b.x" :y="100 - b.h" :width="b.w" :height="b.h" />
             </g>
           </svg>
-          <p v-if="!revealed" class="sky-hint">
-            Tap the sky to launch fireworks ✨
-            <span>{{ skyTaps }} / 3</span>
-          </p>
+          <div
+            v-if="!revealed"
+            class="trace"
+            :class="{ lit: traceDone }"
+            tabindex="0"
+            role="button"
+            aria-label="Light the heart (press Enter)"
+            @keydown.enter.prevent="litAll"
+          >
+            <p class="sky-hint">
+              {{ traceDone ? "Made with love 💗" : "Trace the heart" }}<br />
+              {{ traceDone ? "" : "to light every star ✨" }}
+              <span>{{ traceCount }} / {{ HEART.pts.length }}</span>
+            </p>
+            <svg
+              ref="traceSvgEl"
+              class="trace-svg"
+              viewBox="0 0 200 190"
+              @pointerdown.stop="traceDown"
+              @pointermove="traceMove"
+              @pointerup="traceUp"
+              @pointercancel="traceUp"
+            >
+              <defs>
+                <radialGradient id="tr-fill" cx="50%" cy="36%" r="70%">
+                  <stop offset="0" stop-color="#ffd6e4" />
+                  <stop offset="1" stop-color="#ff5f8d" />
+                </radialGradient>
+              </defs>
+              <path class="trace-fill" :d="HEART.d" />
+              <path class="trace-guide" :d="HEART.d" />
+              <polyline v-if="traceOrder.length > 1" class="trace-link" :points="constellation" />
+              <polyline v-if="tracePath.length > 1" class="trace-line" :points="traceTrail" />
+              <g
+                v-for="(p, i) in HEART.pts"
+                :key="i"
+                class="trace-star"
+                :class="{ on: traceHit[i], pulse: i === 0 && !traceCount }"
+                :transform="`translate(${p.x} ${p.y})`"
+              >
+                <circle class="trace-halo" r="11" />
+                <path class="trace-st" d="M0 -6.5L1.7 -1.7L6.5 0L1.7 1.7L0 6.5L-1.7 1.7L-6.5 0L-1.7 -1.7Z" />
+              </g>
+              <circle v-if="traceTip" class="trace-tip" :cx="traceTip.x" :cy="traceTip.y" r="4" />
+            </svg>
+          </div>
           <Transition name="reveal">
             <div v-if="revealed" class="finale-card" @pointerdown.stop>
               <div class="finale-medallion">
@@ -579,7 +697,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import SurpriseShell from "./SurpriseShell.vue";
 
 /* ===== Sample na litrato: gawa sa SVG (inline data URI), walang file na kailangan =====
@@ -649,7 +767,7 @@ const scenes = [
   { id: "balloons", label: "Balloon Pop Wishes" },
   { id: "memories", label: "Memory Cards" },
   { id: "gacha", label: "Gacha Love Coupons" },
-  { id: "finale", label: "Fireworks Finale" },
+  { id: "finale", label: "Trace the Heart" },
 ];
 const scene = ref("cover");
 const sceneIndex = computed(() => scenes.findIndex((step) => step.id === scene.value));
@@ -1227,22 +1345,93 @@ function pointFrom(event) {
   return { x: phone.clientWidth / 2, y: phone.clientHeight / 3 };
 }
 
-/* ===== 0. Cover: buksan ang regalo ===== */
-const par = ref({ x: 0, y: 0 });
-function onGiftMove(event) {
-  const r = event.currentTarget.getBoundingClientRect();
-  par.value = {
-    x: Math.max(-1, Math.min(1, ((event.clientX - r.left) / r.width - 0.5) * 2)),
-    y: Math.max(-1, Math.min(1, ((event.clientY - r.top) / r.height - 0.5) * 2)),
-  };
+/* ===== 0. Cover: pop-up birthday card (hilahin ang cover para bumukas) ===== */
+const cardStageEl = ref(null);
+const cardEl = ref(null);
+const cardP = ref(0); // 0 = sarado, 1 = bukas
+const cardDone = ref(false);
+const cardDragging = ref(false);
+const cardPop = computed(() => Math.min(1, Math.max(0, (cardP.value - 0.42) / 0.5)));
+let cardRaf = 0;
+let cardStartX = 0;
+let cardStartP = 0;
+let cardMoved = 0;
+
+/* mga flag ng bunting sa loob ng card (nasa kurba ng M14 22 Q130 58 246 22) */
+const BUNTING = Array.from({ length: 7 }, (_, i) => {
+  const t = 0.08 + i * 0.14;
+  const x = (1 - t) ** 2 * 14 + 2 * (1 - t) * t * 130 + t * t * 246;
+  const y = (1 - t) ** 2 * 22 + 2 * (1 - t) * t * 58 + t * t * 22;
+  return { x: +x.toFixed(1), y: +y.toFixed(1), c: ["#ff8fb0", "#ffd37a", "#c9b5ff"][i % 3] };
+});
+
+function pxScale() {
+  const phone = phoneEl.value;
+  if (!phone) return 1;
+  return phone.getBoundingClientRect().width / phone.offsetWidth || 1;
 }
-const giftOpen = ref(false);
-function openGift() {
-  if (giftOpen.value) return;
-  giftOpen.value = true;
-  buzz(20);
-  confettiAt({ x: W / 2, y: H * 0.42 }, 54);
-  later(() => goTo("lock"), 1100);
+function tweenCard(to, ms, done) {
+  cancelAnimationFrame(cardRaf);
+  const from = cardP.value;
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    cardP.value = from + (to - from) * (1 - (1 - k) ** 3);
+    if (k < 1) {
+      cardRaf = requestAnimationFrame(step);
+    } else {
+      cardRaf = 0;
+      done?.();
+    }
+  };
+  cardRaf = requestAnimationFrame(step);
+}
+function openCard() {
+  if (cardDone.value) return;
+  buzz(18);
+  tweenCard(1, 750, finishCard);
+}
+function finishCard() {
+  if (cardDone.value) return;
+  cardDone.value = true;
+  buzz(30);
+  const p = pointFrom({ currentTarget: cardStageEl.value });
+  confettiAt(p, 56);
+  heartsAt(p, 14);
+  later(() => goTo("lock"), 2600);
+}
+function cardDown(event) {
+  if (cardDone.value) return;
+  cancelAnimationFrame(cardRaf);
+  cardDragging.value = true;
+  cardMoved = 0;
+  cardStartX = event.clientX;
+  cardStartP = cardP.value;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+function cardMove(event) {
+  if (!cardDragging.value) return;
+  const w = cardEl.value?.offsetWidth || 160;
+  const dx = (event.clientX - cardStartX) / pxScale();
+  cardMoved = Math.max(cardMoved, Math.abs(dx));
+  cardP.value = Math.min(1, Math.max(0, cardStartP - dx / (w * 1.7)));
+  if (cardP.value >= 0.985) {
+    cardDragging.value = false;
+    tweenCard(1, 200, finishCard);
+  }
+}
+function cardUp() {
+  if (!cardDragging.value) return;
+  cardDragging.value = false;
+  if (cardMoved < 8 || cardP.value > 0.4) openCard();
+  else tweenCard(0, 450);
+}
+function resetCard() {
+  cancelAnimationFrame(cardRaf);
+  cardRaf = 0;
+  cardP.value = 0;
+  cardDone.value = false;
+  cardDragging.value = false;
 }
 
 /* ===== 1. Secret Lock ===== */
@@ -1611,27 +1800,128 @@ function redeem(event) {
   confettiAt(pointFrom(event), 26);
 }
 
-/* ===== 5. Fireworks Finale ===== */
-const skyTaps = ref(0);
+/* ===== 5. Finale: ikonekta ang mga bituin para mabuo ang puso ===== */
 const revealed = ref(false);
 const showExtra = ref(false);
 
-function tapSky(event) {
-  launchRocket(pointFrom(event));
-  buzz(10);
-  if (revealed.value || skyTaps.value >= 3) return;
-  skyTaps.value += 1;
-  if (skyTaps.value === 3) {
-    later(() => {
-      revealed.value = true;
-      launchRocket({ x: W / 2, y: H * 0.2 }, true);
-      later(confettiRain, 500);
-      fireworksInterval = setInterval(() => {
-        randomFirework();
-        if (Math.random() < 0.5) confettiRain();
-      }, 1700);
-    }, 900);
+function buildHeart() {
+  const raw = [];
+  for (let i = 0; i <= 360; i += 1) {
+    const t = Math.PI + (i / 360) * Math.PI * 2; // simula sa ibaba ng puso
+    raw.push({
+      x: 16 * Math.sin(t) ** 3,
+      y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)),
+    });
   }
+  const xs = raw.map((p) => p.x);
+  const ys = raw.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const k = Math.min(172 / (maxX - minX), 160 / (maxY - minY));
+  const ox = 100 - ((minX + maxX) / 2) * k;
+  const oy = 95 - ((minY + maxY) / 2) * k;
+  const full = raw.map((p) => ({ x: +(p.x * k + ox).toFixed(1), y: +(p.y * k + oy).toFixed(1) }));
+  const lens = [0];
+  for (let i = 1; i < full.length; i += 1) {
+    lens.push(lens[i - 1] + Math.hypot(full[i].x - full[i - 1].x, full[i].y - full[i - 1].y));
+  }
+  const total = lens[lens.length - 1];
+  const pts = [];
+  let at = 0;
+  for (let j = 0; j < 24; j += 1) {
+    const target = (total * j) / 24;
+    while (at < lens.length - 1 && lens[at] < target) at += 1;
+    pts.push(full[at]);
+  }
+  return { pts, d: `M${full.map((p) => `${p.x} ${p.y}`).join("L")}Z` };
+}
+const HEART = buildHeart();
+const HIT_R = 13; // gaano kalapit ang daliri para umilaw ang bituin
+
+const traceSvgEl = ref(null);
+const traceHit = ref(Array(HEART.pts.length).fill(false));
+const traceOrder = ref([]);
+const tracePath = ref([]);
+const traceTip = ref(null);
+const traceDragging = ref(false);
+const traceDone = ref(false);
+const traceCount = computed(() => traceHit.value.filter(Boolean).length);
+const constellation = computed(() => traceOrder.value.map((i) => `${HEART.pts[i].x},${HEART.pts[i].y}`).join(" "));
+const traceTrail = computed(() => tracePath.value.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+
+function svgPoint(event) {
+  const r = traceSvgEl.value.getBoundingClientRect();
+  return { x: ((event.clientX - r.left) / r.width) * 200, y: ((event.clientY - r.top) / r.height) * 190 };
+}
+function traceAt(event) {
+  const p = svgPoint(event);
+  traceTip.value = p;
+  tracePath.value.push(p);
+  if (tracePath.value.length > 26) tracePath.value.shift();
+  let lit = false;
+  HEART.pts.forEach((star, i) => {
+    if (traceHit.value[i]) return;
+    if (Math.hypot(star.x - p.x, star.y - p.y) < HIT_R) {
+      traceHit.value[i] = true;
+      traceOrder.value.push(i);
+      lit = true;
+    }
+  });
+  if (lit) {
+    buzz(8);
+    heartsAt(pointFrom(event), 2);
+    if (traceCount.value >= HEART.pts.length) finishTrace();
+  }
+}
+function traceDown(event) {
+  if (traceDone.value) return;
+  traceDragging.value = true;
+  tracePath.value = [];
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  traceAt(event);
+}
+function traceMove(event) {
+  if (traceDragging.value) traceAt(event);
+}
+function traceUp() {
+  traceDragging.value = false;
+  traceTip.value = null;
+  tracePath.value = [];
+}
+/* para sa keyboard: Enter ang magpapailaw ng natitirang bituin */
+function litAll() {
+  if (traceDone.value) return;
+  HEART.pts.forEach((_, i) => {
+    if (!traceHit.value[i]) {
+      traceHit.value[i] = true;
+      traceOrder.value.push(i);
+    }
+  });
+  finishTrace();
+}
+function finishTrace() {
+  if (traceDone.value) return;
+  traceDone.value = true;
+  traceDragging.value = false;
+  traceTip.value = null;
+  tracePath.value = [];
+  buzz(30);
+  const p = pointFrom({ currentTarget: traceSvgEl.value });
+  confettiAt(p, 40);
+  heartsAt(p, 22);
+  launchRocket({ x: W / 2, y: H * 0.22 }, true);
+  later(() => {
+    revealed.value = true;
+    launchRocket({ x: W * 0.25, y: H * 0.17 }, true);
+    launchRocket({ x: W * 0.75, y: H * 0.19 }, true);
+    later(confettiRain, 500);
+    fireworksInterval = setInterval(() => {
+      randomFirework();
+      if (Math.random() < 0.5) confettiRain();
+    }, 2600);
+  }, 1500);
 }
 function randomFirework() {
   if (!W) return;
@@ -1643,13 +1933,6 @@ function revealExtra() {
   launchRocket({ x: W * 0.7, y: H * 0.14 }, true);
 }
 
-watch(scene, (value) => {
-  if (value !== "finale") return;
-  later(randomFirework, 500);
-  later(randomFirework, 1200);
-  later(randomFirework, 2100);
-});
-
 /* ===== Lipat ng eksena ===== */
 function goTo(id) {
   clearTimers();
@@ -1658,7 +1941,7 @@ function goTo(id) {
   lockShake.value = false;
   unlocked.value = false;
   flash.value = false;
-  giftOpen.value = false;
+  resetCard();
   popped.value = [];
   cardIndex.value = 0;
   flipped.value = false;
@@ -1670,7 +1953,12 @@ function goTo(id) {
   scratched.value = false;
   gachaState.value = "idle";
   redeemed.value = [];
-  skyTaps.value = 0;
+  traceHit.value = Array(HEART.pts.length).fill(false);
+  traceOrder.value = [];
+  tracePath.value = [];
+  traceTip.value = null;
+  traceDragging.value = false;
+  traceDone.value = false;
   revealed.value = false;
   showExtra.value = false;
   scene.value = id;
@@ -1710,6 +1998,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
   clearTimers();
+  cancelAnimationFrame(cardRaf);
   cancelAnimationFrame(raf);
   raf = 0;
   resizeObserver?.disconnect();
@@ -2934,7 +3223,6 @@ onUnmounted(() => {
     radial-gradient(70% 36% at 50% 100%, rgb(255 150 180 / 0.5), transparent 72%),
     linear-gradient(180deg, #0e0b2b 0%, #20184f 38%, #4f3478 66%, #b76b95 90%, #e59aa6 100%);
   color: #fff;
-  cursor: pointer;
   outline: none;
 }
 .stars {
@@ -3742,7 +4030,310 @@ onUnmounted(() => {
 .phone .seal svg { fill:#d6406d; }
 .phone .mfront { background:linear-gradient(180deg,#fff,#ffe9f0); }
 
+/* ===================== NEW: pop-up card (cover) + trace the heart (finale) ===================== */
+/* ----- COVER: pop-up birthday card ----- */
+.pc-wrap {
+  --cw: min(45cqw, 30cqh, 200px);
+  --ch: calc(var(--cw) * 1.32);
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  perspective: 1300px;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+.pc-wrap.drag { cursor: grabbing; }
+.pc-wrap:focus-visible .pc-front { box-shadow: 0 0 0 3px rgb(255 255 255 / 0.9), 0 0 0 6px #e8507b; }
+.pc-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--cw);
+  height: var(--ch);
+  margin-top: calc(var(--ch) * -0.5);
+  margin-left: calc(var(--cw) * (var(--p) * 0.5 - 0.5));
+  transform-style: preserve-3d;
+  transform: rotateX(calc(9deg * (1 - var(--p)))) rotateY(calc(-12deg * (1 - var(--p))));
+  animation: pcfloat 4.6s ease-in-out infinite;
+}
+.pc-wrap.done .pc-card { animation: none; }
+@keyframes pcfloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -7px; } }
+.pc-shadow {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--ch) * 0.5 + 12px);
+  width: calc(var(--cw) * (1.1 + var(--p) * 0.9));
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(190 60 100 / 0.38), transparent 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.pc-right {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(255 160 190 / 0.55);
+  border-radius: 3px 12px 12px 3px;
+  background:
+    radial-gradient(rgb(255 150 180 / 0.16) 1.4px, transparent 2px) 0 0 / 13px 13px,
+    linear-gradient(160deg, #fffaf6, #ffe8ef);
+  box-shadow: 0 20px 34px rgb(232 80 123 / 0.26), inset 8px 0 14px rgb(232 80 123 / 0.1);
+  transform: translateZ(-1px);
+}
+.pc-cover {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--p) * -180deg));
+}
+.pc-face {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10%;
+  overflow: hidden;
+  text-align: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.pc-front {
+  border-radius: 3px 12px 12px 3px;
+  background: linear-gradient(160deg, #ffe1ec 0%, #ffa9c6 48%, #ec6a96 100%);
+  box-shadow: 0 20px 34px rgb(232 80 123 / 0.34), inset 0 0 0 1px rgb(255 255 255 / 0.6);
+}
+.pc-front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.5) 50%, transparent 62%);
+  transform: translateX(-120%);
+  animation: sweep 3.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.pc-back {
+  border-radius: 12px 3px 3px 12px;
+  background: linear-gradient(200deg, #fffaf6, #ffe8ef);
+  box-shadow: inset -8px 0 14px rgb(232 80 123 / 0.1), 0 20px 34px rgb(232 80 123 / 0.22);
+  padding-right: 26%;
+  transform: rotateY(180deg);
+}
+.pc-frame {
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgb(255 255 255 / 0.75);
+  border-radius: 3px 9px 9px 3px;
+  pointer-events: none;
+}
+.pc-back .pc-frame { border-color: rgb(255 140 175 / 0.5); border-radius: 9px 3px 3px 9px; }
+.pc-bow {
+  width: calc(var(--cw) * 0.42);
+  height: auto;
+  aspect-ratio: 60 / 44;
+  margin-bottom: 5%;
+  filter: drop-shadow(0 3px 4px rgb(150 30 80 / 0.3));
+}
+.pc-small {
+  margin: 0 0 3%;
+  color: #fff;
+  font-family: var(--ui);
+  font-size: calc(var(--cw) * 0.062);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.92;
+}
+.pc-big {
+  margin: 0;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: calc(var(--cw) * 0.17);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.02;
+  text-shadow: 0 2px 10px rgb(170 30 80 / 0.35);
+}
+.pc-pull {
+  position: absolute;
+  right: 9%;
+  bottom: 7%;
+  color: #fff;
+  font-family: var(--ui);
+  font-size: calc(var(--cw) * 0.055);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.pc-pull i {
+  display: inline-block;
+  margin-right: 4px;
+  font-style: normal;
+  animation: nudgel 1.2s ease-in-out infinite;
+}
+.pc-hi {
+  margin: 0 0 6%;
+  color: #d6406d;
+  font-family: var(--script);
+  font-size: calc(var(--cw) * 0.19);
+  font-weight: 700;
+  line-height: 1;
+}
+.pc-msg {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: calc(var(--cw) * 0.088);
+  font-style: italic;
+  line-height: 1.35;
+}
+.pc-sign {
+  margin: 8% 0 0;
+  color: #d6406d;
+  font-family: var(--script);
+  font-size: calc(var(--cw) * 0.15);
+  font-weight: 700;
+}
+.pc-pop {
+  position: absolute;
+  left: 0;
+  bottom: 6%;
+  width: calc(var(--cw) * 1.34);
+  aspect-ratio: 260 / 220;
+  margin-left: calc(var(--cw) * -0.34);
+  transform-origin: 50% 100%;
+  transform: translateZ(2px) scale(var(--pop));
+  filter: drop-shadow(0 10px 10px rgb(200 70 110 / 0.25));
+  pointer-events: none;
+}
+.pc-pop svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pc-cake-text {
+  fill: #fff;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-style: italic;
+  stroke: rgb(214 64 109 / 0.5);
+  stroke-width: 0.7px;
+  paint-order: stroke;
+}
+.pc-flame {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: pcflick 0.45s ease-in-out infinite alternate;
+}
+@keyframes pcflick { from { transform: scale(1, 1) rotate(-3deg); } to { transform: scale(0.9, 1.12) rotate(3deg); } }
+.pc-glow { opacity: 0; transition: opacity 0.8s ease; }
+.pc-wrap.done .pc-glow { opacity: 1; }
+.pc-tw { animation: twinkle 1.6s ease-in-out infinite alternate; }
+.pc-tw.t2 { animation-delay: 0.4s; }
+.pc-tw.t3 { animation-delay: 0.8s; }
+.pc-tw.t4 { animation-delay: 1.2s; }
+.pc-wrap.done .pc-bunting { transform-box: fill-box; transform-origin: 50% 0; animation: pcsway 3s ease-in-out infinite alternate; }
+@keyframes pcsway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+.pc-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 3%;
+  z-index: 2;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-align: center;
+  text-transform: uppercase;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.pc-hint.off { opacity: 0; }
+
+/* ----- FINALE: trace the heart ----- */
+.trace {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  outline: none;
+}
+.trace .sky-hint { text-align: center; }
+.trace-svg {
+  width: min(80cqw, 340px, 46cqh);
+  aspect-ratio: 200 / 190;
+  height: auto;
+  overflow: visible;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  filter: drop-shadow(0 0 18px rgb(255 140 190 / 0.35));
+}
+.trace.lit .trace-svg { animation: trbeat 0.9s ease-in-out infinite; }
+@keyframes trbeat { 0%, 100% { scale: 1; } 50% { scale: 1.05; } }
+.trace-fill { fill: url(#tr-fill); opacity: 0; transition: opacity 0.9s ease; }
+.trace.lit .trace-fill { opacity: 0.92; }
+.trace-guide {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.34);
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+.trace-link {
+  fill: none;
+  stroke: rgb(255 214 232 / 0.85);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px #ff9fc3);
+}
+.trace-line {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 5px #ff9fc3);
+}
+.trace-halo { fill: rgb(255 200 220 / 0); transition: fill 0.3s; }
+.trace-st {
+  fill: #ffe9a8;
+  opacity: 0.6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: twinkle 2.4s ease-in-out infinite alternate;
+}
+.trace-star:nth-child(odd) .trace-st { animation-delay: 0.7s; }
+.trace-star.on .trace-halo { fill: rgb(255 190 215 / 0.4); }
+.trace-star.on .trace-st {
+  fill: #fff;
+  opacity: 1;
+  scale: 1.5;
+  animation: none;
+  filter: drop-shadow(0 0 4px #ffd36b);
+  transition: scale 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.trace-star.pulse .trace-halo { animation: trpulse 1s ease-in-out infinite; }
+@keyframes trpulse { 0%, 100% { fill: rgb(255 200 220 / 0.12); } 50% { fill: rgb(255 200 220 / 0.6); } }
+.trace-tip { fill: #fff; filter: drop-shadow(0 0 6px #ff9fc3); pointer-events: none; }
+
 @media (prefers-reduced-motion: reduce) {
+  .pc-card,
+  .pc-front::after,
+  .pc-flame,
+  .pc-tw,
+  .pc-bunting,
+  .trace-svg,
+  .trace-star,
   .aurora i,
   .ambient i,
   .rays,

@@ -40,9 +40,13 @@
         class="template-card"
         :class="{ selected: selectedTemplateId === template.id }"
       >
-        <!-- ARTWORK: ang mismong larawan ng template (WebP, hindi binago).
+        <!-- ARTWORK: ang mismong larawan ng template (WebP, WALANG text sa loob).
+             Ang title ("Happy Birthday") at button ay totoong HTML na nakapatong sa gitna.
              Pag-click sa larawan = lalabas ang "Use this template?" dialog (gaya ng dati). -->
-        <div class="template-art" :style="{ '--btn-y': template.cardButtonY + '%' }">
+        <div
+          class="template-art"
+          :style="{ '--btn-y': template.cardButtonY + '%', '--title-y': template.titleY + '%' }"
+        >
         <button
           class="template-art-button"
           type="button"
@@ -76,6 +80,10 @@
             </svg>
           </span>
         </button>
+        <!-- DAGDAG: title sa gitna ng larawan (HTML text; hindi nakaharang sa click ng larawan) -->
+        <h3 class="template-title" :class="`title-${template.buttonStyle}`">
+          {{ template.heading }}
+        </h3>
         <!-- DAGDAG: totoong "Start the surprise" button (HTML, hindi bahagi ng larawan).
              Nakapatong sa bakanteng espasyo sa ilalim ng mensahe; tuloy agad sa Package.
              (Soft Celebration: bubuksan muna ang interactive surprise preview) -->
@@ -144,13 +152,19 @@
           </button>
         </header>
         <!-- PREVIEW: buong larawan (malaking WebP, walang crop) + totoong button sa ibabaw -->
-        <div class="preview-art" :style="{ '--btn-y': previewTemplate.buttonY + '%' }">
+        <div
+          class="preview-art"
+          :style="{ '--btn-y': previewTemplate.buttonY + '%', '--title-y': previewTemplate.titleY + '%' }"
+        >
           <img
             class="preview-image"
             :src="previewTemplate.fullImage"
             :alt="`${previewTemplate.name} birthday template: ${previewTemplate.heading}`"
             decoding="async"
           />
+          <h3 class="template-title" :class="`title-${previewTemplate.buttonStyle}`">
+            {{ previewTemplate.heading }}
+          </h3>
           <button
             class="surprise-button"
             :class="`btn-${previewTemplate.buttonStyle}`"
@@ -224,108 +238,118 @@ import cozyCornerFull from "@/assets/templates/birthday/birthday-cozy-corner-ful
 const router = useRouter();
 const orderStore = useOrderStore();
 const styles = ["All", "Cute", "Elegant", "Fun", "Minimal", "Dark"];
-/* ===== Listahan ng 8 Birthday templates (pinalitan ang lumang SVG drawing) =====
-   image        = maliit na WebP para sa gallery
-   fullImage    = malaking WebP para sa Preview lang
-   buttonY      = posisyon ng "Start the surprise" sa BUONG larawan (% mula itaas) — sa Preview
-   cardButtonY  = posisyon ng button sa card (iba nang konti kasi naka-crop ang taas/baba)
-   buttonStyle  = kulay ng button na bagay sa template (tingnan ang .btn-* sa CSS) */
+/* ===== Listahan ng 8 Birthday templates (bagong 3D artwork, WALANG text sa larawan) =====
+   image        = maliit na WebP para sa gallery (930x620)
+   fullImage    = malaking WebP para sa Preview lang (1536x1024)
+   heading      = title na nakapatong sa gitna ng larawan (HTML text)
+   titleY       = posisyon ng title (% mula itaas) — gitna ng title
+   buttonY      = posisyon ng "Start the surprise" sa Preview (% mula itaas)
+   cardButtonY  = posisyon ng button sa card (pareho na ng buttonY kasi 3:2 na ang larawan, walang crop)
+   buttonStyle  = kulay ng button AT title (tingnan ang .btn-* at .title-* sa CSS) */
 const templates = [
   {
     id: "soft-celebration",
     number: "01",
     name: "Soft Celebration",
-    heading: "To a very special you",
+    heading: "Happy Birthday",
     style: "Cute",
     image: softCelebration,
     fullImage: softCelebrationFull,
-    buttonY: 69,
-    cardButtonY: 70,
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
     buttonStyle: "rose",
   },
   {
     id: "starry-night",
     number: "02",
     name: "Starry Night",
-    heading: "Make a Wish",
+    heading: "Happy Birthday",
     style: "Dark",
     isNew: true,
     image: starryNight,
     fullImage: starryNightFull,
-    buttonY: 72,
-    cardButtonY: 74,
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
     buttonStyle: "white-navy",
   },
   {
     id: "memory-lane",
     number: "03",
     name: "Memory Lane",
-    heading: "Another Chapter",
+    heading: "Happy Birthday",
     style: "Fun",
     image: memoryLane,
     fullImage: memoryLaneFull,
-    buttonY: 82,
-    cardButtonY: 85,
-    buttonStyle: "coral",
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
+    buttonStyle: "navy",
   },
   {
     id: "happy-vibes",
     number: "04",
     name: "Happy Vibes",
-    heading: "Good Vibes Only!",
+    heading: "Happy Birthday",
     style: "Fun",
     image: happyVibes,
     fullImage: happyVibesFull,
-    buttonY: 81,
-    cardButtonY: 84,
-    buttonStyle: "coral",
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
+    buttonStyle: "white-coral",
   },
   {
     id: "timeless-elegance",
     number: "05",
     name: "Timeless Elegance",
-    heading: "A Brighter Year Ahead",
+    heading: "Happy Birthday",
     style: "Elegant",
     image: timelessElegance,
     fullImage: timelessEleganceFull,
-    buttonY: 69,
-    cardButtonY: 71,
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
     buttonStyle: "taupe",
   },
   {
     id: "ocean-breeze",
     number: "06",
     name: "Ocean Breeze",
-    heading: "Same Sun Brighter You",
+    heading: "Happy Birthday",
     style: "Minimal",
     image: oceanBreeze,
     fullImage: oceanBreezeFull,
-    buttonY: 64,
-    cardButtonY: 71,
+    titleY: 30,
+    buttonY: 62,
+    cardButtonY: 62,
     buttonStyle: "ocean",
   },
   {
     id: "garden-bloom",
     number: "07",
     name: "Garden Bloom",
-    heading: "Bloom and Shine",
+    heading: "Happy Birthday",
     style: "Cute",
     image: gardenBloom,
     fullImage: gardenBloomFull,
-    buttonY: 62,
-    cardButtonY: 69,
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
     buttonStyle: "white-rose",
   },
   {
     id: "cozy-corner",
     number: "08",
     name: "Cozy Corner",
-    heading: "Cozy Moments",
+    heading: "Happy Birthday",
     style: "Dark",
     image: cozyCorner,
     fullImage: cozyCornerFull,
-    buttonY: 63,
-    cardButtonY: 70,
+    titleY: 34,
+    buttonY: 68,
+    cardButtonY: 68,
     buttonStyle: "white-dark",
   },
 ];
@@ -539,14 +563,13 @@ function changeOccasion() {
   border: 0;
   background: #f8f4eb;
 }
-/* larawan ng template: puno ang card, naka-crop lang nang konti (hindi nababanat) */
+/* larawan ng template: 3:2 na rin ang larawan kaya puno ang card, walang crop, hindi nababanat */
 .template-image {
   display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* bahagyang mas kita ang itaas (para sa "Happy Birthday" ng mas mataas na larawan) */
-  object-position: 50% 35%;
+  object-position: 50% 50%;
   transition: transform 0.2s;
 }
 .template-art-button:hover .template-image {
@@ -602,11 +625,43 @@ function changeOccasion() {
 /* kulay ng button bawat template (bagay sa artwork) */
 .btn-rose { --btn-bg: #e9677c; --btn-text: #fff; }
 .btn-white-navy { --btn-bg: #fff; --btn-text: #1d2a5b; }
-.btn-coral { --btn-bg: #ec5f72; --btn-text: #fff; }
+.btn-navy { --btn-bg: #1f3f7a; --btn-text: #fff; }
+.btn-white-coral { --btn-bg: #fff; --btn-text: #e8566a; }
 .btn-taupe { --btn-bg: #6e675c; --btn-text: #fff; }
 .btn-ocean { --btn-bg: #1f4fa8; --btn-text: #fff; }
 .btn-white-rose { --btn-bg: #fff; --btn-text: #e0606f; }
 .btn-white-dark { --btn-bg: #fff; --btn-text: #2b211b; }
+
+/* ===== DAGDAG: title ("Happy Birthday") sa gitna ng larawan =====
+   Nasa --title-y; makitid (58%) para awtomatikong mag-2 linya at hindi tumama sa mga dekorasyon sa gilid.
+   pointer-events: none = click pa rin sa larawan ang gumagana. */
+.template-title {
+  position: absolute;
+  left: 50%;
+  top: var(--title-y, 34%);
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  width: 58%;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  font-family: var(--display);
+  font-stretch: var(--stretch);
+  font-size: clamp(18px, 11.5cqi, 110px);
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.2px;
+}
+/* kulay ng title bawat template (kapareho ng tema ng button) */
+.title-rose { color: #e2476b; text-shadow: 0 3px 0 #fff, 0 7px 16px rgba(226, 71, 107, 0.28); }
+.title-white-navy { color: #fff3c9; text-shadow: 0 0 18px rgba(255, 214, 102, 0.7), 0 4px 10px rgba(10, 8, 60, 0.55); }
+.title-navy { color: #1f3f7a; text-shadow: 0 3px 0 rgba(255, 255, 255, 0.85), 0 7px 16px rgba(31, 63, 122, 0.25); }
+.title-white-coral { color: #fff; text-shadow: 0 5px 0 #e8566a, 0 10px 20px rgba(232, 86, 106, 0.45); }
+.title-taupe { color: #5b5640; text-shadow: 0 3px 0 rgba(255, 255, 255, 0.85), 0 7px 16px rgba(110, 103, 92, 0.25); }
+.title-ocean { color: #fff; text-shadow: 0 4px 0 #2a4f9c, 0 8px 18px rgba(31, 79, 168, 0.45); }
+.title-white-rose { color: #e0606f; text-shadow: 0 3px 0 #fff, 0 7px 16px rgba(224, 96, 111, 0.28); }
+.title-white-dark { color: #fff3df; text-shadow: 0 4px 0 #6b4326, 0 8px 18px rgba(60, 30, 10, 0.5); }
 .new-badge {
   z-index: 1;
   position: absolute;
