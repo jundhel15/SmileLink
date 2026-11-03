@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import crypto from "node:crypto";
 import process from "node:process";
 import { supabase } from "./supabase.js";
@@ -35,6 +36,48 @@ function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(password, salt, 64).toString("hex");
   return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = String(stored ?? "").split(":");
+  if (!salt || !hash) return false;
+  const attempt = crypto.scryptSync(String(password ?? ""), salt, 64);
+  return crypto.timingSafeEqual(attempt, Buffer.from(hash, "hex"));
+}
+
+// Loads a paid surprise by its slug (the order id). Scheduled ones open only after their send time.
+async function findSurprise(slug) {
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id, order_status, occasion, template_id, package_id")
+    .eq("id", slug)
+    .maybeSingle();
+  if (!order || !["paid", "scheduled", "sent"].includes(order.order_status)) return null;
+
+  const [{ data: delivery }, { data: content }] = await Promise.all([
+    supabase
+      .from("order_delivery")
+      .select("recipient_name, sender_name, scheduled_at")
+      .eq("order_id", order.id)
+      .maybeSingle(),
+    supabase.from("order_content").select("*").eq("order_id", order.id).maybeSingle(),
+  ]);
+  if (order.order_status === "scheduled" && new Date(delivery?.scheduled_at) > new Date()) {
+    return null;
+  }
+  return { order, delivery: delivery ?? {}, content: content ?? {} };
+}
+
+// What the recipient sees. Never includes emails, tokens or the password hash.
+function surpriseBody({ order, delivery, content }) {
+  return {
+    occasion: order.occasion,
+    template_id: order.template_id,
+    package_id: order.package_id,
+    recipient_name: delivery.recipient_name,
+    sender_name: delivery.sender_name,
+    ...pick(content, ["headline", "message", "sign_off", "music_track", "music_link", "video_link"]),
+  };
 }
 
 function pick(source, fields) {
@@ -212,6 +255,32 @@ export function registerRoutes(app) {
     if (sentError) return res.status(500).json({ error: sentError.message });
 
     res.json({ ok: true, order_status: "sent", link_slug: order.id });
+  });
+
+  // Recipient page. With the password lock on, only the hint is sent until /unlock succeeds.
+  app.get("/api/surprise/:slug", async (req, res) => {
+    const surprise = await findSurprise(req.params.slug);
+    if (!surprise) return res.status(404).json({ error: "Surprise not found." });
+
+    if (surprise.content.password_enabled && surprise.content.password_hash) {
+      return res.json({
+        locked: true,
+        password_hint: surprise.content.password_hint ?? "",
+        recipient_name: surprise.delivery.recipient_name,
+      });
+    }
+    res.json({ locked: false, ...surpriseBody(surprise) });
+  });
+
+  app.post("/api/surprise/:slug/unlock", async (req, res) => {
+    const surprise = await findSurprise(req.params.slug);
+    if (!surprise) return res.status(404).json({ error: "Surprise not found." });
+
+    const { password_enabled: enabled, password_hash: hash } = surprise.content;
+    if (enabled && hash && !verifyPassword(req.body?.password, hash)) {
+      return res.status(401).json({ error: "That password isn't right. Try again." });
+    }
+    res.json({ locked: false, ...surpriseBody(surprise) });
   });
 
   registerapp = app;

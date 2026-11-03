@@ -9,7 +9,7 @@
     :aria-label="`${title} interactive preview`"
     tabindex="-1"
   >
-    <header class="surprise-topbar">
+    <header v-if="!live" class="surprise-topbar">
       <div class="topbar-title">
         <strong>{{ title }}</strong>
         <span>Interactive preview</span>
@@ -65,8 +65,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
+  // live = totoong surprise page (/s/:slug): walang top bar, puno ang screen
+  live: { type: Boolean, default: false },
 });
 // device-change = lumipat ng device (o ng compact mode); para ma-reset ng parent ang sariling state
 const emit = defineEmits(["close", "use", "device-change"]);
@@ -107,8 +109,8 @@ const activeDevice = computed(() => devices.find((item) => item.id === device.va
 
 /* compact = maliit na screen (totoong phone o landscape): puno ang screen, walang frame at pilian */
 const compactQuery = window.matchMedia("(max-width: 480px), (max-height: 620px)");
-const compact = ref(compactQuery.matches);
-const onCompactChange = (event) => (compact.value = event.matches);
+const compact = ref(props.live || compactQuery.matches);
+const onCompactChange = (event) => (compact.value = props.live || event.matches);
 
 const screenKey = computed(() => (compact.value ? "full" : device.value));
 watch(screenKey, (key) => emit("device-change", key));

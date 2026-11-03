@@ -8,20 +8,8 @@
         <h3 id="summary-heading">Order summary</h3>
 
         <div class="product-row">
-          <span
-            class="product-thumb"
-            :style="{ background: template.background }"
-            aria-hidden="true"
-          >
-            <svg viewBox="0 0 120 80" fill="none">
-              <path d="M22 28v30M98 24v34M60 14v22" stroke="#9aa6c0" stroke-width="1" />
-              <ellipse cx="22" cy="20" rx="8" ry="10" :fill="template.accent" />
-              <ellipse cx="98" cy="16" rx="8" ry="10" :fill="template.secondary" />
-              <ellipse cx="60" cy="8" rx="6" ry="7.5" :fill="template.icing" />
-              <rect x="40" y="46" width="40" height="22" rx="3" :fill="template.cake" />
-              <path d="M40 50c5 5 8-3 13 0s8 5 14 0 8 4 13 0v-4H40z" :fill="template.icing" />
-              <path d="M0 68h120v12H0z" fill="#f6e6c4" />
-            </svg>
+          <span class="product-thumb" aria-hidden="true">
+            <img v-if="template.image" :src="template.image" alt="" />
           </span>
           <div class="product-info">
             <p class="product-name">{{ template.name }}</p>
@@ -286,74 +274,13 @@ import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
+import { TEMPLATES } from "@/shared/catalog";
 
-// kapareho ng templates sa BirthdayTemp
-const Template = {
-  "sky-balloons": {
-    name: "Sky Balloons",
-    background: "#c9e7ff",
-    accent: "#2865d8",
-    secondary: "#ffb629",
-    icing: "#ff8f88",
-    cake: "#fff0c4",
-  },
-  "starry-night": {
-    name: "Starry Night",
-    background: "#292b70",
-    accent: "#ffd036",
-    secondary: "#8997ff",
-    icing: "#fff3d0",
-    cake: "#f6bd42",
-  },
-  "golden-confetti": {
-    name: "Golden Confetti",
-    background: "#fff0cf",
-    accent: "#e6a51b",
-    secondary: "#4881ed",
-    icing: "#fff8e8",
-    cake: "#f4c35c",
-  },
-  "garden-bloom": {
-    name: "Garden Bloom",
-    background: "#e5f4df",
-    accent: "#45a767",
-    secondary: "#ff8580",
-    icing: "#fff4dc",
-    cake: "#76c279",
-  },
-  "pastel-party": {
-    name: "Pastel Party",
-    background: "#f4dcf4",
-    accent: "#a879dc",
-    secondary: "#f6b642",
-    icing: "#fff9ff",
-    cake: "#c5a9ee",
-  },
-  "midnight-sparkle": {
-    name: "Midnight Sparkle",
-    background: "#22233c",
-    accent: "#f5b932",
-    secondary: "#ff8580",
-    icing: "#fff0c7",
-    cake: "#304b9a",
-  },
-  "sunny-picnic": {
-    name: "Sunny Picnic",
-    background: "#fff0c8",
-    accent: "#3879e8",
-    secondary: "#fa856c",
-    icing: "#fffaf0",
-    cake: "#ffca4f",
-  },
-  "ocean-breeze": {
-    name: "Ocean Breeze",
-    background: "#ccecf0",
-    accent: "#287bda",
-    secondary: "#ff906f",
-    icing: "#f7fbf8",
-    cake: "#3a82da",
-  },
-};
+// mga thumbnail ng template (WebP); ang malalaking *-full ay hindi kasama
+const templateImages = import.meta.glob(
+  ["@/assets/templates/*/*.webp", "!**/*-full.webp"],
+  { eager: true, import: "default" },
+);
 
 // kapareho ng packages sa PackageTemp; display lang, sa server kinukuwenta ang totoong halaga
 const PACKAGES = {
@@ -369,7 +296,13 @@ const card_payment_enabled = false;
 const router = useRouter();
 const orderStore = useOrderStore();
 const draft = readOrderDraft();
-const template = Template[draft.template_id] || Template["sky-balloons"];
+const chosenTemplate = TEMPLATES.find((item) => item.id === draft.template_id);
+const template = {
+  name: chosenTemplate?.name || "No template chosen",
+  image: Object.entries(templateImages).find(([path]) =>
+    path.endsWith(`/${draft.template_id}.webp`) || path.endsWith(`-${draft.template_id}.webp`),
+  )?.[1],
+};
 const selectedPackage = PACKAGES[draft.package_id] || PACKAGES["surprise-website"];
 const occasionLabel = draft.occasion
   ? draft.occasion.charAt(0).toUpperCase() + draft.occasion.slice(1)
@@ -658,8 +591,11 @@ async function startCheckout() {
   flex: 0 0 auto;
   overflow: hidden;
   border-radius: 9px;
+  background: #eef2fb;
 }
-.product-thumb svg {
+.product-thumb img {
+  display: block;
+  object-fit: cover;
   width: 100%;
   height: 100%;
 }

@@ -65,6 +65,11 @@ const router = createRouter({
       component: () => import("../views/CelebrateView.vue"),
     },
     {
+      path: "/s/:slug",
+      name: "surprise",
+      component: () => import("../views/SurpriseView.vue"),
+    },
+    {
       path: "/about",
       name: "about",
       // route level code-splitting

@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps({
   photos: { type: Array, default: () => [] },
