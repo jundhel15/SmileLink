@@ -6,7 +6,8 @@
        3) constellation: i-drag mula bituin hanggang bituin → hugis-pusong constellation
        4) hidden words: i-tap ang dagat → ripple + nakatagong salita
        5) message in a bottle: hilahin ang bote sa pampang → buksan ang sulat
-       6) punuin ang buwan (paikutin ang daliri) → litrato sa loob + birthday message -->
+       6) punuin ang buwan (paikutin ang daliri) → mga litrato sa loob + birthday message
+       7) "See our memories": swipeable na gallery ng 5-10 litrato -->
   <div
     ref="sceneEl"
     class="scene-root"
@@ -83,10 +84,14 @@
         :recipient="content.recipient"
         :sender="content.sender"
         :message="content.message"
-        :photo="content.photo"
+        :photos="photos"
         @full="onMoonFull"
+        @gallery="phase = 'gallery'"
         @replay="replay"
       />
+    </Transition>
+    <Transition name="stage">
+      <MemoryGallery v-if="phase === 'gallery'" :recipient="content.recipient" :photos="photos" @replay="replay" />
     </Transition>
 
     <div class="veil" :class="{ on: veil }" />
@@ -108,11 +113,18 @@ import ConstellationTrace from "./ConstellationTrace.vue";
 import WaterRipples from "./WaterRipples.vue";
 import MessageBottle from "./MessageBottle.vue";
 import MoonReveal from "./MoonReveal.vue";
+import MemoryGallery from "./MemoryGallery.vue";
 
 // content = recipient, sender, wishes (5), lanterns (3 maikling sulat), waterWords (pangungusap),
-//           bottleNote (sulat sa bote), message, photo
-defineProps({
+//           bottleNote (sulat sa bote), message, photos (5-10 litrato: URL o { src, caption }),
+//           photo (luma, 1 litrato lang; gumagana pa rin kung wala ang photos)
+const props = defineProps({
   content: { type: Object, required: true },
+});
+
+const photos = computed(() => {
+  const list = Array.isArray(props.content.photos) && props.content.photos.length ? props.content.photos : [props.content.photo];
+  return list.filter(Boolean).slice(0, 10);
 });
 
 const words = ["Some", "moments", "are", "worth"];
@@ -123,7 +135,7 @@ const buttonWrap = ref(null);
 const heartRef = ref(null);
 const particlesRef = ref(null);
 
-const phase = ref("intro"); // intro → journey → lanterns → constellation → ripples → bottle → moon
+const phase = ref("intro"); // intro → journey → lanterns → constellation → ripples → bottle → moon → gallery
 const revealed = ref(false); // lalabas ang wish stars pagkatapos ng title animation
 const foundCount = ref(0);
 const veil = ref(false);

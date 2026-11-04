@@ -1,18 +1,13 @@
 <template>
-  <!-- 5) INK LETTER: i-press and hold ang daliri (kahit saan) at "isusulat" ng pluma ang love letter,
-       letra por letra, hanggang matapos at lumabas ang pirma. -->
-  <section
-    class="ink-stage"
-    :class="{ done, holding }"
-    @pointerdown="onDown"
-    @pointerup="stopHold"
-    @pointercancel="stopHold"
-  >
+  <!-- 5) INK LETTER: i-press and hold ang PLUMA (ang papel ay hindi gumagana) at "isusulat" nito ang love letter,
+       letra por letra, hanggang matapos at lumabas ang pirma. May litrato na unti-unting luminaw habang sumusulat. -->
+  <section class="ink-stage" :class="{ done, holding }">
     <header v-if="!done" class="head">
       <p class="eyebrow">Let me write to you</p>
-      <h2>Press and hold</h2>
+      <h2>Hold the pen</h2>
     </header>
 
+    <div class="paper-wrap">
     <article ref="paperEl" class="paper">
       <p class="to">My dearest {{ recipient }},</p>
       <p class="body" aria-hidden="true">
@@ -24,12 +19,22 @@
       <span class="sr-only">{{ text }}</span>
       <p class="sig" :class="{ on: done }">With all my love, {{ sender }}</p>
     </article>
+    <figure v-if="photo" class="snap" :style="{ '--d': Math.min(1, progress * 1.25) }" aria-hidden="true">
+      <span class="tape" />
+      <img :src="photo" alt="" draggable="false" />
+    </figure>
+    </div>
 
     <button
       v-if="!done"
       class="nib"
       type="button"
-      aria-label="Hold to write the letter"
+      aria-label="Hold the pen to write the letter"
+      @pointerdown.prevent="onDown"
+      @pointerup="stopHold"
+      @pointercancel="stopHold"
+      @pointerleave="stopHold"
+      @contextmenu.prevent
       @keydown.space.prevent="startHold"
       @keyup.space="stopHold"
       @keydown.enter.prevent="startHold"
@@ -40,7 +45,7 @@
         <path class="vein" d="M5.5 20.5 15 11" />
       </svg>
     </button>
-    <p v-if="!done" class="hint">{{ Math.round(progress * 100) }}% · hold to let the ink flow</p>
+    <p v-if="!done" class="hint">{{ Math.round(progress * 100) }}% · press and hold the pen</p>
 
     <Transition name="rise">
       <button v-if="done" class="next" type="button" @pointerdown.stop @click="emit('done')">Continue ✦</button>
@@ -55,6 +60,7 @@ const props = defineProps({
   recipient: { type: String, required: true },
   sender: { type: String, required: true },
   text: { type: String, required: true },
+  photo: { type: String, default: "" },
 });
 const emit = defineEmits(["written", "done"]);
 
@@ -132,13 +138,9 @@ onBeforeUnmount(() => cancelAnimationFrame(frame));
   gap: 18px;
   padding: 64px 18px 60px;
   text-align: center;
-  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-}
-.ink-stage:not(.done) {
-  cursor: pointer;
 }
 .eyebrow {
   margin: 0;
@@ -159,9 +161,44 @@ h2 {
 }
 
 /* ===== Papel ===== */
-.paper {
+.paper-wrap {
   position: relative;
   width: min(100% - 8px, 390px);
+}
+.snap {
+  position: absolute;
+  bottom: -34px;
+  right: -12px;
+  z-index: 2;
+  width: 76px;
+  margin: 0;
+  padding: 5px 5px 14px;
+  background: #fffdf7;
+  box-shadow: 0 8px 16px rgb(100 75 30 / 0.28);
+  transform: rotate(-6deg);
+  pointer-events: none;
+}
+.snap img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  opacity: calc(0.15 + var(--d) * 0.85);
+  filter: blur(calc((1 - var(--d)) * 6px)) sepia(calc((1 - var(--d)) * 0.7));
+}
+.tape {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  width: 30px;
+  height: 14px;
+  background: rgb(232 214 170 / 0.8);
+  transform: translateX(-50%) rotate(-4deg);
+}
+.paper {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
   max-height: 58cqh;
   padding: 24px 24px 20px;
   overflow-y: auto;
@@ -239,15 +276,17 @@ h2 {
 .nib {
   display: grid;
   place-items: center;
-  width: 62px;
-  height: 62px;
+  width: 70px;
+  height: 70px;
   padding: 0;
-  border: 1px solid #b8914f;
+  border: 1.5px solid #b8914f;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fffdf6, #f1e4c6);
   box-shadow: 0 8px 20px rgb(120 90 40 / 0.25);
   cursor: pointer;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   animation: invite 1.6s ease-in-out infinite alternate;
 }
 .nib:focus-visible {
@@ -255,8 +294,8 @@ h2 {
   outline-offset: 4px;
 }
 .nib svg {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   fill: #b8914f;
 }
 .nib .vein {
