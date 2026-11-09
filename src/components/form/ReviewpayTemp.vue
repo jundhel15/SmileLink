@@ -185,7 +185,9 @@
             <div class="qr-header">
               <span class="brand-gcash qr-brand">GCash</span>
               <h3 id="qr-heading">Scan to pay</h3>
-              <p class="muted">Open your GCash app, tap <strong>Scan QR</strong>, then scan this code.</p>
+              <p class="muted">
+                Open your GCash app, tap <strong>Scan QR</strong>, then scan this code.
+              </p>
             </div>
 
             <div class="qr-box" :class="{ expired: secondsLeft === 0 }">
@@ -274,24 +276,18 @@ import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
-import { TEMPLATES } from "@/shared/catalog";
+import { PACKAGES, TEMPLATES } from "@/shared/catalog";
 
 // mga thumbnail ng template (WebP); ang malalaking *-full ay hindi kasama
-const templateImages = import.meta.glob(
-  ["@/assets/templates/*/*.webp", "!**/*-full.webp"],
-  { eager: true, import: "default" },
-);
+const templateImages = import.meta.glob(["@/assets/templates/*/*.webp", "!**/*-full.webp"], {
+  eager: true,
+  import: "default",
+});
 
-// kapareho ng packages sa PackageTemp; display lang, sa server kinukuwenta ang totoong halaga
-const PACKAGES = {
-  "greeting-card": { name: "Greeting Card", price: 149 },
-  "surprise-website": { name: "Surprise Website", price: 299 },
-  "complete-surprise": { name: "Complete Surprise", price: 449 },
-};
-
+// ang PACKAGES ay galing sa shared catalog; display lang dito, sa server kinukuwenta ang totoong halaga
 const CHECKOUT_ENDPOINT = "/api/checkout-sessions";
 // naka-off muna ang card; gawing true para ipakita ulit
-const card_payment_enabled = false;
+const card_payment_enabled = true;
 
 const router = useRouter();
 const orderStore = useOrderStore();
@@ -299,8 +295,9 @@ const draft = readOrderDraft();
 const chosenTemplate = TEMPLATES.find((item) => item.id === draft.template_id);
 const template = {
   name: chosenTemplate?.name || "No template chosen",
-  image: Object.entries(templateImages).find(([path]) =>
-    path.endsWith(`/${draft.template_id}.webp`) || path.endsWith(`-${draft.template_id}.webp`),
+  image: Object.entries(templateImages).find(
+    ([path]) =>
+      path.endsWith(`/${draft.template_id}.webp`) || path.endsWith(`-${draft.template_id}.webp`),
   )?.[1],
 };
 const selectedPackage = PACKAGES[draft.package_id] || PACKAGES["surprise-website"];
@@ -441,9 +438,9 @@ const qrCells = computed(() => {
   return cells;
 });
 
+// GCash at card ay parehong dumadaan sa PayMongo Checkout; ang lumang sample QR popup ay hindi na ginagamit
 function onPayClick() {
-  if (paymentMethod.value === "gcash") openGcashModal();
-  else startCheckout();
+  startCheckout();
 }
 
 async function openGcashModal() {
@@ -514,13 +511,11 @@ async function startCheckout() {
 
     const response = await fetch(CHECKOUT_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        order_id: orderId,
-        payment_method: paymentMethod.value,
-        success_url: `${window.location.origin}/order/${orderId}/processing`,
-        order: { ...readOrderDraft(), order_id: orderId },
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-order-token": readOrderDraft().order_token ?? "",
+      },
+      body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod.value }),
     });
     if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
 

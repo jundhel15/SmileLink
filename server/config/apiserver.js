@@ -3,7 +3,12 @@ import crypto from "node:crypto";
 import process from "node:process";
 import { supabase } from "./supabase.js";
 import { sendSmileLinkEmail } from "./email.js";
+import { paymongo } from "./paymongo.js";
+import { PACKAGES } from "../../src/shared/catalog.js";
 export let registerapp = null;
+
+// Statuses where the customer can still edit and (re)start a checkout.
+const UNPAID_STATUSES = ["draft", "pending_payment", "failed"];
 
 // Fields the client may save, per table. Anything else in the draft is ignored.
 const ORDER_FIELDS = ["occasion", "template_id", "package_id", "is_group"];
@@ -117,6 +122,76 @@ async function findAuthorizedOrder(req) {
   return data;
 }
 
+// Marks the order paid, then emails the link (or leaves it "scheduled"). Safe to call again
+// for an order that is already "paid", so a failed email can be retried without charging again.
+async function fulfillPaidOrder(orderId) {
+  const { data: delivery, error: deliveryError } = await supabase
+    .from("order_delivery")
+    .select("recipient_name, recipient_email, sender_name, delivery_mode")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (deliveryError) return { status: 500, error: deliveryError.message };
+
+  const setStatus = (order_status) =>
+    supabase
+      .from("orders")
+      .update({ order_status, updated_at: new Date().toISOString() })
+      .eq("id", orderId);
+
+  const { error: paidError } = await setStatus("paid");
+  if (paidError) return { status: 500, error: paidError.message };
+
+  if (!delivery?.recipient_email) {
+    return { status: 400, error: "Payment saved, but the recipient email is missing." };
+  }
+
+  // There is no scheduler yet, so scheduled orders stay "scheduled" and are not emailed.
+  if (delivery.delivery_mode === "scheduled") {
+    await setStatus("scheduled");
+    return { status: 200, order_status: "scheduled" };
+  }
+
+  const link = `${process.env.APP_URL || "http://localhost:5173"}/s/${orderId}`;
+  try {
+    await sendSmileLinkEmail({
+      to: delivery.recipient_email,
+      recipientName: delivery.recipient_name,
+      senderName: delivery.sender_name,
+      link,
+    });
+  } catch (error) {
+    console.error("[email]", error.message);
+    return { status: 502, error: "Payment saved, but the email could not be sent." };
+  }
+
+  const { error: sentError } = await setStatus("sent");
+  if (sentError) return { status: 500, error: sentError.message };
+  return { status: 200, order_status: "sent" };
+}
+
+// PayMongo-Signature: "t=<timestamp>,te=<test sig>,li=<live sig>".
+// The signature is HMAC-SHA256 of "<timestamp>.<raw body>" with the webhook's secret key.
+function verifyPaymongoSignature(header, rawBody, livemode) {
+  const secret = process.env.PAYMONGO_WEBHOOK_SECRET;
+  if (!secret || !header || !rawBody) return false;
+
+  const parts = Object.fromEntries(
+    String(header)
+      .split(",")
+      .map((part) => part.trim().split("=")),
+  );
+  const signature = livemode ? parts.li : parts.te;
+  if (!parts.t || !signature) return false;
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(`${parts.t}.${rawBody.toString("utf8")}`)
+    .digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(signature, "hex");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 export function registerRoutes(app) {
   // Confirms Express handed us the app
   console.log("[apiserver] registerRoutes connected:", typeof app?.get === "function");
@@ -154,7 +229,7 @@ export function registerRoutes(app) {
   app.patch("/api/orders/:id", async (req, res) => {
     const order = await findAuthorizedOrder(req);
     if (!order) return res.status(404).json({ error: "Order not found." });
-    if (order.order_status !== "draft") {
+    if (!UNPAID_STATUSES.includes(order.order_status)) {
       return res.status(409).json({ error: "This order can no longer be edited." });
     }
 
@@ -208,53 +283,133 @@ export function registerRoutes(app) {
     const order = await findAuthorizedOrder(req);
     if (!order) return res.status(404).json({ error: "Order not found." });
     // "paid" is allowed so a failed email can be retried
-    if (!["draft", "paid"].includes(order.order_status)) {
+    if (![...UNPAID_STATUSES, "paid"].includes(order.order_status)) {
       return res.status(409).json({ error: "This order was already processed." });
     }
 
-    const { data: delivery, error: deliveryError } = await supabase
-      .from("order_delivery")
-      .select("recipient_name, recipient_email, sender_name, delivery_mode")
-      .eq("order_id", order.id)
-      .maybeSingle();
-    if (deliveryError) return res.status(500).json({ error: deliveryError.message });
-    if (!delivery?.recipient_email) {
-      return res.status(400).json({ error: "The recipient email is missing." });
+    const result = await fulfillPaidOrder(order.id);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    res.json({ ok: true, order_status: result.order_status, link_slug: order.id });
+  });
+
+  // Creates a PayMongo Checkout Session (GCash or card). The amount comes from the server catalog,
+  // never from the browser. The order is only marked paid later, by the verified webhook.
+  app.post("/api/checkout-sessions", async (req, res) => {
+    req.params.id = req.body?.order_id;
+    const order = await findAuthorizedOrder(req);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    if (!UNPAID_STATUSES.includes(order.order_status)) {
+      return res.status(409).json({ error: "This order was already paid." });
     }
 
-    const setStatus = (order_status) =>
+    const [{ data: details, error: detailsError }, { data: delivery }] = await Promise.all([
+      supabase.from("orders").select("package_id").eq("id", order.id).single(),
       supabase
-        .from("orders")
-        .update({ order_status, updated_at: new Date().toISOString() })
-        .eq("id", order.id);
+        .from("order_delivery")
+        .select("sender_name, sender_email")
+        .eq("order_id", order.id)
+        .maybeSingle(),
+    ]);
+    if (detailsError) return res.status(500).json({ error: detailsError.message });
 
-    const { error: paidError } = await setStatus("paid");
-    if (paidError) return res.status(500).json({ error: paidError.message });
+    const selectedPackage = PACKAGES[details.package_id];
+    if (!selectedPackage) return res.status(400).json({ error: "Choose a package first." });
 
-    // There is no scheduler yet, so scheduled orders stay "scheduled" and are not emailed.
-    if (delivery.delivery_mode === "scheduled") {
-      await setStatus("scheduled");
-      return res.json({ ok: true, order_status: "scheduled", link_slug: order.id });
-    }
+    const methods = { gcash: ["gcash"], card: ["card"] };
+    const paymentMethodTypes = methods[req.body?.payment_method] ?? ["gcash", "card"];
 
-    const link = `${process.env.APP_URL || "http://localhost:5173"}/s/${order.id}`;
+    // Return to the address the customer is browsing from, so their saved draft is still there
+    const origin = /^https?:\/\/[^/]+$/.test(req.get("origin") ?? "")
+      ? req.get("origin")
+      : process.env.APP_URL || "http://localhost:5173";
+
     try {
-      await sendSmileLinkEmail({
-        to: delivery.recipient_email,
-        recipientName: delivery.recipient_name,
-        senderName: delivery.sender_name,
-        link,
+      const session = await paymongo("/checkout_sessions", {
+        method: "POST",
+        body: {
+          line_items: [
+            {
+              name: `SmileLink ${selectedPackage.name}`,
+              amount: Math.round(selectedPackage.price * 100), // centavos
+              currency: "PHP",
+              quantity: 1,
+            },
+          ],
+          payment_method_types: paymentMethodTypes,
+          reference_number: order.id,
+          description: `SmileLink order ${order.id}`,
+          metadata: { order_id: order.id },
+          ...(delivery?.sender_email && {
+            billing: { name: delivery.sender_name || "SmileLink customer", email: delivery.sender_email },
+          }),
+          send_email_receipt: false,
+          show_description: true,
+          show_line_items: true,
+          success_url: `${origin}/order/${order.id}/processing`,
+          cancel_url: `${origin}/create/review`,
+        },
       });
+
+      const { error: statusError } = await supabase
+        .from("orders")
+        .update({ order_status: "pending_payment", updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+      if (statusError) console.error("[checkout] couldn't set pending_payment:", statusError.message);
+
+      res.json({ checkout_url: session.attributes.checkout_url });
     } catch (error) {
-      // The order stays "paid" so the email can be retried without charging again.
-      console.error("[email]", error.message);
-      return res.status(502).json({ error: "Payment saved, but the email could not be sent." });
+      console.error("[paymongo]", error.message);
+      res.status(502).json({ error: "Couldn't open the PayMongo checkout." });
+    }
+  });
+
+  // PayMongo calls this. Only a correctly signed checkout_session.payment.paid marks an order paid.
+  // Answering non-2xx makes PayMongo retry, which is what we want if the email failed.
+  app.post("/api/webhooks/paymongo", async (req, res) => {
+    const event = req.body?.data?.attributes;
+    if (!verifyPaymongoSignature(req.get("paymongo-signature"), req.rawBody, event?.livemode)) {
+      console.warn("[webhook] rejected: bad or missing signature");
+      return res.status(401).json({ error: "Invalid signature." });
     }
 
-    const { error: sentError } = await setStatus("sent");
-    if (sentError) return res.status(500).json({ error: sentError.message });
+    const resource = event?.data?.attributes ?? {};
+    const orderId = resource.metadata?.order_id || resource.reference_number;
+    console.log(`[webhook] ${event?.type} for order ${orderId ?? "(none)"}`);
 
-    res.json({ ok: true, order_status: "sent", link_slug: order.id });
+    if (event?.type === "checkout_session.payment.paid") {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("id, order_status, package_id")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (!order) return res.json({ ignored: "unknown order" });
+      // A repeat delivery of an event we already handled
+      if (["scheduled", "sent"].includes(order.order_status)) return res.json({ ok: true });
+
+      const paidCentavos = (resource.payments ?? [])
+        .filter((payment) => payment.attributes?.status === "paid")
+        .reduce((sum, payment) => sum + (payment.attributes.amount ?? 0), 0);
+      const priceCentavos = Math.round((PACKAGES[order.package_id]?.price ?? 0) * 100);
+      if (paidCentavos < priceCentavos) {
+        console.error(`[webhook] order ${order.id}: paid ${paidCentavos}, expected ${priceCentavos}`);
+        return res.json({ ignored: "amount mismatch" });
+      }
+
+      const result = await fulfillPaidOrder(order.id);
+      if (result.error) console.error(`[webhook] order ${order.id}: ${result.error}`);
+      // 500 only when the email failed, so PayMongo retries and the email is resent
+      return res.status(result.status === 502 ? 500 : 200).json({ ok: !result.error });
+    }
+
+    if (event?.type === "payment.failed" && orderId) {
+      await supabase
+        .from("orders")
+        .update({ order_status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", orderId)
+        .eq("order_status", "pending_payment");
+    }
+
+    res.json({ ok: true });
   });
 
   // Recipient page. With the password lock on, only the hint is sent until /unlock succeeds.

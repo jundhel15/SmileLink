@@ -5,7 +5,14 @@ import { registerRoutes } from "./config/apiserver.js";
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+// Keeps the raw body so the PayMongo webhook signature can be checked against the exact bytes sent
+app.use(
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
 // Logs each API request and its status, to debug saves from the browser
 app.use("/api", (req, res, next) => {

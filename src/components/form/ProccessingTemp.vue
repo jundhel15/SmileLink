@@ -148,12 +148,11 @@ async function retryCheckout() {
   try {
     const response = await fetch(checkout_endpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        order_id: orderId,
-        payment_method: draft.payment_method,
-        order: { ...readOrderDraft(), order_id: orderId },
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-order-token": readOrderDraft().order_token ?? "",
+      },
+      body: JSON.stringify({ order_id: orderId, payment_method: draft.payment_method }),
     });
     if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
 
