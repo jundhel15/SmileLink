@@ -14,11 +14,11 @@ import birthdayCake from "@/assets/occasions/birthday-cake.webp";
 /* SAMPLE na laman. Papalitan ito ng sagot ng customer sa form:
    recipient/sender,
    blooms (5): mga bagay na hinahangaan niya sa kanya (lalabas sa bawat bulaklak),
-   milestones (4): { date, label, text } mga mahahalagang sandali ng relasyon (lalabas habang inuugoy ang orasan),
-   together: maikling linya sa ilalim ng dalawang singsing (hal. "Together since 2021"),
-   letter: love letter na "isinusulat" habang naka-hold ang daliri,
-   message: huling birthday message (lalabas pagkatapos hilahin ang ribbon),
-   photo: litrato nila (lalabas sa loob ng regalo, naka-oval na gintong frame) */
+   milestones (4): { date, label, text } mga mahahalagang sandali ng relasyon (lalabas kapag sinindihan ang memory lights),
+   together: maikling linya sa ilalim ng dalawang champagne glass (hal. "Together since 2021"),
+   letter: love letter na "isinusulat" habang naka-hold ang pluma,
+   message: huling birthday message (lalabas pagkatapos buksan ang regalo gamit ang susi),
+   photos: 5-10 litrato nila (URL, o { src }). Lalabas sa gitna ng mga bulaklak, sa memory lights, sa sulat at sa regalo */
 const sampleContent = {
   recipient: "Maria",
   sender: "Juan",
@@ -40,7 +40,8 @@ const sampleContent = {
     "Some people spend their whole lives looking for a place to rest. I found mine in you. Thank you for loving me patiently, for laughing with me, and for staying through every season. Whatever this year brings, I want to face it with your hand in mine.",
   message:
     "You are my favorite hello and my hardest goodbye. Happy birthday, my love. Here's to a lifetime of golden hours with you.",
-  photo: birthdayCake,
+  // SAMPLE lang: iisang larawan ang inuulit. Papalitan ng mga na-upload ng customer (5 hanggang 10).
+  photos: [birthdayCake, birthdayCake, birthdayCake, birthdayCake, birthdayCake],
 };
 
 const props = defineProps({

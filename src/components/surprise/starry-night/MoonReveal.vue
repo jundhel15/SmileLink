@@ -28,7 +28,15 @@
       <span class="moon-halo" aria-hidden="true" />
       <span class="moon-disc">
         <span class="moon-face" />
-        <img v-if="photo" class="moon-photo" :src="photo" alt="" draggable="false" />
+        <img
+          v-for="(src, i) in pics"
+          :key="i"
+          class="moon-photo"
+          :class="{ cur: i === slide }"
+          :src="src"
+          alt=""
+          draggable="false"
+        />
       </span>
       <svg class="moon-ring" viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="48" pathLength="1" />
@@ -42,28 +50,52 @@
         <h3>{{ recipient }}</h3>
         <p class="text">{{ message }}</p>
         <p class="from">— {{ sender }}</p>
-        <button class="replay" type="button" @click="emit('replay')">↻ Replay</button>
+        <div class="actions">
+          <button v-if="pics.length > 1" class="more" type="button" @click="emit('gallery')">See our memories ✦</button>
+          <button class="replay" type="button" @click="emit('replay')">↻ Replay</button>
+        </div>
       </div>
     </Transition>
   </section>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 
-defineProps({
+const props = defineProps({
   recipient: { type: String, required: true },
   sender: { type: String, required: true },
   message: { type: String, required: true },
-  photo: { type: String, default: "" },
+  // 1 hanggang 10 litrato (URL string o { src }). Sunod-sunod silang lilitaw sa loob ng buwan.
+  photos: { type: Array, default: () => [] },
 });
-const emit = defineEmits(["full", "replay"]);
+const emit = defineEmits(["full", "replay", "gallery"]);
 
+const pics = computed(() =>
+  props.photos
+    .map((p) => (typeof p === "string" ? p : p?.src))
+    .filter(Boolean)
+    .slice(0, 10),
+);
 const moonEl = ref(null);
 const progress = ref(0);
 const full = ref(false);
 // laging may manipis na crescent sa simula (0.16) para alam kung ano ang pupunuin
 const shown = computed(() => (full.value ? 1 : 0.16 + progress.value * 0.84));
+
+const slide = ref(0);
+let slideTimer = 0;
+watch(
+  () => full.value,
+  (isFull) => {
+    clearInterval(slideTimer);
+    if (isFull && pics.value.length > 1) {
+      slideTimer = setInterval(() => {
+        slide.value = (slide.value + 1) % pics.value.length;
+      }, 3200);
+    }
+  },
+);
 
 const ROTATIONS = 1.5; // ilang ikot ng daliri bago mapuno
 let lastAngle = null;
@@ -117,7 +149,10 @@ function complete() {
   emit("full", moonEl.value);
 }
 
-onBeforeUnmount(() => clearInterval(holdTimer));
+onBeforeUnmount(() => {
+  clearInterval(holdTimer);
+  clearInterval(slideTimer);
+});
 </script>
 
 <style scoped>
@@ -232,7 +267,7 @@ h2 {
   transition: opacity 2s ease 0.4s;
   pointer-events: none;
 }
-.full .moon-photo {
+.full .moon-photo.cur {
   opacity: 1;
 }
 .moon-ring {
@@ -293,8 +328,28 @@ h2 {
   font-family: var(--font-script);
   font-size: 28px;
 }
-.replay {
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
   margin-top: 10px;
+}
+.more {
+  padding: 10px 22px;
+  border: 1px solid rgb(255 217 138 / 0.8);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 217 138 / 0.28), rgb(255 217 138 / 0.12));
+  color: #fff6e0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgb(255 217 138 / 0.35);
+}
+.more:hover {
+  background: rgb(255 217 138 / 0.35);
+}
+.replay {
   padding: 10px 24px;
   border: 1px solid rgb(241 211 166 / 0.6);
   border-radius: 999px;

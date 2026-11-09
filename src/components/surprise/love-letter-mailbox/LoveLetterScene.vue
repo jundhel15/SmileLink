@@ -1,11 +1,11 @@
 <template>
   <!-- EKSENA ng Monthsary 01 Love Letter Mailbox (nasa loob ng SurpriseShell screen):
-       1) flag: hilahin pataas ang bandila ng mailbox → bubukas, lilipad ang mga sulat
-       2) letters: punitin ang bawat envelope sa tuldok-tuldok na linya → dahilan at litrato
-       3) seal: pindutin at i-hold ang wax seal hanggang mabasag → bubukas ang mahabang sulat
+       1) catch: i-tap ang mga lumulutang na sulat para saluhin → dahilan at litrato
+       2) trace: gumuhit ng puso gamit ang daliri para masindihan ang mga bituin
+       3) crank: paikutin ang music box para mabuklat ang mahabang sulat
        4) scratch: kaskasin ang foil ng ticket → tatlong pangako
        5) line: hilahin ang sampayan para "ma-develop" ang lahat ng litrato
-       6) plane: hilahin pataas at bitawan ang papel na eroplano → huling gallery at mensahe -->
+       6) finale: mag-tap sa langit para magpaputok → huling gallery at mensahe -->
   <div ref="sceneEl" class="scene-root" @pointermove="onPointerMove" @pointerleave="pointerActive = false">
     <LoveBackdrop :mood="mood" />
 
@@ -15,30 +15,37 @@
 
     <div :key="runKey" class="stages">
       <Transition name="stage">
-        <MailboxFlag v-if="phase === 'flag'" :month-count="monthCount" @opened="onOpened" @done="go('letters')" />
-      </Transition>
-      <Transition name="stage">
-        <EnvelopeTear
-          v-if="phase === 'letters'"
-          :recipient="recipient"
+        <LetterCatch
+          v-if="phase === 'catch'"
           :sender="sender"
           :reasons="reasons"
           :photos="photos"
           :captions="captions"
-          @torn="burstAt($event, 22)"
-          @finished="burstAt($event, 50)"
-          @done="go('seal')"
+          @caught="burstAt($event, 26)"
+          @finished="burstAt($event, 60)"
+          @done="go('trace')"
         />
       </Transition>
       <Transition name="stage">
-        <WaxSeal
-          v-if="phase === 'seal'"
+        <HeartTrace
+          v-if="phase === 'trace'"
+          :recipient="recipient"
+          :sender="sender"
+          :month-count="monthCount"
+          :since-date="sinceDate"
+          @completed="onTraced"
+          @done="go('crank')"
+        />
+      </Transition>
+      <Transition name="stage">
+        <MusicCrank
+          v-if="phase === 'crank'"
           :recipient="recipient"
           :sender="sender"
           :letter="letter"
           :month-count="monthCount"
           :photo="photos[0] || ''"
-          @cracked="onCracked"
+          @unrolled="onUnrolled"
           @done="go('scratch')"
         />
       </Transition>
@@ -59,19 +66,20 @@
           :photos="photos"
           :captions="captions"
           @finished="burstAt($event, 60)"
-          @done="go('plane')"
+          @done="go('finale')"
         />
       </Transition>
       <Transition name="stage">
-        <PlaneFinale
-          v-if="phase === 'plane'"
+        <FireworkFinale
+          v-if="phase === 'finale'"
           :recipient="recipient"
           :sender="sender"
           :message="message"
           :month-count="monthCount"
           :photos="photos"
           :captions="captions"
-          @launched="onLaunched"
+          @fire="fireAt"
+          @finale="onFinale"
           @replay="replay"
         />
       </Transition>
@@ -85,12 +93,12 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import LoveBackdrop from "./LoveBackdrop.vue";
 import HeartFx from "./HeartFx.vue";
-import MailboxFlag from "./MailboxFlag.vue";
-import EnvelopeTear from "./EnvelopeTear.vue";
-import WaxSeal from "./WaxSeal.vue";
+import LetterCatch from "./LetterCatch.vue";
+import HeartTrace from "./HeartTrace.vue";
+import MusicCrank from "./MusicCrank.vue";
 import ScratchTicket from "./ScratchTicket.vue";
 import PhotoLine from "./PhotoLine.vue";
-import PlaneFinale from "./PlaneFinale.vue";
+import FireworkFinale from "./FireworkFinale.vue";
 
 // content = recipient, sender, monthCount, sinceDate, reasons (5), promises (3), letter, message,
 //           photos (5–10 na URL; kung may lumang `photo` lang, ito ang gagamitin), captions (opsyonal)
@@ -141,9 +149,9 @@ const photos = computed(() => {
 const sceneEl = ref(null);
 const fxRef = ref(null);
 
-const phases = ["flag", "letters", "seal", "scratch", "line", "plane"];
-const MOODS = { flag: "rose", letters: "blush", seal: "peach", scratch: "lilac", line: "night", plane: "rose" };
-const phase = ref("flag");
+const phases = ["catch", "trace", "crank", "scratch", "line", "finale"];
+const MOODS = { catch: "rose", trace: "night", crank: "peach", scratch: "lilac", line: "night", finale: "night" };
+const phase = ref("catch");
 const phaseIndex = computed(() => phases.indexOf(phase.value));
 const mood = computed(() => MOODS[phase.value]);
 const runKey = ref(0);
@@ -170,26 +178,29 @@ function burstAt(el, count) {
   fxRef.value?.burst(x, y, { count, speed: 200 });
 }
 
-function onOpened(el) {
-  burstAt(el, 70);
-  fxRef.value?.rain(2);
+function onTraced(el) {
+  burstAt(el, 90);
+  fxRef.value?.rain(3);
 }
-function onCracked(el) {
-  burstAt(el, 80);
+function onUnrolled(el) {
+  burstAt(el, 70);
   fxRef.value?.rain(2);
 }
 function onScratched(el) {
   burstAt(el, 90);
   fxRef.value?.rain(3);
 }
-function onLaunched(el) {
-  burstAt(el, 60);
+// paputok: ang x,y ay nasa loob na ng eksena
+function fireAt({ x, y }) {
+  fxRef.value?.burst(x, y, { count: 70, speed: 250 });
+}
+function onFinale() {
   fxRef.value?.rain(6);
 }
 
 function replay() {
   fxRef.value?.reset();
-  phase.value = "flag";
+  phase.value = "catch";
   runKey.value += 1;
 }
 

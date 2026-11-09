@@ -2,10 +2,11 @@
   <!-- EKSENA ng 05 Timeless Elegance (para sa magkasintahan; nasa loob ng SurpriseShell screen):
        1) curtains: hilahin pahalang ang olive-green na kurtina → lilitaw ang pangalan
        2) bloom garden: i-tap ang 5 usbong sa vase → mamumukadkad, may bagay na hinahangaan sa kanya
-       3) time dial: paikutin pa-clockwise ang gintong orasan → mga mahahalagang sandali ng relasyon
-       4) linked rings: i-drag papunta sa gitna → magsasalikop ang dalawang singsing + pangalan nilang dalawa
-       5) ink letter: i-hold ang daliri → isinusulat ng pluma ang love letter
-       6) gift ribbon: hilahin pababa ang ribbon → bubukas ang regalo, lalabas ang litrato + final message -->
+       3) memory lights: i-tap ang mga ilaw → sisindi, lilinaw ang polaroid + mahalagang sandali ninyo
+       4) cheers: i-drag ang dalawang champagne glass papunta sa gitna → clink + pangalan nilang dalawa
+       5) ink letter: i-hold ang PLUMA (hindi ang papel) → isinusulat ang love letter
+       6) gift key: i-drag ang gintong susi sa kandado → bubukas ang regalo, lilipad ang mga litrato + final message
+       Litrato (5-10): sa gitna ng mga bulaklak (1-5), sa memory lights (6-9), sa sulat (10), at lahat sa regalo -->
   <div ref="sceneEl" class="scene-root" @pointermove="onPointerMove" @pointerleave="pointerActive = false">
     <ElegantBackdrop />
 
@@ -24,20 +25,27 @@
         />
       </Transition>
       <Transition name="stage">
-        <BloomGarden v-if="phase === 'garden'" :blooms="content.blooms" @bloomed="burstAt($event, 22)" @done="go('time')" />
-      </Transition>
-      <Transition name="stage">
-        <TimeDial
-          v-if="phase === 'time'"
-          :milestones="content.milestones"
-          @milestone="burstAt($event, 18)"
-          @finished="burstAt($event, 60)"
-          @done="go('rings')"
+        <BloomGarden
+          v-if="phase === 'garden'"
+          :blooms="content.blooms"
+          :photos="photos"
+          @bloomed="burstAt($event, 22)"
+          @done="go('lights')"
         />
       </Transition>
       <Transition name="stage">
-        <LinkedRings
-          v-if="phase === 'rings'"
+        <MemoryLights
+          v-if="phase === 'lights'"
+          :milestones="content.milestones"
+          :photos="lightPhotos"
+          @milestone="burstAt($event, 18)"
+          @finished="burstAt($event, 60)"
+          @done="go('toast')"
+        />
+      </Transition>
+      <Transition name="stage">
+        <CheersToast
+          v-if="phase === 'toast'"
           :recipient="content.recipient"
           :sender="content.sender"
           :together="content.together"
@@ -51,17 +59,18 @@
           :recipient="content.recipient"
           :sender="content.sender"
           :text="content.letter"
+          :photo="letterPhoto"
           @written="burstAt($event, 36)"
           @done="go('gift')"
         />
       </Transition>
       <Transition name="stage">
-        <GiftRibbon
+        <GiftKey
           v-if="phase === 'gift'"
           :recipient="content.recipient"
           :sender="content.sender"
           :message="content.message"
-          :photo="content.photo"
+          :photos="photos"
           @opened="onOpened"
           @replay="replay"
         />
@@ -78,23 +87,36 @@ import ElegantBackdrop from "./ElegantBackdrop.vue";
 import GoldDust from "./GoldDust.vue";
 import CurtainReveal from "./CurtainReveal.vue";
 import BloomGarden from "./BloomGarden.vue";
-import TimeDial from "./TimeDial.vue";
-import LinkedRings from "./LinkedRings.vue";
+import MemoryLights from "./MemoryLights.vue";
+import CheersToast from "./CheersToast.vue";
 import InkLetter from "./InkLetter.vue";
-import GiftRibbon from "./GiftRibbon.vue";
+import GiftKey from "./GiftKey.vue";
 
 // content = recipient, sender, blooms (5), milestones (4: { date, label, text }),
-//           together, letter, message, photo
-defineProps({
+//           together, letter, message,
+//           photos (5-10 litrato: URL o { src }), photo (luma, 1 litrato; gumagana pa rin kung wala ang photos)
+const props = defineProps({
   content: { type: Object, required: true },
 });
+
+/* lahat ng litrato bilang listahan ng URL (hanggang 10); inuulit sa mga eksena kapag kulang */
+const photos = computed(() => {
+  const raw = Array.isArray(props.content.photos) && props.content.photos.length ? props.content.photos : [props.content.photo];
+  return raw
+    .map((p) => (typeof p === "string" ? p : p?.src))
+    .filter(Boolean)
+    .slice(0, 10);
+});
+const pickPhoto = (k) => (photos.value.length ? photos.value[k % photos.value.length] : "");
+const lightPhotos = computed(() => Array.from({ length: 4 }, (_, i) => pickPhoto(5 + i)));
+const letterPhoto = computed(() => pickPhoto(9));
 
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const sceneEl = ref(null);
 const dustRef = ref(null);
 
-const phases = ["curtains", "garden", "time", "rings", "letter", "gift"];
+const phases = ["curtains", "garden", "lights", "toast", "letter", "gift"];
 const phase = ref("curtains");
 const phaseIndex = computed(() => phases.indexOf(phase.value));
 const runKey = ref(0);

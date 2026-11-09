@@ -1,10 +1,10 @@
 <template>
   <!-- INTERACTIVE PREVIEW ng 01 Soft Celebration (PURE CODE · CINEMATIC REDESIGN)
        Walang png/webp. SVG + CSS + <canvas> lang.
-       - 3D na gift box (CSS 3D) na bubuksan
+       - Wind-up music box (CSS 3D): paikutin ang susi para bumukas ang takip at umikot ang cake
        - Aurora background na gumagalaw + grain texture
-       - Glossy 3D na lobo, holographic na memory cards (3D flip + swipe) para sa mga litrato
-       - Totoong fireworks (rocket → pagsabog, may trail, hugis-puso) at confetti sa canvas
+       - Whack-the-piñata (tap o swipe): bawat hampas may lalabas na wish, sa huli mabibiyak at babagsak ang candy. Holographic na memory cards (3D flip + swipe) para sa mga litrato
+       - Finale: ikonekta ang mga bituin para mabuo ang puso, tapos fireworks at confetti sa canvas
        Lahat ng laman ay galing sa `content` prop. -->
   <SurpriseShell
     class="soft-shell"
@@ -242,22 +242,93 @@
       </div>
 
       <Transition name="scene" mode="out-in">
-        <!-- COVER: 3D gift box -->
+        <!-- COVER: wind-up music box -->
         <section v-if="scene === 'cover'" key="cover" class="scene scene-cover">
           <p class="eyebrow"><span class="eyebrow-line" /> A surprise for {{ c.recipient }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Someone made this <em>just for you</em></h3>
+          <h3 class="scene-title">Wind up your <em>surprise</em></h3>
 
-          <div class="gift-stage" :style="{ '--px': par.x, '--py': par.y }" @pointerdown="openGift" @pointermove="onGiftMove" @pointerleave="par = { x: 0, y: 0 }">
+          <div ref="mbStageEl" class="gift-stage">
             <div class="gift-halo" />
-            <div class="gift-beam" :class="{ on: giftOpen }" />
-            <div class="orb-wrap">
-              <div class="orb-ring r1"><i /></div><div class="orb-ring r2"><i /></div><div class="orb-ring r3"><i /></div>
-              <div class="orb-float"><div class="orb" :class="{ open: giftOpen }" /></div>
-              <div class="orb-reflect" />
+            <div ref="mbEl" class="mb" :class="{ playing: mbPlaying, done: mbDone }">
+              <svg class="svg-defs" width="0" height="0" aria-hidden="true">
+                <defs>
+                  <linearGradient id="mb-g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc9db" /><stop offset="1" stop-color="#ff8fb0" /></linearGradient>
+                  <linearGradient id="mb-g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e6dbff" /><stop offset="1" stop-color="#b79cf2" /></linearGradient>
+                  <linearGradient id="mb-g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe3ec" /><stop offset="1" stop-color="#ffa5c1" /></linearGradient>
+                  <radialGradient id="mb-flame" cx="50%" cy="70%" r="60%"><stop offset="0" stop-color="#fff6c0" /><stop offset="0.55" stop-color="#ffc247" /><stop offset="1" stop-color="#ff7a2f" /></radialGradient>
+                </defs>
+              </svg>
+              <div class="mb-glow" />
+              <div class="mb-notes" aria-hidden="true">
+                <span class="n1">♪</span><span class="n2">♫</span><span class="n3">♩</span><span class="n4">♬</span><span class="n5">♪</span><span class="n6">♫</span>
+              </div>
+              <div class="mb-scene">
+                <div class="mb-box">
+                  <div class="mb-wall mb-back" />
+                  <div class="mb-wall mb-left" />
+                  <div class="mb-wall mb-right" />
+                  <div class="mb-floor" />
+                  <div class="mb-turn">
+                    <div class="mb-fig">
+                      <div v-for="f in ['f', 'b']" :key="f" class="mb-face" :class="f">
+                        <svg viewBox="0 0 104 112" aria-hidden="true">
+                          <ellipse cx="52" cy="105" rx="45" ry="6" fill="#fff" stroke="#f3cfda" />
+                          <rect x="14" y="70" width="76" height="34" rx="8" fill="url(#mb-g1)" />
+                          <path d="M14 70h76v7q-9.5 10-19 0q-9.5 10-19 0q-9.5 10-19 0q-9.5 10-19 0Z" fill="#fff8f2" />
+                          <rect x="26" y="46" width="52" height="28" rx="7" fill="url(#mb-g2)" />
+                          <path d="M26 46h52v6q-8.7 9-17.3 0q-8.7 9-17.3 0q-8.7 9-17.3 0Z" fill="#fff8f2" />
+                          <use href="#sl-heart" x="44" y="56" width="16" height="16" fill="#fff" opacity="0.92" />
+                          <rect x="36" y="28" width="32" height="22" rx="6" fill="url(#mb-g3)" />
+                          <path d="M36 28h32v5q-5.3 8-10.7 0q-5.3 8-10.7 0q-5.3 8-10.6 0Z" fill="#fff8f2" />
+                          <g v-for="x in [44, 52, 60]" :key="x">
+                            <rect :x="x - 2" y="14" width="4" height="15" rx="1.5" fill="#fff" stroke="#ffc2d4" stroke-width="0.7" />
+                            <rect :x="x - 2" y="19" width="4" height="2.4" fill="#ff9fbd" />
+                            <ellipse class="mb-flame" :cx="x" cy="10" rx="3" ry="5.2" fill="url(#mb-flame)" />
+                          </g>
+                          <use href="#sl-sparkle" x="8" y="40" width="12" height="12" fill="#ffd37a" />
+                          <use href="#sl-sparkle" x="86" y="34" width="10" height="10" fill="#ff9fbd" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mb-wall mb-front"><span class="mb-plate">♥ {{ c.recipient }}</span></div>
+                  <div class="mb-hinge">
+                    <div class="mb-lid">
+                      <div class="mb-lid-out"><svg aria-hidden="true"><use href="#sl-heart" /></svg></div>
+                      <div class="mb-lid-in" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="mb-key"
+                role="button"
+                tabindex="0"
+                aria-label="Wind the music box key"
+                @pointerdown="mbDown"
+                @pointermove="mbMove"
+                @pointerup="mbUp"
+                @pointercancel="mbUp"
+                @keydown.enter.prevent="mbAuto"
+                @keydown.space.prevent="mbAuto"
+              >
+                <svg class="mb-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="trk" cx="50" cy="50" r="46" />
+                  <circle class="bar" cx="50" cy="50" r="46" />
+                </svg>
+                <svg class="mb-keysvg" viewBox="0 0 100 100" aria-hidden="true">
+                  <path d="M50 50C44 30 30 24 20 28C8 33 6 52 14 62C22 72 42 66 50 50Z" fill="url(#sl-gold)" stroke="#c98f3f" stroke-width="1.6" stroke-linejoin="round" />
+                  <path d="M50 50C56 30 70 24 80 28C92 33 94 52 86 62C78 72 58 66 50 50Z" fill="url(#sl-gold)" stroke="#c98f3f" stroke-width="1.6" stroke-linejoin="round" />
+                  <ellipse cx="26" cy="42" rx="7" ry="4" fill="#fff" opacity="0.6" transform="rotate(-30 26 42)" />
+                  <ellipse cx="74" cy="42" rx="7" ry="4" fill="#fff" opacity="0.6" transform="rotate(30 74 42)" />
+                  <circle cx="50" cy="50" r="12" fill="url(#sl-gold)" stroke="#c98f3f" stroke-width="1.6" />
+                  <use href="#sl-heart" x="43" y="43" width="14" height="14" fill="#e8507b" />
+                </svg>
+              </div>
+              <p class="mb-hint" :class="{ off: mbTouched }">Wind the key <i>↻</i> around and around</p>
             </div>
           </div>
-
-          <button class="primary-button" type="button" @click.stop="openGift">
+          <button class="primary-button" type="button" :disabled="mbDone" @click.stop="mbAuto">
             Open your surprise <span aria-hidden="true">→</span>
           </button>
           <p class="script-line">From {{ c.sender }}, with love 💗</p>
@@ -319,60 +390,120 @@
           <p class="demo-code">Demo code: <b>{{ c.code }}</b></p>
         </section>
 
-        <!-- 2. BALLOON POP WISHES -->
+        <!-- 2. WHACK THE PIÑATA (tap o swipe; bawat hampas = isang wish, sa huli mabibiyak) -->
         <section v-else-if="scene === 'balloons'" key="balloons" class="scene scene-balloons">
           <div class="sky" aria-hidden="true" />
           <p class="eyebrow"><span class="eyebrow-line" /> Make a wish, {{ c.recipient }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Pop the <em>wishes</em></h3>
-          <p class="scene-sub">Each orb holds a birthday wish.</p>
+          <h3 class="scene-title">Set the <em>wishes</em> free</h3>
+          <p class="scene-sub">{{ pinSub }}</p>
           <div class="wish-card glass" aria-live="polite">
             <svg class="card-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
             <Transition name="pop-in" mode="out-in">
-              <div :key="popped.length">
-                <template v-if="popped.length">
-                  <span class="chip">Wish {{ popped.length }} of {{ wishes.length }}</span>
-                  <p>{{ wishes[popped.length - 1] }}</p>
+              <div :key="hits">
+                <template v-if="hits">
+                  <span class="chip">Wish {{ hits }} of {{ pinHits }}</span>
+                  <p>{{ wishes[hits - 1] }}</p>
                 </template>
-                <p v-else>Tap an orb to begin</p>
+                <p v-else>Give the piñata a whack to free the first wish</p>
               </div>
             </Transition>
           </div>
-          <div class="balloon-field" @pointermove="sliceBalloons">
-            <button
-              v-for="(wish, index) in wishes"
-              :key="index"
-              class="balloon"
-              :class="{ popped: popped.includes(index) }"
-              type="button"
-              :disabled="popped.includes(index)"
-              :aria-label="`Pop balloon ${index + 1}`"
-              :data-i="index"
-              :style="balloonStyle(index)"
-              @click="popBalloon(index, $event)"
-            >
-              <svg viewBox="0 0 100 100" aria-hidden="true">
-                <defs>
-                  <radialGradient :id="`bl-${index}`" cx="35%" cy="28%" r="78%">
-                    <stop offset="0" stop-color="#fff" stop-opacity="0.95" />
-                    <stop offset="0.35" :stop-color="palette(index).b" stop-opacity="0.78" />
-                    <stop offset="1" :stop-color="palette(index).d" stop-opacity="0.92" />
-                  </radialGradient>
-                  <radialGradient :id="`bs-${index}`" cx="50%" cy="50%" r="50%">
-                    <stop offset="0.72" stop-color="#fff" stop-opacity="0" />
-                    <stop offset="1" stop-color="#fff" stop-opacity="0.7" />
-                  </radialGradient>
-                </defs>
-                <circle cx="50" cy="50" r="47" :fill="`url(#bl-${index})`" />
-                <circle cx="50" cy="50" r="47" :fill="`url(#bs-${index})`" />
-                <circle cx="50" cy="50" r="46.5" fill="none" stroke="#fff" stroke-opacity="0.8" />
-                <ellipse cx="34" cy="24" rx="15" ry="8" fill="#fff" opacity="0.75" transform="rotate(-30 34 24)" />
-                <path d="M70 82a36 36 0 0 0 14-26" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="2.4" stroke-linecap="round" />
-                <text x="50" y="60" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="300" font-size="34" fill="#fff" fill-opacity="0.95">{{ index + 1 }}</text>
-              </svg>
-            </button>
+          <div
+            ref="pinField"
+            class="balloon-field pin-field"
+            @pointerdown="pinDown"
+            @pointermove="pinMove"
+            @pointerup="pinEnd"
+            @pointercancel="pinEnd"
+            @pointerleave="pinEnd"
+          >
+            <svg class="pin-svg" viewBox="0 0 320 380" preserveAspectRatio="xMidYMax meet" role="img" aria-label="A star piñata hanging from a rope. Tap or swipe it to whack it.">
+              <defs>
+                <clipPath id="sl-pin-star"><path :d="PIN_STAR" /></clipPath>
+                <clipPath id="sl-pin-cl"><path :d="PIN_CUT_L" /></clipPath>
+                <clipPath id="sl-pin-cr"><path :d="PIN_CUT_R" /></clipPath>
+                <linearGradient id="sl-pin-shade" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#fff" stop-opacity="0.34" />
+                  <stop offset="0.5" stop-color="#fff" stop-opacity="0" />
+                  <stop offset="1" stop-color="#7a2447" stop-opacity="0.3" />
+                </linearGradient>
+                <pattern id="sl-pin-fringe" width="4" height="10" patternUnits="userSpaceOnUse">
+                  <rect width="1.3" height="10" fill="#fff" fill-opacity="0.4" />
+                </pattern>
+                <!-- ang mismong piñata (paper fringe na star). Ginagamit ng buo at ng dalawang kalahati -->
+                <g id="sl-pin-art">
+                  <g clip-path="url(#sl-pin-star)">
+                    <g v-for="b in PIN_BANDS" :key="b.i">
+                      <path :d="b.d" fill="#6e1e46" fill-opacity="0.24" transform="translate(0 3)" />
+                      <path :d="b.d" :fill="b.col" />
+                      <path :d="b.d" fill="url(#sl-pin-fringe)" />
+                    </g>
+                    <rect x="0" y="66" width="320" height="230" fill="url(#sl-pin-shade)" />
+                    <ellipse cx="122" cy="124" rx="60" ry="42" fill="url(#sl-shine)" transform="rotate(-24 122 124)" />
+                    <path
+                      v-for="(d, i) in PIN_TEARS"
+                      v-show="hits > i"
+                      :key="`tear${i}`"
+                      class="pin-tear"
+                      :d="d"
+                    />
+                  </g>
+                  <path :d="PIN_STAR" fill="none" stroke="#fff" stroke-opacity="0.8" stroke-width="3" stroke-linejoin="round" />
+                  <path :d="PIN_HEART" fill="url(#sl-gold)" stroke="#fff" stroke-width="3" stroke-linejoin="round" />
+                </g>
+              </defs>
+              <g ref="pinRoot">
+                <ellipse cx="160" cy="304" rx="112" ry="8" fill="#b45a82" fill-opacity="0.16" />
+                <circle v-if="!hits" class="pin-hint" cx="160" cy="186" r="124" />
+                <g class="pin-sway">
+                  <g v-if="!broken" ref="pinataEl" class="pin-swing">
+                    <path class="pin-rope" d="M160 6V84" />
+                    <path class="pin-rope-twist" d="M160 6V84" />
+                    <g
+                      class="pin-body"
+                      role="button"
+                      tabindex="0"
+                      aria-label="Whack the piñata"
+                      @keydown.enter.prevent="pinKey"
+                      @keydown.space.prevent="pinKey"
+                    >
+                      <use href="#sl-pin-art" />
+                    </g>
+                    <use href="#sl-bow" x="136" y="64" width="48" height="35" />
+                  </g>
+                  <template v-else>
+                    <path class="pin-rope pin-rope-limp" d="M160 6C158 26 164 46 160 66" />
+                    <g class="pin-half pl"><g clip-path="url(#sl-pin-cl)"><use href="#sl-pin-art" /></g></g>
+                    <g class="pin-half pr"><g clip-path="url(#sl-pin-cr)"><use href="#sl-pin-art" /></g></g>
+                  </template>
+                  <circle class="pin-ring" cx="160" cy="6" r="6" />
+                </g>
+                <g v-for="cd in candies" :key="cd.id" :transform="`translate(${cd.x} ${cd.y})`" class="candy">
+                  <g
+                    class="candy-in"
+                    :style="{ '--dx': `${cd.dx}px`, '--dy': `${cd.dy}px`, '--rot': `${cd.rot}deg`, '--cd': `${cd.delay}ms`, '--eo': cd.keep ? 1 : 0 }"
+                  >
+                    <template v-if="cd.kind === 'wrap'">
+                      <path d="M-7 0L-14-5V5ZM7 0L14-5V5Z" :fill="cd.col" />
+                      <ellipse rx="8" ry="5.2" :fill="cd.col" stroke="#fff" stroke-width="1.2" />
+                      <path d="M-2.5-4.6Q-5 0-2.5 4.6" fill="none" stroke="#fff" stroke-opacity="0.8" stroke-width="1.4" stroke-linecap="round" />
+                    </template>
+                    <template v-else-if="cd.kind === 'star'">
+                      <path :d="CANDY_STAR" :fill="cd.col" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" />
+                    </template>
+                    <template v-else>
+                      <path d="M0 6C-9 0-9-8-4-8C-1.6-8 0-6.4 0-5C0-6.4 1.6-8 4-8C9-8 9 0 0 6Z" :fill="cd.col" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" />
+                    </template>
+                  </g>
+                </g>
+                <g v-for="b in bursts" :key="b.id" :transform="`translate(${b.x} ${b.y})`">
+                  <path class="pin-pow" :d="POW_D" />
+                </g>
+              </g>
+            </svg>
           </div>
           <button
-            v-if="popped.length === wishes.length"
+            v-if="ready"
             class="primary-button floating-cta"
             type="button"
             @click="goTo('memories')"
@@ -446,7 +577,7 @@
           <p class="scene-sub" aria-live="polite">{{ gachaHint }}</p>
           <div class="gacha">
             <svg class="gacha-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
-            <div class="gacha-dome" :class="{ shaking: gachaState === 'turning' }">
+            <div ref="domeEl" class="gacha-dome" :class="{ shaking: gachaState === 'turning' }" @pointerdown="domePoke" @pointermove="domePoke">
               <span v-for="n in 7" :key="n" class="mini-capsule" :class="`cap-${n}`" />
             </div>
             <div class="gacha-body">
@@ -507,15 +638,13 @@
           </button>
         </section>
 
-        <!-- 5. FIREWORKS FINALE -->
+        <!-- 5. TRACE THE HEART FINALE -->
         <section
           v-else
           key="finale"
           class="scene scene-finale"
           tabindex="0"
-          aria-label="Tap the sky to launch fireworks"
-          @pointerdown="tapSky"
-          @keydown.enter.self.prevent="tapSky"
+          aria-label="Trace a heart among the stars"
         >
           <span class="stars" aria-hidden="true" />
           <span class="moon" aria-hidden="true" />
@@ -530,10 +659,52 @@
               <rect v-for="(b, i) in skyline" :key="i" :x="b.x" :y="100 - b.h" :width="b.w" :height="b.h" />
             </g>
           </svg>
-          <p v-if="!revealed" class="sky-hint">
-            Tap the sky to launch fireworks ✨
-            <span>{{ skyTaps }} / 3</span>
-          </p>
+          <div
+            v-if="!revealed"
+            class="trace"
+            :class="{ lit: traceDone }"
+            tabindex="0"
+            role="button"
+            aria-label="Light the heart (press Enter)"
+            @keydown.enter.prevent="litAll"
+          >
+            <p class="sky-hint">
+              {{ traceDone ? "Made with love 💗" : "Trace the heart" }}<br />
+              {{ traceDone ? "" : "to light every star ✨" }}
+              <span>{{ traceCount }} / {{ HEART.pts.length }}</span>
+            </p>
+            <svg
+              ref="traceSvgEl"
+              class="trace-svg"
+              viewBox="0 0 200 190"
+              @pointerdown.stop="traceDown"
+              @pointermove="traceMove"
+              @pointerup="traceUp"
+              @pointercancel="traceUp"
+            >
+              <defs>
+                <radialGradient id="tr-fill" cx="50%" cy="36%" r="70%">
+                  <stop offset="0" stop-color="#ffd6e4" />
+                  <stop offset="1" stop-color="#ff5f8d" />
+                </radialGradient>
+              </defs>
+              <path class="trace-fill" :d="HEART.d" />
+              <path class="trace-guide" :d="HEART.d" />
+              <polyline v-if="traceOrder.length > 1" class="trace-link" :points="constellation" />
+              <polyline v-if="tracePath.length > 1" class="trace-line" :points="traceTrail" />
+              <g
+                v-for="(p, i) in HEART.pts"
+                :key="i"
+                class="trace-star"
+                :class="{ on: traceHit[i], pulse: i === 0 && !traceCount }"
+                :transform="`translate(${p.x} ${p.y})`"
+              >
+                <circle class="trace-halo" r="11" />
+                <path class="trace-st" d="M0 -6.5L1.7 -1.7L6.5 0L1.7 1.7L0 6.5L-1.7 1.7L-6.5 0L-1.7 -1.7Z" />
+              </g>
+              <circle v-if="traceTip" class="trace-tip" :cx="traceTip.x" :cy="traceTip.y" r="4" />
+            </svg>
+          </div>
           <Transition name="reveal">
             <div v-if="revealed" class="finale-card" @pointerdown.stop>
               <div class="finale-medallion">
@@ -646,10 +817,10 @@ const petals = Array.from({ length: 12 }, (_, i) => ({
 
 const scenes = [
   { id: "lock", label: "Secret Lock" },
-  { id: "balloons", label: "Balloon Pop Wishes" },
+  { id: "balloons", label: "Whack the Pinata Wishes" },
   { id: "memories", label: "Memory Cards" },
   { id: "gacha", label: "Gacha Love Coupons" },
-  { id: "finale", label: "Fireworks Finale" },
+  { id: "finale", label: "Trace the Heart" },
 ];
 const scene = ref("cover");
 const sceneIndex = computed(() => scenes.findIndex((step) => step.id === scene.value));
@@ -1227,22 +1398,154 @@ function pointFrom(event) {
   return { x: phone.clientWidth / 2, y: phone.clientHeight / 3 };
 }
 
-/* ===== 0. Cover: buksan ang regalo ===== */
-const par = ref({ x: 0, y: 0 });
-function onGiftMove(event) {
-  const r = event.currentTarget.getBoundingClientRect();
-  par.value = {
-    x: Math.max(-1, Math.min(1, ((event.clientX - r.left) / r.width - 0.5) * 2)),
-    y: Math.max(-1, Math.min(1, ((event.clientY - r.top) / r.height - 0.5) * 2)),
-  };
+/* ===== 0. Cover: wind-up music box (iikot ang susi para bumukas at tumugtog) ===== */
+const MB_TURN = 560; // ilang degrees ng pag-ikot ng susi para mapuno
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+const easeOut = (k) => 1 - (1 - k) ** 3;
+const mbStageEl = ref(null);
+const mbEl = ref(null);
+const mbPlaying = ref(false);
+const mbDone = ref(false);
+const mbTouched = ref(false);
+let mbP = 0; // 0 = walang pihit, 1 = puno
+let mbAng = 0;
+let mbRaf = 0;
+let mbLast = 0;
+let mbDragging = false;
+let mbIdle = 0;
+let mbMoved = 0;
+let mbCx = 0;
+let mbCy = 0;
+let mbPrevA = 0;
+let mbAutoOn = false;
+let mbRo = null;
+
+function mbPaint() {
+  const el = mbEl.value;
+  if (!el) return;
+  const open = easeOut(clamp01((mbP - 0.1) / 0.5)) * 114;
+  const rise = easeOut(clamp01((mbP - 0.4) / 0.5));
+  el.style.setProperty("--open", open.toFixed(1));
+  el.style.setProperty("--rise", rise.toFixed(3));
+  el.style.setProperty("--keydeg", `${(mbP * MB_TURN).toFixed(1)}deg`);
+  el.style.setProperty("--prog", (289 * (1 - mbP)).toFixed(1));
+  const playing = mbP > 0.06;
+  if (playing !== mbPlaying.value) mbPlaying.value = playing;
+  if (mbP > 0.04 && !mbTouched.value) mbTouched.value = true;
 }
-const giftOpen = ref(false);
-function openGift() {
-  if (giftOpen.value) return;
-  giftOpen.value = true;
-  buzz(20);
-  confettiAt({ x: W / 2, y: H * 0.42 }, 54);
-  later(() => goTo("lock"), 1100);
+function mbFit() {
+  const stage = mbStageEl.value;
+  const el = mbEl.value;
+  if (!stage || !el) return;
+  const k = Math.min(stage.offsetWidth / 310, stage.offsetHeight / 345);
+  el.style.setProperty("--mbs", Math.min(1.5, Math.max(0.55, k)).toFixed(3));
+}
+function mbLoop(now) {
+  const dt = Math.min(0.05, (now - (mbLast || now)) / 1000);
+  mbLast = now;
+  if (!mbDone.value) {
+    if (mbAutoOn) {
+      mbP = Math.min(1, mbP + dt / 1.9);
+      mbPaint();
+      if (mbP >= 1) finishMusicBox();
+    } else if (!mbDragging && mbP > 0) {
+      mbIdle += dt;
+      if (mbIdle > 0.8) {
+        mbP = Math.max(0, mbP - dt * 0.07); // unti-unting humihina ang pihit
+        mbPaint();
+      }
+    }
+  }
+  const speed = mbDone.value ? 120 : mbP > 0.06 ? 30 + mbP * 190 : 0; // deg/s ng umiikot na cake
+  mbAng = (mbAng + speed * dt) % 360;
+  mbEl.value?.style.setProperty("--ang", `${mbAng.toFixed(1)}deg`);
+  mbRaf = requestAnimationFrame(mbLoop);
+}
+function startMusicBox() {
+  cancelAnimationFrame(mbRaf);
+  mbLast = 0;
+  mbFit();
+  mbPaint();
+  mbRaf = requestAnimationFrame(mbLoop);
+  if (typeof ResizeObserver !== "undefined" && mbStageEl.value) {
+    mbRo?.disconnect();
+    mbRo = new ResizeObserver(mbFit);
+    mbRo.observe(mbStageEl.value);
+  }
+}
+function stopMusicBox() {
+  cancelAnimationFrame(mbRaf);
+  mbRaf = 0;
+  mbRo?.disconnect();
+  mbRo = null;
+}
+function resetMusicBox() {
+  mbP = 0;
+  mbAng = 0;
+  mbIdle = 0;
+  mbDragging = false;
+  mbAutoOn = false;
+  mbDone.value = false;
+  mbPlaying.value = false;
+  mbTouched.value = false;
+  mbPaint();
+}
+function mbWind(amount) {
+  const before = mbP;
+  mbP = clamp01(mbP + amount);
+  if (Math.floor(mbP * 12) !== Math.floor(before * 12)) buzz(6); // "click" ng ratchet
+  mbPaint();
+  if (mbP >= 1) finishMusicBox();
+}
+function finishMusicBox() {
+  if (mbDone.value) return;
+  mbDone.value = true;
+  mbAutoOn = false;
+  mbDragging = false;
+  mbP = 1;
+  mbPaint();
+  buzz(30);
+  const p = pointFrom({ currentTarget: mbStageEl.value });
+  confettiAt(p, 56);
+  heartsAt(p, 14);
+  later(() => confettiAt({ x: p.x - 70, y: p.y - 40 }, 20), 500);
+  later(() => confettiAt({ x: p.x + 70, y: p.y - 40 }, 20), 800);
+  later(() => goTo("lock"), 3400);
+}
+function mbAuto() {
+  if (mbDone.value || mbAutoOn) return;
+  buzz(18);
+  mbDragging = false;
+  mbAutoOn = true;
+}
+function mbDown(event) {
+  if (mbDone.value || mbAutoOn) return;
+  const r = event.currentTarget.getBoundingClientRect();
+  mbCx = r.left + r.width / 2;
+  mbCy = r.top + r.height / 2;
+  mbPrevA = Math.atan2(event.clientY - mbCy, event.clientX - mbCx);
+  mbDragging = true;
+  mbIdle = 0;
+  mbMoved = 0;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+}
+function mbMove(event) {
+  if (!mbDragging) return;
+  const a = Math.atan2(event.clientY - mbCy, event.clientX - mbCx);
+  let d = a - mbPrevA;
+  if (d > Math.PI) d -= Math.PI * 2;
+  else if (d < -Math.PI) d += Math.PI * 2;
+  mbPrevA = a;
+  mbMoved += Math.abs(d);
+  mbIdle = 0;
+  // clockwise lang ang nagpapaikot ng susi (parang totoong music box)
+  if (d > 0) mbWind(((d * 180) / Math.PI) / MB_TURN);
+}
+function mbUp() {
+  if (!mbDragging) return;
+  mbDragging = false;
+  mbIdle = 0;
+  if (mbMoved < 0.15 && !mbDone.value) mbWind(0.16); // tap = isang maliit na pihit
 }
 
 /* ===== 1. Secret Lock ===== */
@@ -1292,48 +1595,193 @@ function checkCode() {
   }
 }
 
-/* ===== 2. Balloon Pop Wishes ===== */
-const balloonPalettes = [
-  { b: "#ffb0c8", l: "#fff", d: "#d6406d" },
-  { b: "#e8c8ff", l: "#fff", d: "#a561d8" },
-  { b: "#ffcfb8", l: "#fff", d: "#e8785a" },
-  { b: "#ffc0dd", l: "#fff", d: "#cc3f8a" },
-  { b: "#ffd0e0", l: "#fff", d: "#e8507b" },
-];
-const palette = (index) => balloonPalettes[index % balloonPalettes.length];
-const balloonSpots = [
-  { x: 4, t: 6, d: 0 },
-  { x: 38, t: 0, d: 0.6 },
-  { x: 70, t: 8, d: 1.2 },
-  { x: 18, t: 42, d: 0.3 },
-  { x: 56, t: 46, d: 0.9 },
-];
-const popped = ref([]);
+/* ===== 2. Whack the piñata (tap o swipe; bawat hampas = isang wish, sa huli mabibiyak at babagsak ang candy) ===== */
+const PIN = { x: 160, y: 186, r: 106 };
+const PIN_GROUND = 298; /* sahig ng mga candy (nasa itaas ng Next surprise button) */
+const PIN_COLORS = ["#ff8fb0", "#ffd36e", "#c9a6ff", "#ffb59a", "#8fd0ff", "#fff0f4"];
 
-function balloonStyle(index) {
-  const spot = balloonSpots[index % balloonSpots.length];
-  return {
-    left: `${spot.x}%`,
-    top: `${spot.t}%`,
-    animationDelay: `${spot.d}s`,
-  };
+/* limang-puntang bituin na may bilugang dulo */
+function roundedStar(cx, cy, R, r, kOut = 0.2, kIn = 0.1) {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r : R;
+    return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr];
+  });
+  let d = "";
+  pts.forEach((p, i) => {
+    const prev = pts[(i + 9) % 10];
+    const next = pts[(i + 1) % 10];
+    const k = i % 2 ? kIn : kOut;
+    const a = [p[0] + (prev[0] - p[0]) * k, p[1] + (prev[1] - p[1]) * k];
+    const b = [p[0] + (next[0] - p[0]) * k, p[1] + (next[1] - p[1]) * k];
+    d += `${i ? "L" : "M"}${a[0].toFixed(1)} ${a[1].toFixed(1)}Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
+  });
+  return `${d}Z`;
 }
+const PIN_STAR = roundedStar(PIN.x, PIN.y, 112, 54);
+const CANDY_STAR = roundedStar(0, 0, 9, 4.2, 0.12, 0.05);
+const POW_D = (() => {
+  const pts = [];
+  for (let i = 0; i < 16; i += 1) {
+    const r = i % 2 ? 9 : 22;
+    const a = (i * Math.PI) / 8;
+    pts.push(`${(Math.cos(a) * r).toFixed(1)} ${(Math.sin(a) * r).toFixed(1)}`);
+  }
+  return `M${pts.join("L")}Z`;
+})();
+const PIN_HEART = "M160 212C153 206 136 195 136 180C136 170 150 167 160 177C170 167 184 170 184 180C184 195 167 206 160 212Z";
+/* tagpi-tagpi ang papel na fringe: 9 na hanay na may pabilog na laylayan, ang itaas ay nakapatong sa ibaba */
+const PIN_BANDS = Array.from({ length: 9 }, (_, k) => {
+  const y0 = 70 + k * 24;
+  const y1 = y0 + 24;
+  let d = `M32 ${y0}H288V${y1}`;
+  for (let s = 0; s < 16; s += 1) d += "a8 8 0 0 1-16 0";
+  return { i: k, d: `${d}Z`, col: PIN_COLORS[k % PIN_COLORS.length] };
+}).reverse();
+/* tagpi-tagpi (zigzag) na biyak: pareho ang gilid ng kaliwa at kanang kalahati kaya walang puwang */
+const PIN_ZIG = "L150 101L172 126L152 154L170 181L150 208L172 234L156 260L166 288";
+const PIN_CUT_L = `M0 0H160V66${PIN_ZIG}V380H0Z`;
+const PIN_CUT_R = `M320 0H160V66${PIN_ZIG}V380H320Z`;
+/* mga punit sa papel (nakikita ang puting loob) na nadadagdag sa bawat hampas */
+const PIN_TEARS = [
+  "M117 134L124 128L132 131L141 127L143 138L138 144L142 151L130 150L122 154L116 145Z",
+  "M186 128L194 125L201 130L209 128L211 139L205 144L209 150L198 149L190 153L184 144Z",
+  "M114 218L123 214L130 219L139 216L141 227L135 232L139 239L128 237L120 242L113 232Z",
+  "M182 214L191 210L198 216L207 213L208 225L203 230L207 237L196 235L188 240L181 229Z",
+];
+const CANDY_COLORS = ["#ff7aa8", "#ffd36e", "#b79bff", "#ff9f86", "#7fc4ff", "#ffffff"];
+const CANDY_KINDS = ["wrap", "star", "heart"];
 
-function popBalloon(index, event) {
-  if (popped.value.includes(index)) return;
-  popped.value = [...popped.value, index];
-  buzz(14);
-  const point = pointFrom(event);
-  confettiAt(point, 22);
-  heartsAt(point, 12);
+const hits = ref(0);
+const broken = ref(false);
+const ready = ref(false);
+const bursts = ref([]);
+const candies = ref([]);
+const pinField = ref(null);
+const pinRoot = ref(null);
+const pinataEl = ref(null);
+const pinHits = computed(() => Math.max(1, wishes.value.length));
+const pinSub = computed(() => {
+  if (broken.value) return "All your wishes came tumbling out ✦";
+  const left = pinHits.value - hits.value;
+  if (hits.value) return `${left} more ${left === 1 ? "whack" : "whacks"} to go`;
+  return "Tap or swipe the piñata to whack it";
+});
+let pinHeld = false;
+let pinPrev = null;
+let lastHitAt = 0;
+let fxSeq = 0;
+
+/* coordinates sa loob ng SVG (tama kahit naka-scale ang phone) */
+function pinPoint(event) {
+  const g = pinRoot.value;
+  const m = g?.getScreenCTM?.();
+  const svg = g?.ownerSVGElement;
+  if (!m || !svg) return null;
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX;
+  pt.y = event.clientY;
+  const p = pt.matrixTransform(m.inverse());
+  return { x: p.x, y: p.y };
 }
-/* i-slide ang daliri / mouse (habang pinipindot) sa ibabaw ng mga lobo para pumutok sila */
-function sliceBalloons(event) {
-  if (event.pointerType === "mouse" && event.buttons !== 1) return;
-  const el = document.elementFromPoint(event.clientX, event.clientY);
-  const b = el && el.closest ? el.closest(".balloon") : null;
-  if (!b || b.disabled) return;
-  popBalloon(Number(b.dataset.i), event);
+function pinInside(p, pad = 0) {
+  return Math.hypot(p.x - PIN.x, p.y - PIN.y) <= PIN.r + pad;
+}
+/* umuuga ang piñata mula sa tali, parang pendulum na humuhupa */
+function swing(a) {
+  if (reduceMotion) return;
+  pinataEl.value?.animate?.(
+    [
+      { transform: `rotate(${a}deg)`, offset: 0 },
+      { transform: `rotate(${-a * 0.62}deg)`, offset: 0.28 },
+      { transform: `rotate(${a * 0.38}deg)`, offset: 0.52 },
+      { transform: `rotate(${-a * 0.2}deg)`, offset: 0.74 },
+      { transform: "rotate(0deg)", offset: 1 },
+    ],
+    { duration: 1200, easing: "ease-in-out" },
+  );
+}
+function dropCandy(p, count, keep) {
+  const made = Array.from({ length: count }, () => {
+    fxSeq += 1;
+    return {
+      id: fxSeq,
+      kind: CANDY_KINDS[Math.floor(Math.random() * CANDY_KINDS.length)],
+      col: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+      x: Math.round(p.x),
+      y: Math.round(p.y),
+      dx: Math.round(rand(-72, 72) * (keep ? 1.7 : 1)),
+      dy: keep ? Math.round(PIN_GROUND - p.y + rand(-8, 8)) : Math.round(rand(120, 190)),
+      rot: Math.round(rand(-300, 300)),
+      delay: Math.round(rand(0, keep ? 260 : 120)),
+      keep,
+    };
+  });
+  candies.value = [...candies.value, ...made];
+  if (!keep) {
+    const ids = made.map((cd) => cd.id);
+    later(() => {
+      candies.value = candies.value.filter((cd) => !ids.includes(cd.id));
+    }, 1700);
+  }
+}
+function whack(p, dx, event) {
+  const now = performance.now();
+  if (broken.value || hits.value >= pinHits.value || now - lastHitAt < 520) return;
+  lastHitAt = now;
+  hits.value += 1;
+  const last = hits.value >= pinHits.value;
+  buzz(18);
+  const dir = dx ? Math.sign(dx) : p.x < PIN.x ? 1 : -1;
+  swing(-dir * (last ? 17 : 11));
+  const ph = pointFrom(event);
+  confettiAt(ph, 12);
+  heartsAt(ph, 5);
+  fxSeq += 1;
+  const id = fxSeq;
+  bursts.value = [...bursts.value, { id, x: Math.round(p.x), y: Math.round(p.y) }];
+  later(() => {
+    bursts.value = bursts.value.filter((b) => b.id !== id);
+  }, 700);
+  dropCandy(p, 4, false);
+  if (last) later(burstPinata, 280);
+}
+function burstPinata() {
+  if (broken.value) return;
+  broken.value = true;
+  buzz(40);
+  const ph = pointFrom({ currentTarget: pinField.value });
+  confettiAt(ph, 70);
+  heartsAt(ph, 26);
+  later(() => confettiAt(ph, 40), 260);
+  dropCandy({ x: PIN.x, y: PIN.y }, 22, true);
+  later(() => {
+    ready.value = true;
+  }, 1100);
+}
+function pinDown(event) {
+  const p = pinPoint(event);
+  if (!p) return;
+  pinHeld = true;
+  pinPrev = p;
+  if (pinInside(p, 6)) whack(p, 0, event);
+}
+function pinMove(event) {
+  if (!pinHeld) return;
+  const p = pinPoint(event);
+  if (!p || !pinPrev) return;
+  const dx = p.x - pinPrev.x;
+  const speed = Math.hypot(dx, p.y - pinPrev.y);
+  if (speed > 5 && pinInside(p)) whack(p, dx, event);
+  pinPrev = p;
+}
+function pinEnd() {
+  pinHeld = false;
+  pinPrev = null;
+}
+/* keyboard: Enter / Space sa piñata */
+function pinKey(event) {
+  whack({ x: PIN.x, y: PIN.y }, Math.random() < 0.5 ? -1 : 1, event);
 }
 
 /* ===== 3. Memory Cards (holographic, 3D flip, swipe) ===== */
@@ -1483,6 +1931,173 @@ function throwCard(dir) {
   }, 430);
 }
 
+/* ===== Gacha physics: totoong tumatalbog at nagbabanggaan ang mga bola sa loob ng dome ===== */
+const domeEl = ref(null);
+const BALL_R = 19;
+const BALL_SEED = [
+  [0.2, 0.78],
+  [0.4, 0.84],
+  [0.6, 0.82],
+  [0.8, 0.76],
+  [0.3, 0.52],
+  [0.5, 0.58],
+  [0.7, 0.52],
+];
+let balls = [];
+let gRaf = 0;
+let gLast = 0;
+let gAgitate = 0; // segundong natitira ng paghalo
+let gKick = 0;
+
+function domeSize() {
+  const el = domeEl.value;
+  return { dw: el ? el.clientWidth : 172, dh: el ? el.clientHeight : 156 };
+}
+/* hugis ng dome: superellipse (mas bilugan ang itaas, mas puno ang ibaba) */
+function holdInDome(b, dw, dh) {
+  const n = 2.5;
+  const ax = dw / 2 - BALL_R - 1;
+  const ay = dh / 2 - BALL_R - 1;
+  const dx = b.x - dw / 2;
+  const dy = b.y - dh / 2;
+  const q = (Math.abs(dx) / ax) ** n + (Math.abs(dy) / ay) ** n;
+  if (q <= 1) return;
+  const k = q ** (-1 / n);
+  b.x = dw / 2 + dx * k;
+  b.y = dh / 2 + dy * k;
+  let nx = (Math.sign(dx) * (Math.abs(dx) / ax) ** (n - 1)) / ax;
+  let ny = (Math.sign(dy) * (Math.abs(dy) / ay) ** (n - 1)) / ay;
+  const nl = Math.hypot(nx, ny) || 1;
+  nx /= nl;
+  ny /= nl;
+  const vn = b.vx * nx + b.vy * ny;
+  if (vn > 0) {
+    b.vx -= 1.5 * vn * nx;
+    b.vy -= 1.5 * vn * ny;
+    b.vx *= 0.97;
+  }
+}
+function stepBalls(dt) {
+  const { dw, dh } = domeSize();
+  for (const b of balls) {
+    b.vy += 1500 * dt;
+    if (gAgitate > 0) {
+      // umiikot na hampas ng paddle sa loob
+      const rx = b.x - dw / 2;
+      const ry = b.y - dh / 2;
+      b.vx += -ry * 5.5 * dt * 60 * 0.12;
+      b.vy += rx * 5.5 * dt * 60 * 0.12;
+    }
+    const drag = 1 - 0.35 * dt;
+    b.vx *= drag;
+    b.vy *= drag;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.a += ((b.vx / BALL_R) * 180) / Math.PI * dt * 0.7;
+  }
+  for (let pass = 0; pass < 2; pass += 1) {
+    for (const b of balls) holdInDome(b, dw, dh);
+    for (let i = 0; i < balls.length; i += 1) {
+      for (let j = i + 1; j < balls.length; j += 1) {
+        const p = balls[i];
+        const q = balls[j];
+        const dx = q.x - p.x;
+        const dy = q.y - p.y;
+        const dist = Math.hypot(dx, dy) || 0.001;
+        const min = BALL_R * 2;
+        if (dist >= min) continue;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const push = (min - dist) / 2;
+        p.x -= nx * push;
+        p.y -= ny * push;
+        q.x += nx * push;
+        q.y += ny * push;
+        const rel = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
+        if (rel < 0) {
+          const imp = (-(1 + 0.6) * rel) / 2;
+          p.vx -= imp * nx;
+          p.vy -= imp * ny;
+          q.vx += imp * nx;
+          q.vy += imp * ny;
+          // konting ikot mula sa banggaan
+          p.a += -rel * 0.12;
+          q.a += rel * 0.12;
+        }
+      }
+    }
+  }
+}
+function paintBalls() {
+  const el = domeEl.value;
+  if (!el) return;
+  const kids = el.children;
+  for (let i = 0; i < balls.length; i += 1) {
+    const k = kids[i];
+    const b = balls[i];
+    if (k) k.style.transform = `translate(${(b.x - BALL_R).toFixed(1)}px, ${(b.y - BALL_R).toFixed(1)}px) rotate(${b.a.toFixed(0)}deg)`;
+  }
+}
+function gachaLoop(now) {
+  const dt = Math.min(1 / 30, (now - (gLast || now)) / 1000);
+  gLast = now;
+  if (gAgitate > 0) {
+    gAgitate -= dt;
+    gKick -= dt;
+    if (gKick <= 0) {
+      // biglang talon ng isang bola
+      gKick = 0.06 + Math.random() * 0.05;
+      const b = balls[Math.floor(Math.random() * balls.length)];
+      if (b) {
+        b.vy = -(420 + Math.random() * 380);
+        b.vx += (Math.random() - 0.5) * 520;
+      }
+    }
+  }
+  for (let s = 0; s < 3; s += 1) stepBalls(dt / 3);
+  paintBalls();
+  gRaf = requestAnimationFrame(gachaLoop);
+}
+function startGacha() {
+  cancelAnimationFrame(gRaf);
+  const { dw, dh } = domeSize();
+  balls = BALL_SEED.map(([fx, fy], i) => ({ x: fx * dw, y: fy * dh, vx: 0, vy: 0, a: i * 47 - 60 }));
+  gAgitate = 0;
+  for (let i = 0; i < 140; i += 1) stepBalls(1 / 90); // pahingahin muna bago ipakita
+  for (const b of balls) {
+    b.vx = 0;
+    b.vy = 0;
+  }
+  paintBalls();
+  gLast = 0;
+  gRaf = requestAnimationFrame(gachaLoop);
+}
+function stopGacha() {
+  cancelAnimationFrame(gRaf);
+  gRaf = 0;
+  balls = [];
+}
+/* i-tap o i-drag ang daliri sa dome para tamaan at tumalbog ang mga bola */
+function domePoke(event) {
+  if (event.type === "pointermove" && event.pointerType === "mouse" && event.buttons !== 1) return;
+  const el = domeEl.value;
+  if (!el || !balls.length) return;
+  const r = el.getBoundingClientRect();
+  const sc = r.width / el.offsetWidth || 1;
+  const x = (event.clientX - r.left) / sc - el.clientLeft;
+  const y = (event.clientY - r.top) / sc - el.clientTop;
+  for (const b of balls) {
+    const dx = b.x - x;
+    const dy = b.y - y;
+    const dist = Math.hypot(dx, dy) || 1;
+    if (dist > 62) continue;
+    const f = 1 - dist / 62;
+    b.vx += (dx / dist) * 520 * f;
+    b.vy += (dy / dist) * 520 * f - 260 * f;
+  }
+  if (event.type === "pointerdown") buzz(6);
+}
+
 /* ===== 4. Gacha Love Coupons (3 ikot) ===== */
 const capsuleColors = ["#ff8fab", "#9cc0f5", "#ffd166"];
 const spin = ref(0);
@@ -1505,9 +2120,11 @@ function turnKnob() {
   if (!canTurn.value) return;
   buzz(12);
   gachaState.value = "turning";
+  gAgitate = 1.45; // hinahalo ang mga bola habang umiikot ang knob
+  gKick = 0;
   later(() => {
     gachaState.value = "dropped";
-  }, 900);
+  }, 1500);
 }
 function openCapsule(event) {
   if (gachaState.value !== "dropped") return;
@@ -1611,27 +2228,128 @@ function redeem(event) {
   confettiAt(pointFrom(event), 26);
 }
 
-/* ===== 5. Fireworks Finale ===== */
-const skyTaps = ref(0);
+/* ===== 5. Finale: ikonekta ang mga bituin para mabuo ang puso ===== */
 const revealed = ref(false);
 const showExtra = ref(false);
 
-function tapSky(event) {
-  launchRocket(pointFrom(event));
-  buzz(10);
-  if (revealed.value || skyTaps.value >= 3) return;
-  skyTaps.value += 1;
-  if (skyTaps.value === 3) {
-    later(() => {
-      revealed.value = true;
-      launchRocket({ x: W / 2, y: H * 0.2 }, true);
-      later(confettiRain, 500);
-      fireworksInterval = setInterval(() => {
-        randomFirework();
-        if (Math.random() < 0.5) confettiRain();
-      }, 1700);
-    }, 900);
+function buildHeart() {
+  const raw = [];
+  for (let i = 0; i <= 360; i += 1) {
+    const t = Math.PI + (i / 360) * Math.PI * 2; // simula sa ibaba ng puso
+    raw.push({
+      x: 16 * Math.sin(t) ** 3,
+      y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)),
+    });
   }
+  const xs = raw.map((p) => p.x);
+  const ys = raw.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const k = Math.min(172 / (maxX - minX), 160 / (maxY - minY));
+  const ox = 100 - ((minX + maxX) / 2) * k;
+  const oy = 95 - ((minY + maxY) / 2) * k;
+  const full = raw.map((p) => ({ x: +(p.x * k + ox).toFixed(1), y: +(p.y * k + oy).toFixed(1) }));
+  const lens = [0];
+  for (let i = 1; i < full.length; i += 1) {
+    lens.push(lens[i - 1] + Math.hypot(full[i].x - full[i - 1].x, full[i].y - full[i - 1].y));
+  }
+  const total = lens[lens.length - 1];
+  const pts = [];
+  let at = 0;
+  for (let j = 0; j < 24; j += 1) {
+    const target = (total * j) / 24;
+    while (at < lens.length - 1 && lens[at] < target) at += 1;
+    pts.push(full[at]);
+  }
+  return { pts, d: `M${full.map((p) => `${p.x} ${p.y}`).join("L")}Z` };
+}
+const HEART = buildHeart();
+const HIT_R = 13; // gaano kalapit ang daliri para umilaw ang bituin
+
+const traceSvgEl = ref(null);
+const traceHit = ref(Array(HEART.pts.length).fill(false));
+const traceOrder = ref([]);
+const tracePath = ref([]);
+const traceTip = ref(null);
+const traceDragging = ref(false);
+const traceDone = ref(false);
+const traceCount = computed(() => traceHit.value.filter(Boolean).length);
+const constellation = computed(() => traceOrder.value.map((i) => `${HEART.pts[i].x},${HEART.pts[i].y}`).join(" "));
+const traceTrail = computed(() => tracePath.value.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+
+function svgPoint(event) {
+  const r = traceSvgEl.value.getBoundingClientRect();
+  return { x: ((event.clientX - r.left) / r.width) * 200, y: ((event.clientY - r.top) / r.height) * 190 };
+}
+function traceAt(event) {
+  const p = svgPoint(event);
+  traceTip.value = p;
+  tracePath.value.push(p);
+  if (tracePath.value.length > 26) tracePath.value.shift();
+  let lit = false;
+  HEART.pts.forEach((star, i) => {
+    if (traceHit.value[i]) return;
+    if (Math.hypot(star.x - p.x, star.y - p.y) < HIT_R) {
+      traceHit.value[i] = true;
+      traceOrder.value.push(i);
+      lit = true;
+    }
+  });
+  if (lit) {
+    buzz(8);
+    heartsAt(pointFrom(event), 2);
+    if (traceCount.value >= HEART.pts.length) finishTrace();
+  }
+}
+function traceDown(event) {
+  if (traceDone.value) return;
+  traceDragging.value = true;
+  tracePath.value = [];
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+  traceAt(event);
+}
+function traceMove(event) {
+  if (traceDragging.value) traceAt(event);
+}
+function traceUp() {
+  traceDragging.value = false;
+  traceTip.value = null;
+  tracePath.value = [];
+}
+/* para sa keyboard: Enter ang magpapailaw ng natitirang bituin */
+function litAll() {
+  if (traceDone.value) return;
+  HEART.pts.forEach((_, i) => {
+    if (!traceHit.value[i]) {
+      traceHit.value[i] = true;
+      traceOrder.value.push(i);
+    }
+  });
+  finishTrace();
+}
+function finishTrace() {
+  if (traceDone.value) return;
+  traceDone.value = true;
+  traceDragging.value = false;
+  traceTip.value = null;
+  tracePath.value = [];
+  buzz(30);
+  const p = pointFrom({ currentTarget: traceSvgEl.value });
+  confettiAt(p, 40);
+  heartsAt(p, 22);
+  launchRocket({ x: W / 2, y: H * 0.22 }, true);
+  later(() => {
+    revealed.value = true;
+    launchRocket({ x: W * 0.25, y: H * 0.17 }, true);
+    launchRocket({ x: W * 0.75, y: H * 0.19 }, true);
+    later(confettiRain, 500);
+    fireworksInterval = setInterval(() => {
+      randomFirework();
+      if (Math.random() < 0.5) confettiRain();
+    }, 2600);
+  }, 1500);
 }
 function randomFirework() {
   if (!W) return;
@@ -1643,13 +2361,6 @@ function revealExtra() {
   launchRocket({ x: W * 0.7, y: H * 0.14 }, true);
 }
 
-watch(scene, (value) => {
-  if (value !== "finale") return;
-  later(randomFirework, 500);
-  later(randomFirework, 1200);
-  later(randomFirework, 2100);
-});
-
 /* ===== Lipat ng eksena ===== */
 function goTo(id) {
   clearTimers();
@@ -1658,8 +2369,15 @@ function goTo(id) {
   lockShake.value = false;
   unlocked.value = false;
   flash.value = false;
-  giftOpen.value = false;
-  popped.value = [];
+  resetMusicBox();
+  hits.value = 0;
+  broken.value = false;
+  ready.value = false;
+  bursts.value = [];
+  candies.value = [];
+  pinHeld = false;
+  pinPrev = null;
+  lastHitAt = 0;
   cardIndex.value = 0;
   flipped.value = false;
   leaveDir.value = 0;
@@ -1670,7 +2388,12 @@ function goTo(id) {
   scratched.value = false;
   gachaState.value = "idle";
   redeemed.value = [];
-  skyTaps.value = 0;
+  traceHit.value = Array(HEART.pts.length).fill(false);
+  traceOrder.value = [];
+  tracePath.value = [];
+  traceTip.value = null;
+  traceDragging.value = false;
+  traceDone.value = false;
   revealed.value = false;
   showExtra.value = false;
   scene.value = id;
@@ -1683,6 +2406,10 @@ function onKeydown(event) {
   else if (event.key === "Backspace") pressKey("back");
   else if (event.key === "Enter" && !event.target.closest?.("button")) pressKey("ok");
 }
+
+/* simulan/itigil ang animation loops kapag lumabas/nawala ang eksena */
+watch(mbEl, (el) => (el ? startMusicBox() : stopMusicBox()), { flush: "post" });
+watch(domeEl, (el) => (el ? startGacha() : stopGacha()), { flush: "post" });
 
 onMounted(() => {
   window.addEventListener("keydown", onKeydown);
@@ -1710,6 +2437,8 @@ onMounted(() => {
 });
 onUnmounted(() => {
   clearTimers();
+  stopMusicBox();
+  stopGacha();
   cancelAnimationFrame(raf);
   raf = 0;
   resizeObserver?.disconnect();
@@ -2470,35 +3199,10 @@ onUnmounted(() => {
   margin-top: 18px;
   container-type: size;
 }
-.balloon {
-  position: absolute;
-  width: min(27cqw, 23cqh);
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  filter: drop-shadow(0 14px 12px rgb(232 80 123 / 0.24));
-  animation: bob 3.4s ease-in-out infinite;
-  transition: transform 0.25s, opacity 0.25s;
-}
-.balloon svg {
-  display: block;
-  width: 100%;
-  overflow: visible;
-}
 .string {
   transform-box: fill-box;
   transform-origin: 50% 0;
   animation: sway 2.6s ease-in-out infinite alternate;
-}
-.balloon:hover {
-  transform: scale(1.07);
-}
-.balloon.popped {
-  opacity: 0;
-  transform: scale(1.5);
-  pointer-events: none;
-  animation: none;
 }
 .floating-cta {
   position: absolute !important;
@@ -2752,6 +3456,8 @@ onUnmounted(() => {
   border-radius: 50% 50% 44% 44% / 56% 56% 44% 44%;
   background: radial-gradient(circle at 50% 40%, rgb(255 255 255 / 0.7), rgb(252 225 233 / 0.6) 70%, rgb(244 190 205 / 0.7));
   box-shadow: inset 0 -10px 20px rgb(232 80 123 / 0.12);
+  touch-action: none;
+  cursor: pointer;
 }
 .gacha-dome::after {
   content: "";
@@ -2764,24 +3470,28 @@ onUnmounted(() => {
   background: linear-gradient(180deg, rgb(255 255 255 / 0.95), rgb(255 255 255 / 0));
   transform: rotate(24deg);
 }
-.gacha-dome.shaking { animation: shake 0.3s 3; }
+.gacha-dome.shaking { animation: gshake 0.22s 7; }
 .mini-capsule {
   position: absolute;
-  width: 44px;
-  height: 44px;
+  left: 0;
+  top: 0;
+  width: 38px;
+  height: 38px;
+  will-change: transform;
+  pointer-events: none;
   border-radius: 50%;
   background:
     radial-gradient(circle at 32% 26%, rgb(255 255 255 / 0.85) 0 12%, transparent 13%),
     linear-gradient(180deg, var(--cap-top) 50%, #fff 50%);
   box-shadow: inset 0 0 0 1.5px rgb(59 33 64 / 0.08), 0 2px 4px rgb(0 0 0 / 0.08);
 }
-.cap-1 { --cap-top: #ff8fab; left: 6px; bottom: 8px; transform: rotate(-20deg); }
-.cap-2 { --cap-top: #9cc0f5; left: 46px; bottom: 2px; transform: rotate(30deg); }
-.cap-3 { --cap-top: #ffd166; left: 88px; bottom: 4px; transform: rotate(-14deg); }
-.cap-4 { --cap-top: #cdb4f0; left: 126px; bottom: 10px; transform: rotate(18deg); }
-.cap-5 { --cap-top: #f7b6cc; left: 24px; bottom: 46px; transform: rotate(60deg); }
-.cap-6 { --cap-top: #e8507b; left: 66px; bottom: 42px; }
-.cap-7 { --cap-top: #a8e0c4; left: 106px; bottom: 48px; transform: rotate(-50deg); }
+.cap-1 { --cap-top: #ff8fab; }
+.cap-2 { --cap-top: #9cc0f5; }
+.cap-3 { --cap-top: #ffd166; }
+.cap-4 { --cap-top: #cdb4f0; }
+.cap-5 { --cap-top: #f7b6cc; }
+.cap-6 { --cap-top: #e8507b; }
+.cap-7 { --cap-top: #a8e0c4; }
 .gacha-body {
   position: relative;
   width: 210px;
@@ -2831,7 +3541,7 @@ onUnmounted(() => {
     radial-gradient(circle, #fffaf5, #f8e6e0);
   box-shadow: 0 0 0 2px #d96583, 0 4px 8px rgb(0 0 0 / 0.15);
   cursor: pointer;
-  transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .gacha-knob svg { width: 24px; height: 24px; fill: #e8507b; }
 .gacha-knob.ready { animation: pulse 1.4s ease-in-out infinite; }
@@ -2934,7 +3644,6 @@ onUnmounted(() => {
     radial-gradient(70% 36% at 50% 100%, rgb(255 150 180 / 0.5), transparent 72%),
     linear-gradient(180deg, #0e0b2b 0%, #20184f 38%, #4f3478 66%, #b76b95 90%, #e59aa6 100%);
   color: #fff;
-  cursor: pointer;
   outline: none;
 }
 .stars {
@@ -3309,7 +4018,6 @@ onUnmounted(() => {
 .phone .scene-balloons { background: linear-gradient(180deg, #e6d8fa 0%, #fbd2e2 26%, #ffd8d2 50%, #ffe7c9 72%, #ffd3c8 100%); }
 .phone .sky::before { content: ""; position: absolute; left: 50%; bottom: 26%; width: 150%; height: 56%; margin-left: -75%; background: radial-gradient(ellipse at 50% 100%, rgb(255 238 190 / 0.95), rgb(255 205 170 / 0.5) 36%, transparent 66%); }
 .phone .scenery { position: absolute; left: 0; bottom: 0; width: 100%; height: 50%; }
-.phone .balloon { width: min(34cqw, 30cqh); }
 .phone .balloon-field { flex: 1 0 280px; }
 .phone .scene-balloons .eyebrow, .phone .scene-balloons .scene-title, .phone .scene-balloons .scene-sub, .phone .scene-balloons .wish-card { z-index: 2; }
 .phone .scene-balloons { padding-top: 84px; }
@@ -3683,9 +4391,6 @@ onUnmounted(() => {
 .phone .wish-card { margin-top: 6px; padding: 22px 20px 18px; border-radius: 22px; min-height: 96px; }
 .phone .wish-card p { font: italic 300 23px/1.15 var(--serif); color: var(--ink); margin: 10px 0 0; }
 .phone .wish-card .card-bow { display: none; }
-.phone .balloon { width: min(36cqw, 31cqh); aspect-ratio: 1; filter: drop-shadow(0 18px 18px rgb(160 80 110 / 0.22)); animation: bob 5s ease-in-out infinite; }
-.phone .balloon svg { width: 100%; height: 100%; }
-.phone .balloon.popped { transform: scale(1.7); opacity: 0; }
 .phone .floating-cta { bottom: 28px; }
 
 /* ===== MEMORY cards ===== */
@@ -3742,7 +4447,376 @@ onUnmounted(() => {
 .phone .seal svg { fill:#d6406d; }
 .phone .mfront { background:linear-gradient(180deg,#fff,#ffe9f0); }
 
+/* ===================== NEW: music box (cover) + cut strings + gacha physics + trace the heart (finale) ===================== */
+/* ----- COVER: wind-up music box ----- */
+.gift-stage { cursor: default; }
+.mb {
+  --open: 0;
+  --rise: 0;
+  --ang: 0deg;
+  --keydeg: 0deg;
+  --prog: 289;
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 50%;
+  width: 300px;
+  height: 340px;
+  margin: -170px 0 0 -150px;
+  scale: var(--mbs, 1);
+}
+.mb::before {
+  content: "";
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  top: 202px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgb(190 60 100 / 0.36), transparent 70%);
+  filter: blur(4px);
+}
+.mb-glow {
+  position: absolute;
+  left: 50%;
+  top: 112px;
+  width: 300px;
+  height: 300px;
+  margin: -150px 0 0 -150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 236 170 / 0.85), rgb(255 190 214 / 0.35) 46%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+}
+.mb.done .mb-glow { opacity: 1; animation: breathe 3.2s ease-in-out infinite; }
+.mb-scene {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 236px;
+  perspective: 760px;
+  perspective-origin: 50% 36%;
+}
+.mb-box {
+  position: absolute;
+  left: 50%;
+  top: 150px;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(-24deg);
+}
+.mb-wall { position: absolute; }
+.mb-front {
+  left: -100px;
+  top: -38px;
+  width: 200px;
+  height: 76px;
+  border-radius: 2px 2px 12px 12px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.4), transparent 28%, rgb(190 40 90 / 0.14)),
+    linear-gradient(180deg, #ffb9ce, #ff8aae 62%, #ee6a96);
+  box-shadow: inset 0 0 0 3px #f6cf8e, inset 0 0 0 5px rgb(255 255 255 / 0.5);
+  transform: translateZ(60px);
+  display: grid;
+  place-items: center;
+}
+.mb-plate {
+  padding: 4px 14px 5px;
+  border: 1.5px solid #c98f3f;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #fff6d6, #f3c777);
+  color: #8a3a52;
+  font: italic 600 15px/1 var(--serif);
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 4px rgb(120 40 70 / 0.25);
+}
+.mb-back {
+  left: -100px;
+  top: -38px;
+  width: 200px;
+  height: 76px;
+  background: linear-gradient(180deg, #c64a79, #8e2d55);
+  box-shadow: inset 0 0 0 3px #f6cf8e;
+  transform: translateZ(-60px);
+}
+.mb-left {
+  left: -60px;
+  top: -38px;
+  width: 120px;
+  height: 76px;
+  background: linear-gradient(90deg, #a83a67, #d4638d);
+  box-shadow: inset 0 0 0 3px #f6cf8e;
+  transform: translateX(-100px) rotateY(90deg);
+}
+.mb-right {
+  left: -60px;
+  top: -38px;
+  width: 120px;
+  height: 76px;
+  background: linear-gradient(90deg, #d4638d, #a83a67);
+  box-shadow: inset 0 0 0 3px #f6cf8e;
+  transform: translateX(100px) rotateY(-90deg);
+}
+.mb-floor {
+  position: absolute;
+  left: -100px;
+  top: -60px;
+  width: 200px;
+  height: 120px;
+  background: radial-gradient(ellipse at 50% 50%, #e9739d, #b8416f 70%);
+  transform: translateY(30px) rotateX(90deg);
+}
+.mb-turn {
+  position: absolute;
+  left: 0;
+  top: 30px;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(var(--ang));
+}
+.mb-fig {
+  position: absolute;
+  left: -58px;
+  top: -125px;
+  width: 116px;
+  height: 125px;
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transform: scale(calc(0.42 + var(--rise) * 0.58));
+}
+.mb-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+.mb-face.b { transform: rotateY(180deg); }
+.mb-face svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mb-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: mbflick 0.45s ease-in-out infinite alternate; }
+@keyframes mbflick { from { transform: scale(1, 1) rotate(-3deg); } to { transform: scale(0.9, 1.12) rotate(3deg); } }
+.mb-hinge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: translate3d(0, -38px, -60px) rotateX(calc(var(--open) * 1deg));
+}
+.mb-lid {
+  position: absolute;
+  left: -100px;
+  top: 0;
+  width: 200px;
+  height: 120px;
+  transform-style: preserve-3d;
+  transform-origin: 50% 0;
+  transform: rotateX(90deg);
+}
+.mb-lid-out,
+.mb-lid-in {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px 10px 4px 4px;
+  backface-visibility: hidden;
+  box-shadow: inset 0 0 0 3px #f6cf8e, inset 0 0 0 5px rgb(255 255 255 / 0.5);
+}
+.mb-lid-out {
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(90deg, transparent 44%, rgb(255 233 190 / 0.9) 44% 56%, transparent 56%),
+    linear-gradient(180deg, #ffc7d9, #ff94b5);
+}
+.mb-lid-out svg { width: 34px; height: 34px; fill: #fff; filter: drop-shadow(0 2px 3px rgb(190 40 90 / 0.4)); }
+.mb-lid-in {
+  background: radial-gradient(ellipse at 50% 50%, #f3e6ff, #c9b0f5 80%);
+  transform: rotateY(180deg);
+}
+.mb-notes { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.mb-notes span {
+  position: absolute;
+  left: 50%;
+  top: 96px;
+  color: #e8507b;
+  font: 700 24px/1 var(--serif);
+  opacity: 0;
+  text-shadow: 0 2px 6px rgb(255 255 255 / 0.8);
+}
+.mb.playing .mb-notes span { animation: mbnote 3.4s ease-out infinite; }
+.mb-notes .n1 { margin-left: -72px; --nx: -26px; animation-delay: 0s; color: #e8507b; }
+.mb-notes .n2 { margin-left: 52px; --nx: 22px; animation-delay: 0.6s; color: #9f80ee; }
+.mb-notes .n3 { margin-left: -36px; --nx: -12px; animation-delay: 1.2s; color: #ff8fb0; }
+.mb-notes .n4 { margin-left: 74px; --nx: 28px; animation-delay: 1.8s; color: #f0a21f; }
+.mb-notes .n5 { margin-left: -92px; --nx: -30px; animation-delay: 2.4s; color: #9f80ee; }
+.mb-notes .n6 { margin-left: 20px; --nx: 10px; animation-delay: 3s; color: #e8507b; }
+@keyframes mbnote {
+  0% { opacity: 0; transform: translate(0, 24px) scale(0.6) rotate(0); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--nx, 20px), -90px) scale(1.2) rotate(16deg); }
+}
+.mb-key {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 238px;
+  width: 84px;
+  height: 84px;
+  margin-left: -42px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff, #ffe3ec 72%);
+  box-shadow: 0 10px 22px rgb(232 80 123 / 0.3), inset 0 0 0 3px #fff;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mb-key:active { cursor: grabbing; }
+.mb-key:focus-visible { box-shadow: 0 0 0 3px #fff, 0 0 0 6px #e8507b; }
+.mb-ring, .mb-keysvg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mb-ring { transform: rotate(-90deg); }
+.mb-ring circle { fill: none; stroke-width: 5; }
+.mb-ring .trk { stroke: rgb(255 143 176 / 0.28); }
+.mb-ring .bar { stroke: #e8507b; stroke-linecap: round; stroke-dasharray: 289; stroke-dashoffset: var(--prog); }
+.mb-keysvg { padding: 9px; transform: rotate(var(--keydeg)); filter: drop-shadow(0 3px 3px rgb(120 60 20 / 0.3)); }
+.mb:not(.playing):not(.done) .mb-keysvg { animation: mbtease 2.4s ease-in-out infinite; }
+@keyframes mbtease { 0%, 100% { rotate: 0deg; } 50% { rotate: 14deg; } }
+.mb.done .mb-key { opacity: 0.55; pointer-events: none; }
+.mb-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 322px;
+  margin: 0;
+  color: var(--ink-soft);
+  font: italic 300 15px/1 var(--serif);
+  text-align: center;
+  transition: opacity 0.4s;
+}
+.mb-hint i { font-style: normal; display: inline-block; animation: spin 3s linear infinite; }
+.mb-hint.off { opacity: 0; }
+
+/* ----- WISHES: whack the piñata ----- */
+.pin-field { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; cursor: pointer; }
+.pin-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; touch-action: none; }
+.pin-sway { transform-origin: 160px 0; animation: pinsway 3.8s ease-in-out infinite alternate; }
+@keyframes pinsway { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+.pin-swing { transform-origin: 160px 0; }
+.pin-body { cursor: pointer; filter: drop-shadow(0 12px 10px rgb(150 60 100 / 0.3)); outline: none; }
+.pin-body:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
+.pin-rope { fill: none; stroke: #d9a24f; stroke-width: 4.4; stroke-linecap: round; }
+.pin-rope-twist { fill: none; stroke: #fff2c4; stroke-width: 4.4; stroke-dasharray: 2.4 5; stroke-linecap: butt; opacity: 0.85; }
+.pin-rope-limp { transform-origin: 160px 6px; animation: pinlimp 2.4s ease-out both; }
+@keyframes pinlimp { 0% { transform: rotate(10deg); } 30% { transform: rotate(-7deg); } 60% { transform: rotate(3deg); } 100% { transform: rotate(0deg); } }
+.pin-ring { fill: none; stroke: #e0a94f; stroke-width: 3.4; }
+.pin-hint { fill: none; stroke: #ff7aa8; stroke-width: 2.4; stroke-dasharray: 5 9; stroke-linecap: round; transform-origin: 160px 186px; animation: pinhint 1.9s ease-in-out infinite; pointer-events: none; }
+@keyframes pinhint { 0%, 100% { transform: scale(0.95) rotate(0deg); opacity: 0.45; } 50% { transform: scale(1.05) rotate(14deg); opacity: 0.95; } }
+.pin-tear { fill: #fff7ee; stroke: #8a2c55; stroke-opacity: 0.6; stroke-width: 1.8; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 1px 1.5px rgb(110 30 70 / 0.4)); animation: pintear 0.34s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+@keyframes pintear { from { transform: scale(0.2) rotate(-12deg); opacity: 0; } to { transform: scale(1) rotate(0deg); opacity: 1; } }
+.pin-pow { fill: #fff; stroke: #ff6f9c; stroke-width: 2.4; stroke-linejoin: round; pointer-events: none; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 5px #ff8fb0); animation: pinpow 0.6s ease-out forwards; }
+@keyframes pinpow { from { transform: scale(0.3) rotate(0deg); opacity: 1; } to { transform: scale(1.7) rotate(40deg); opacity: 0; } }
+.pin-half { pointer-events: none; animation-duration: 1.05s; animation-timing-function: cubic-bezier(0.4, 0.05, 0.6, 1); animation-fill-mode: forwards; }
+.pin-half.pl { transform-origin: 120px 180px; animation-name: pinhl; }
+.pin-half.pr { transform-origin: 200px 180px; animation-name: pinhr; }
+@keyframes pinhl { 0% { transform: translate(0, 0) rotate(0deg); opacity: 1; } 55% { opacity: 1; } 100% { transform: translate(-74px, 150px) rotate(-34deg); opacity: 0; } }
+@keyframes pinhr { 0% { transform: translate(0, 0) rotate(0deg); opacity: 1; } 55% { opacity: 1; } 100% { transform: translate(74px, 150px) rotate(34deg); opacity: 0; } }
+.candy { pointer-events: none; }
+.candy-in { transform-box: fill-box; transform-origin: center; animation: candyfall 1.1s cubic-bezier(0.35, 0.05, 0.55, 1) var(--cd, 0ms) both; filter: drop-shadow(0 3px 3px rgb(150 60 100 / 0.25)); }
+@keyframes candyfall {
+  0% { transform: translate(0, 0) scale(0.3) rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  30% { transform: translate(calc(var(--dx) * 0.45), -46px) scale(1) rotate(calc(var(--rot) * 0.3)); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--rot)); opacity: var(--eo, 0); }
+}
+
+/* ----- GACHA: physics balls ----- */
+@keyframes gshake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-3px, 1px) rotate(-1.4deg); }
+  50% { transform: translate(3px, -1px) rotate(1.4deg); }
+  75% { transform: translate(-2px, 0) rotate(-0.8deg); }
+}
+
+/* ----- FINALE: trace the heart ----- */
+.trace {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  outline: none;
+}
+.trace .sky-hint { text-align: center; }
+.trace-svg {
+  width: min(80cqw, 340px, 46cqh);
+  aspect-ratio: 200 / 190;
+  height: auto;
+  overflow: visible;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  filter: drop-shadow(0 0 18px rgb(255 140 190 / 0.35));
+}
+.trace.lit .trace-svg { animation: trbeat 0.9s ease-in-out infinite; }
+@keyframes trbeat { 0%, 100% { scale: 1; } 50% { scale: 1.05; } }
+.trace-fill { fill: url(#tr-fill); opacity: 0; transition: opacity 0.9s ease; }
+.trace.lit .trace-fill { opacity: 0.92; }
+.trace-guide {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.34);
+  stroke-dasharray: 2 5;
+  stroke-linecap: round;
+  stroke-width: 1.4;
+}
+.trace-link {
+  fill: none;
+  stroke: rgb(255 214 232 / 0.85);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px #ff9fc3);
+}
+.trace-line {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 5px #ff9fc3);
+}
+.trace-halo { fill: rgb(255 200 220 / 0); transition: fill 0.3s; }
+.trace-st {
+  fill: #ffe9a8;
+  opacity: 0.6;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: twinkle 2.4s ease-in-out infinite alternate;
+}
+.trace-star:nth-child(odd) .trace-st { animation-delay: 0.7s; }
+.trace-star.on .trace-halo { fill: rgb(255 190 215 / 0.4); }
+.trace-star.on .trace-st {
+  fill: #fff;
+  opacity: 1;
+  scale: 1.5;
+  animation: none;
+  filter: drop-shadow(0 0 4px #ffd36b);
+  transition: scale 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.trace-star.pulse .trace-halo { animation: trpulse 1s ease-in-out infinite; }
+@keyframes trpulse { 0%, 100% { fill: rgb(255 200 220 / 0.12); } 50% { fill: rgb(255 200 220 / 0.6); } }
+.trace-tip { fill: #fff; filter: drop-shadow(0 0 6px #ff9fc3); pointer-events: none; }
+
 @media (prefers-reduced-motion: reduce) {
+  .trace-svg,
+  .trace-star,
   .aurora i,
   .ambient i,
   .rays,
@@ -3760,13 +4834,23 @@ onUnmounted(() => {
   .csp,
   .arr,
   .cloud,
-  .balloon,
+  .pin-sway,
+  .pin-hint,
+  .pin-rope-limp,
+  .mb-flame,
+  .mb-notes span,
+  .mb-keysvg,
+  .pin-pow,
   .string,
   .stars,
   .shoot,
   .gacha-knob.ready,
   .capsule {
     animation: none;
+  }
+  .candy-in,
+  .pin-half {
+    display: none;
   }
 }
 </style>
