@@ -10,7 +10,7 @@
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "server": "node --watch --env-file=server/.env server/index.js",
+    "server": "node --watch-path=server --env-file=server/.env server/index.js",
     "dev:all": "run-p dev server",
     "assets": "node tools/asset-cutter.mjs"
   },

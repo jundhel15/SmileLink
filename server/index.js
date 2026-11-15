@@ -30,5 +30,10 @@ app.get("/", (req, res) => {
   res.json({ ok: true, message: "Express is running" });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
+// On Vercel, api/index.js hands this app to a serverless function; locally it runs as a normal server
+export default app;
+
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
+}

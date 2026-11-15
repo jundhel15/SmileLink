@@ -1,1 +1,82 @@
 //npm run dev:all starts Vue and Express together.
+
+==============================
+HOW TO START THE APP
+==============================
+
+1. FIRST TIME ONLY
+   - Install packages:            npm install
+   - Make sure server/.env exists with:
+       PORT=3000
+       APP_URL=https://smile-link-mu.vercel.app
+       SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+       PAYMONGO_SECRET_KEY, PAYMONGO_PUBLIC_KEY, PAYMONGO_WEBHOOK_SECRET
+       RESEND_API_KEY, EMAIL_FROM
+       DEV_FAKE_PAYMENT=false        (true = orders can be "paid" without PayMongo; testing only)
+     Never commit server/.env (it is in .gitignore).
+
+2. START THE APP (local, for building and testing on your PC)
+   npm run dev:all
+     - Vue (Vite)    -> http://localhost:5173
+     - Express API   -> http://localhost:3000   (Vite forwards /api calls to it)
+   Open http://localhost:5173 in the browser.
+
+   Run them separately if needed:
+     npm run dev       (Vue only)
+     npm run server    (Express only, restarts when files in server/ change)
+
+   Note: PayMongo can't reach your PC, so a payment made on localhost stays
+   on "Processing". Test real payments on the Vercel link (step 3).
+
+3. PUBLIC LINK (anyone can open it) - VERCEL
+   Link:            https://smile-link-mu.vercel.app
+   Custom domain:   https://smile-link.com  (not working yet - DNS below)
+
+   - Online 24/7. Your PC can be off. No warning page.
+   - Vercel redeploys automatically when you push to GitHub (jundhel15/SmileLink).
+     To update the public site: commit, push, wait about 1 minute.
+
+   How it runs on Vercel:
+     - Vue pages: built with "npm run build" into dist/
+     - Express API: api/index.js runs server/index.js as a serverless function
+     - vercel.json: sends /api/* to Express, every other path to index.html
+
+   Environment variables (Vercel -> Project -> Settings -> Environment Variables):
+     Copy every key from server/.env, with:
+       APP_URL=https://smile-link-mu.vercel.app
+       NODEJS_HELPERS=0     (keeps the raw request body for the PayMongo webhook check)
+     After changing variables, redeploy (Deployments -> ... -> Redeploy).
+
+   Custom domain DNS (GoDaddy -> smile-link.com -> DNS):
+     - Delete A @ 3.33.130.190 and A @ 15.197.148.33 (GoDaddy parking)
+     - Add    A @ 216.198.79.1
+     - CNAME www -> the value Vercel shows under www.smile-link.com
+       ("View DNS configuration")
+     - Turn off GoDaddy parking/forwarding, then click Refresh in Vercel.
+     When smile-link.com works: change APP_URL to https://smile-link.com
+     (in Vercel and server/.env) and move the PayMongo webhook to it.
+
+4. PAYMONGO WEBHOOK (needed for orders to be marked paid)
+   A test-mode webhook (hook_bbu6t8h7kKoWScvJgZUh1VJz) is registered to:
+     https://smile-link-mu.vercel.app/api/webhooks/paymongo
+   Its secret is PAYMONGO_WEBHOOK_SECRET (same value in server/.env and Vercel).
+   If the public URL changes, update the webhook URL in PayMongo.
+
+5. EMAIL (Resend)
+   EMAIL_FROM=SmileLink <onboarding@resend.dev> only delivers to the email on
+   the Resend account (jundhel0115@gmail.com). To email real recipients,
+   verify a domain at resend.com/domains and send from that domain.
+
+6. STOP THE APP (local)
+   Press Ctrl + C in the dev:all terminal. The Vercel site keeps running.
+
+TROUBLESHOOTING
+   - "Port 5173 is in use": an old copy is still running. Close the other
+     terminal, or end the leftover node.exe in Task Manager, then start again.
+   - 502 on saving (local): the Express server is not running or is restarting.
+     Check the dev:all terminal for errors.
+   - 404 on /api or on a page after refresh (Vercel): api/index.js or
+     vercel.json is missing from the deployed code. Push them to GitHub.
+   - Payment stays on "Processing" (Vercel): check the PayMongo webhook URL
+     and that PAYMONGO_WEBHOOK_SECRET in Vercel matches the webhook's secret.
+   - Before committing: npm run lint

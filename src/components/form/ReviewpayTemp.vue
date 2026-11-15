@@ -96,6 +96,22 @@
           </span>
         </label>
 
+        <label class="method-option" :class="{ selected: paymentMethod === 'qrph' }">
+          <input v-model="paymentMethod" type="radio" name="payment-method" value="qrph" />
+          <span class="card-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
+              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
+              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
+              <path d="M14 14h3v3h-3zM18 18h3v3h-3z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="method-text">
+            <strong>Scan QR (QR Ph)</strong>
+            <span class="muted">GCash, Maya or any bank app</span>
+          </span>
+        </label>
+
         <div class="secure-note">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
@@ -113,7 +129,11 @@
             />
           </svg>
           <p v-if="paymentMethod === 'gcash'">
-            A GCash QR code will appear. Scan it with your GCash app to approve the payment.
+            You will log in to GCash on PayMongo's secure checkout to approve the payment.
+          </p>
+          <p v-else-if="paymentMethod === 'qrph'">
+            A QR code will appear on PayMongo's secure checkout. Scan it with GCash, Maya or your
+            bank app.
           </p>
           <p v-else>
             You will pay on PayMongo's secure checkout. SmileLink never sees or stores your card
@@ -287,7 +307,7 @@ const templateImages = import.meta.glob(["@/assets/templates/*/*.webp", "!**/*-f
 // ang PACKAGES ay galing sa shared catalog; display lang dito, sa server kinukuwenta ang totoong halaga
 const CHECKOUT_ENDPOINT = "/api/checkout-sessions";
 // naka-off muna ang card; gawing true para ipakita ulit
-const card_payment_enabled = true;
+const card_payment_enabled = false;
 
 const router = useRouter();
 const orderStore = useOrderStore();
@@ -306,7 +326,11 @@ const occasionLabel = draft.occasion
   : "Birthday";
 
 const paymentMethod = ref(
-  card_payment_enabled && draft.payment_method === "card" ? "card" : "gcash",
+  draft.payment_method === "qrph"
+    ? "qrph"
+    : card_payment_enabled && draft.payment_method === "card"
+      ? "card"
+      : "gcash",
 );
 const agreedToTerms = ref(false);
 const isPaying = ref(false);

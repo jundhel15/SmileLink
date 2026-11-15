@@ -181,8 +181,9 @@
 <script setup>
 import { computed, ref, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft } from "@/utils/orderDraft";
+import { clearOrderDraft, readOrderDraft } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
+import { PAID_STATUSES } from "@/shared/catalog";
 
 /* ===== Occasion illustrations (WebP) ===== */
 import birthdayWebp from "@/assets/occasions/birthday-cake.webp";
@@ -199,6 +200,8 @@ import justBecauseWebp from "@/assets/occasions/just-because-star.webp";
 import ConFirm from "../dialog/ConFirm.vue";
 
 const router = useRouter();
+// bayad na ang huling order: magsimula ng bagong draft para hindi magamit ulit ang lumang order id
+if (PAID_STATUSES.includes(readOrderDraft().order_status)) clearOrderDraft();
 const orderStore = useOrderStore();
 const selectedOccasion = ref("");
 const selectedAction = ref("");

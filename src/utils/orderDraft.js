@@ -45,8 +45,10 @@ export async function saveServerOrder(extra = {}, retried = false) {
     credentials: "include",
     body: JSON.stringify({ ...readOrderDraft(), ...extra }),
   });
-  // 404: wala na sa server ang order (nabura o luma ang token), kaya gagawa ng bago
-  if (response.status === 404 && !retried) {
+  // 404: wala na sa server ang order (nabura o luma ang token)
+  // 409: bayad na ang lumang order kaya hindi na ma-edit
+  // sa parehong kaso, gagawa ng bagong order
+  if ((response.status === 404 || response.status === 409) && !retried) {
     useOrderStore().updateOrderDraft({ order_id: null, order_token: null });
     return saveServerOrder(extra, true);
   }

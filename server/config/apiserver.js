@@ -315,8 +315,9 @@ export function registerRoutes(app) {
     const selectedPackage = PACKAGES[details.package_id];
     if (!selectedPackage) return res.status(400).json({ error: "Choose a package first." });
 
-    const methods = { gcash: ["gcash"], card: ["card"] };
-    const paymentMethodTypes = methods[req.body?.payment_method] ?? ["gcash", "card"];
+    // qrph shows a QR on PayMongo's page that GCash, Maya or any bank app can scan
+    const methods = { gcash: ["gcash"], qrph: ["qrph"], card: ["card"] };
+    const paymentMethodTypes = methods[req.body?.payment_method] ?? ["gcash", "qrph", "card"];
 
     // Return to the address the customer is browsing from, so their saved draft is still there
     const origin = /^https?:\/\/[^/]+$/.test(req.get("origin") ?? "")
