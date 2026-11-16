@@ -212,10 +212,6 @@
               <dd>SmileLink</dd>
             </div>
             <div>
-              <dt>Reference no.</dt>
-              <dd>{{ qrReference }}</dd>
-            </div>
-            <div>
               <dt>Expires in</dt>
               <dd :class="{ 'qr-warning': secondsLeft < 60 }">{{ countdownLabel }}</dd>
             </div>
@@ -230,7 +226,7 @@
           </button>
 
           <button class="qr-secondary" type="button" :disabled="isPaying" @click="openGcashApp">
-            Paying on this phone? Open GCash instead
+            Open GCash
           </button>
           <a v-if="qrTestUrl" class="qr-test-link" :href="qrTestUrl" target="_blank" rel="noopener">
             Test mode: simulate a GCash scan ↗
@@ -366,7 +362,6 @@ function formatPeso(amount) {
 // GCash QR popup: the QR image, reference and expiry come from PayMongo through our server
 const showGcashModal = ref(false);
 const qrImage = ref("");
-const qrReference = ref("");
 const qrTestUrl = ref("");
 const secondsLeft = ref(0);
 let countdownTimer = null;
@@ -446,7 +441,6 @@ async function showGcashQr() {
       throw new Error("QR code is missing.");
     }
     qrImage.value = payment.image;
-    qrReference.value = payment.reference;
     qrTestUrl.value = payment.test_url ?? "";
     secondsLeft.value = secondsUntil(payment.expires_at);
     showGcashModal.value = true;
@@ -911,7 +905,7 @@ async function startCheckout() {
 }
 .qr-details {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin: 0;
   border-radius: 10px;
