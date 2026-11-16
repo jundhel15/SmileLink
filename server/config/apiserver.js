@@ -364,6 +364,94 @@ export function registerRoutes(app) {
     }
   });
 
+  // Direct GCash payment without PayMongo's checkout page. "qrph" returns a QR image GCash can scan
+  // (shown on our own page); "gcash" returns a link that opens GCash on a phone. The amount comes
+  // from the server catalog, and the order is only marked paid later, by the verified webhook.
+  app.post("/api/payment-intents", async (req, res) => {
+    req.params.id = req.body?.order_id;
+    const order = await findAuthorizedOrder(req);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    if (!UNPAID_STATUSES.includes(order.order_status)) {
+      return res.status(409).json({ error: "This order was already paid." });
+    }
+
+    const type = req.body?.payment_method === "qrph" ? "qrph" : "gcash";
+    const [{ data: details, error: detailsError }, { data: delivery }] = await Promise.all([
+      supabase.from("orders").select("package_id").eq("id", order.id).single(),
+      supabase
+        .from("order_delivery")
+        .select("sender_name, sender_email")
+        .eq("order_id", order.id)
+        .maybeSingle(),
+    ]);
+    if (detailsError) return res.status(500).json({ error: detailsError.message });
+
+    const selectedPackage = PACKAGES[details.package_id];
+    if (!selectedPackage) return res.status(400).json({ error: "Choose a package first." });
+
+    const origin = /^https?:\/\/[^/]+$/.test(req.get("origin") ?? "")
+      ? req.get("origin")
+      : process.env.APP_URL || "http://localhost:5173";
+
+    try {
+      const intent = await paymongo("/payment_intents", {
+        method: "POST",
+        body: {
+          amount: Math.round(selectedPackage.price * 100), // centavos
+          currency: "PHP",
+          payment_method_allowed: [type],
+          description: `SmileLink ${selectedPackage.name} (order ${order.id})`,
+          statement_descriptor: "SmileLink",
+          // flow marks intents made here, so the webhook doesn't also act on checkout-session payments
+          metadata: { order_id: order.id, flow: "direct" },
+        },
+      });
+      const method = await paymongo("/payment_methods", {
+        method: "POST",
+        body: {
+          type,
+          billing: {
+            name: delivery?.sender_name || "SmileLink customer",
+            ...(delivery?.sender_email && { email: delivery.sender_email }),
+          },
+        },
+      });
+      const attached = await paymongo(`/payment_intents/${intent.id}/attach`, {
+        method: "POST",
+        body: {
+          payment_method: method.id,
+          client_key: intent.attributes.client_key,
+          return_url: `${origin}/order/${order.id}/processing`,
+        },
+      });
+
+      const { error: statusError } = await supabase
+        .from("orders")
+        .update({ order_status: "pending_payment", updated_at: new Date().toISOString() })
+        .eq("id", order.id);
+      if (statusError) console.error("[payment] couldn't set pending_payment:", statusError.message);
+
+      const next = attached.attributes.next_action;
+      if (next?.type === "consume_qr" && next.code?.image_url) {
+        return res.json({
+          kind: "qr",
+          image: next.code.image_url,
+          expires_at: next.code.expires_at,
+          reference: intent.id,
+          // PayMongo's "simulate a scan" page; only exists in test mode
+          ...(!intent.attributes.livemode && next.code.test_url && { test_url: next.code.test_url }),
+        });
+      }
+      if (next?.type === "redirect" && next.redirect?.url) {
+        return res.json({ kind: "redirect", url: next.redirect.url, reference: intent.id });
+      }
+      throw new Error(`Unexpected next action: ${next?.type ?? "none"}`);
+    } catch (error) {
+      console.error("[paymongo]", error.message);
+      res.status(502).json({ error: "Couldn't start the GCash payment." });
+    }
+  });
+
   // PayMongo calls this. Only a correctly signed checkout_session.payment.paid marks an order paid.
   // Answering non-2xx makes PayMongo retry, which is what we want if the email failed.
   app.post("/api/webhooks/paymongo", async (req, res) => {
@@ -374,10 +462,29 @@ export function registerRoutes(app) {
     }
 
     const resource = event?.data?.attributes ?? {};
-    const orderId = resource.metadata?.order_id || resource.reference_number;
-    console.log(`[webhook] ${event?.type} for order ${orderId ?? "(none)"}`);
+    let orderId = resource.metadata?.order_id || resource.reference_number;
 
-    if (event?.type === "checkout_session.payment.paid") {
+    // Direct GCash/QR payments (POST /api/payment-intents) arrive as payment.paid / payment.failed.
+    // Their order id is on the payment intent. Checkout sessions also send payment.paid, but those
+    // intents lack flow "direct", so they're left to checkout_session.payment.paid below.
+    let isDirect = false;
+    if (["payment.paid", "payment.failed"].includes(event?.type) && resource.payment_intent_id) {
+      try {
+        const intent = await paymongo(`/payment_intents/${resource.payment_intent_id}`);
+        if (intent.attributes.metadata?.flow === "direct") {
+          isDirect = true;
+          orderId = intent.attributes.metadata.order_id;
+        }
+      } catch (error) {
+        console.error("[webhook] couldn't read payment intent:", error.message);
+        return res.status(500).json({ error: "Try again." }); // PayMongo retries
+      }
+    }
+    console.log(`[webhook] ${event?.type} for order ${orderId ?? "(none)"}${isDirect ? " (direct)" : ""}`);
+
+    const isPaidEvent =
+      event?.type === "checkout_session.payment.paid" || (event?.type === "payment.paid" && isDirect);
+    if (isPaidEvent) {
       const { data: order } = await supabase
         .from("orders")
         .select("id, order_status, package_id")
@@ -387,9 +494,15 @@ export function registerRoutes(app) {
       // A repeat delivery of an event we already handled
       if (["scheduled", "sent"].includes(order.order_status)) return res.json({ ok: true });
 
-      const paidCentavos = (resource.payments ?? [])
-        .filter((payment) => payment.attributes?.status === "paid")
-        .reduce((sum, payment) => sum + (payment.attributes.amount ?? 0), 0);
+      // A checkout session lists its payments; a payment.paid event is a single payment
+      const paidCentavos =
+        event.type === "payment.paid"
+          ? resource.status === "paid"
+            ? (resource.amount ?? 0)
+            : 0
+          : (resource.payments ?? [])
+              .filter((payment) => payment.attributes?.status === "paid")
+              .reduce((sum, payment) => sum + (payment.attributes.amount ?? 0), 0);
       const priceCentavos = Math.round((PACKAGES[order.package_id]?.price ?? 0) * 100);
       if (paidCentavos < priceCentavos) {
         console.error(`[webhook] order ${order.id}: paid ${paidCentavos}, expected ${priceCentavos}`);

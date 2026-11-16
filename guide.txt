@@ -56,6 +56,8 @@ HOW TO START THE APP
      When smile-link.com works: change APP_URL to https://smile-link.com
      (in Vercel and server/.env) and move the PayMongo webhook to it.
 
+     vercel domain: smile-link-mu.vercel.app
+
 4. PAYMONGO WEBHOOK (needed for orders to be marked paid)
    A test-mode webhook (hook_bbu6t8h7kKoWScvJgZUh1VJz) is registered to:
      https://smile-link-mu.vercel.app/api/webhooks/paymongo

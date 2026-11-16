@@ -96,22 +96,6 @@
           </span>
         </label>
 
-        <label class="method-option" :class="{ selected: paymentMethod === 'qrph' }">
-          <input v-model="paymentMethod" type="radio" name="payment-method" value="qrph" />
-          <span class="card-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
-              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
-              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.8" />
-              <path d="M14 14h3v3h-3zM18 18h3v3h-3z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="method-text">
-            <strong>Scan QR (QR Ph)</strong>
-            <span class="muted">GCash, Maya or any bank app</span>
-          </span>
-        </label>
-
         <div class="secure-note">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
@@ -129,11 +113,8 @@
             />
           </svg>
           <p v-if="paymentMethod === 'gcash'">
-            You will log in to GCash on PayMongo's secure checkout to approve the payment.
-          </p>
-          <p v-else-if="paymentMethod === 'qrph'">
-            A QR code will appear on PayMongo's secure checkout. Scan it with GCash, Maya or your
-            bank app.
+            On your phone, the GCash app opens so you can approve the payment. On a computer, a QR
+            code appears. Scan it with GCash.
           </p>
           <p v-else>
             You will pay on PayMongo's secure checkout. SmileLink never sees or stores your card
@@ -170,8 +151,12 @@
           </svg>
           {{
             isPaying
-              ? "Opening secure checkout..."
-              : `Pay ${formatPeso(selectedPackage.price)} securely`
+              ? paymentMethod === "gcash"
+                ? "Preparing GCash..."
+                : "Opening secure checkout..."
+              : paymentMethod === "gcash"
+                ? `Pay ${formatPeso(selectedPackage.price)} with GCash`
+                : `Pay ${formatPeso(selectedPackage.price)} securely`
           }}
         </button>
         <p v-if="missingStep" class="field-error" role="alert">
@@ -201,90 +186,56 @@
             &times;
           </button>
 
-          <template v-if="!gcashPaid">
-            <div class="qr-header">
-              <span class="brand-gcash qr-brand">GCash</span>
-              <h3 id="qr-heading">Scan to pay</h3>
-              <p class="muted">
-                Open your GCash app, tap <strong>Scan QR</strong>, then scan this code.
-              </p>
-            </div>
-
-            <div class="qr-box" :class="{ expired: secondsLeft === 0 }">
-              <svg
-                :viewBox="`0 0 ${QR_SIZE + 2} ${QR_SIZE + 2}`"
-                shape-rendering="crispEdges"
-                role="img"
-                aria-label="Sample GCash QR code"
-              >
-                <rect :width="QR_SIZE + 2" :height="QR_SIZE + 2" fill="#fff" />
-                <rect
-                  v-for="cell in qrCells"
-                  :key="cell"
-                  :x="(cell % QR_SIZE) + 1"
-                  :y="Math.floor(cell / QR_SIZE) + 1"
-                  width="1"
-                  height="1"
-                  fill="#1c2344"
-                />
-              </svg>
-              <span v-if="secondsLeft === 0" class="qr-expired-label">QR expired</span>
-            </div>
-
-            <dl class="qr-details">
-              <div>
-                <dt>Amount</dt>
-                <dd class="qr-amount">{{ formatPeso(selectedPackage.price) }}</dd>
-              </div>
-              <div>
-                <dt>Merchant</dt>
-                <dd>SmileLink</dd>
-              </div>
-              <div>
-                <dt>Reference no.</dt>
-                <dd>{{ gcashReference }}</dd>
-              </div>
-              <div>
-                <dt>Expires in</dt>
-                <dd :class="{ 'qr-warning': secondsLeft < 60 }">{{ countdownLabel }}</dd>
-              </div>
-            </dl>
-
-            <p class="qr-sample-note">Sample only — this QR code is not a real payment request.</p>
-
-            <button
-              v-if="secondsLeft > 0"
-              class="pay-button"
-              type="button"
-              @click="confirmGcashPaid"
-            >
-              I've completed the payment
-            </button>
-            <button v-else class="pay-button" type="button" @click="openGcashModal">
-              Generate a new QR code
-            </button>
-            <button class="qr-cancel" type="button" @click="closeGcashModal">Cancel</button>
-          </template>
-
-          <div v-else class="qr-success">
-            <span class="qr-check" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path
-                  d="m6 12.5 4 4 8-9"
-                  stroke="currentColor"
-                  stroke-width="2.4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </span>
-            <h3 id="qr-heading">Payment received</h3>
-            <p class="muted">
-              Reference {{ gcashReference }}. We'll email a receipt to
-              {{ draft.sender_email || "you" }}.
-            </p>
-            <button class="pay-button" type="button" @click="closeGcashModal">Done</button>
+          <div class="qr-header">
+            <span class="brand-gcash qr-brand">GCash</span>
+            <h3 id="qr-heading">Scan to pay</h3>
+            <p class="muted">Open your GCash app, tap <strong>QR</strong>, then scan this code.</p>
           </div>
+
+          <div class="qr-box" :class="{ expired: secondsLeft === 0 }">
+            <img
+              :src="qrImage"
+              :alt="`GCash QR code to pay ${formatPeso(selectedPackage.price)} to SmileLink`"
+              width="184"
+              height="184"
+            />
+            <span v-if="secondsLeft === 0" class="qr-expired-label">QR expired</span>
+          </div>
+
+          <dl class="qr-details">
+            <div>
+              <dt>Amount</dt>
+              <dd class="qr-amount">{{ formatPeso(selectedPackage.price) }}</dd>
+            </div>
+            <div>
+              <dt>Merchant</dt>
+              <dd>SmileLink</dd>
+            </div>
+            <div>
+              <dt>Reference no.</dt>
+              <dd>{{ qrReference }}</dd>
+            </div>
+            <div>
+              <dt>Expires in</dt>
+              <dd :class="{ 'qr-warning': secondsLeft < 60 }">{{ countdownLabel }}</dd>
+            </div>
+          </dl>
+
+          <p v-if="secondsLeft > 0" class="qr-waiting" role="status">
+            <span class="qr-pulse" aria-hidden="true"></span>
+            Waiting for your payment. This page moves on by itself once it's paid.
+          </p>
+          <button v-else class="pay-button" type="button" :disabled="isPaying" @click="showGcashQr">
+            {{ isPaying ? "Preparing GCash..." : "Generate a new QR code" }}
+          </button>
+
+          <button class="qr-secondary" type="button" :disabled="isPaying" @click="openGcashApp">
+            Paying on this phone? Open GCash instead
+          </button>
+          <a v-if="qrTestUrl" class="qr-test-link" :href="qrTestUrl" target="_blank" rel="noopener">
+            Test mode: simulate a GCash scan ↗
+          </a>
+          <button class="qr-cancel" type="button" @click="closeGcashModal">Cancel</button>
         </div>
       </div>
     </Teleport>
@@ -306,6 +257,9 @@ const templateImages = import.meta.glob(["@/assets/templates/*/*.webp", "!**/*-f
 
 // ang PACKAGES ay galing sa shared catalog; display lang dito, sa server kinukuwenta ang totoong halaga
 const CHECKOUT_ENDPOINT = "/api/checkout-sessions";
+// GCash direct: phone -> opens GCash, computer -> real QR shown here (no PayMongo checkout page)
+const PAYMENT_INTENT_ENDPOINT = "/api/payment-intents";
+const PAID_STATUSES = ["paid", "scheduled", "sent"];
 // naka-off muna ang card; gawing true para ipakita ulit
 const card_payment_enabled = false;
 
@@ -326,11 +280,7 @@ const occasionLabel = draft.occasion
   : "Birthday";
 
 const paymentMethod = ref(
-  draft.payment_method === "qrph"
-    ? "qrph"
-    : card_payment_enabled && draft.payment_method === "card"
-      ? "card"
-      : "gcash",
+  card_payment_enabled && draft.payment_method === "card" ? "card" : "gcash",
 );
 const agreedToTerms = ref(false);
 const isPaying = ref(false);
@@ -413,15 +363,14 @@ function formatPeso(amount) {
   return `₱${amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 }
 
-// sample GCash QR popup; palitan ng totoong QR galing sa server kapag may PayMongo QR Ph na
-const QR_SIZE = 25;
-const QR_TTL_SECONDS = 5 * 60;
-
+// GCash QR popup: the QR image, reference and expiry come from PayMongo through our server
 const showGcashModal = ref(false);
-const gcashPaid = ref(false);
-const gcashReference = ref("");
-const secondsLeft = ref(QR_TTL_SECONDS);
+const qrImage = ref("");
+const qrReference = ref("");
+const qrTestUrl = ref("");
+const secondsLeft = ref(0);
 let countdownTimer = null;
+let paidCheckTimer = null;
 
 const countdownLabel = computed(() => {
   const minutes = Math.floor(secondsLeft.value / 60);
@@ -429,99 +378,130 @@ const countdownLabel = computed(() => {
   return `${minutes}:${seconds}`;
 });
 
-// mukhang QR lang: tatlong finder pattern sa sulok, random na tuldok sa gitna batay sa reference
-const qrCells = computed(() => {
-  let seed = [...gcashReference.value].reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  const random = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const finderAt = (x, y) => {
-    for (const [ox, oy] of [
-      [0, 0],
-      [QR_SIZE - 7, 0],
-      [0, QR_SIZE - 7],
-    ]) {
-      const dx = x - ox;
-      const dy = y - oy;
-      if (dx >= -1 && dx <= 7 && dy >= -1 && dy <= 7) {
-        if (dx < 0 || dx > 6 || dy < 0 || dy > 6) return false;
-        const ring = Math.min(dx, dy, 6 - dx, 6 - dy);
-        return ring !== 1;
-      }
-    }
-    return null;
-  };
-  const cells = [];
-  for (let y = 0; y < QR_SIZE; y++) {
-    for (let x = 0; x < QR_SIZE; x++) {
-      const finder = finderAt(x, y);
-      if (finder ?? random() < 0.48) cells.push(y * QR_SIZE + x);
-    }
-  }
-  return cells;
-});
-
-// GCash at card ay parehong dumadaan sa PayMongo Checkout; ang lumang sample QR popup ay hindi na ginagamit
 function onPayClick() {
-  startCheckout();
+  if (paymentMethod.value !== "gcash") return startCheckout();
+  if (!canPay.value) return;
+  // a phone has GCash installed, so open it; a computer can't, so show a QR to scan with the phone
+  if (isPhone()) openGcashApp();
+  else showGcashQr();
 }
 
-async function openGcashModal() {
-  if (!canPay.value && !showGcashModal.value) return;
-  paymentError.value = "";
-  try {
-    await saveServerOrder();
-  } catch (error) {
-    console.error(error);
-    paymentError.value = "We couldn't save your order. Please try again.";
-    return;
-  }
+function isPhone() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
+// PayMongo sends expires_at as an ISO date with nanoseconds; Date only reads milliseconds
+function secondsUntil(expiresAt) {
+  const ms =
+    typeof expiresAt === "number"
+      ? expiresAt * 1000
+      : Date.parse(String(expiresAt ?? "").replace(/(\.\d{3})\d+/, "$1"));
+  return Number.isFinite(ms) ? Math.max(0, Math.round((ms - Date.now()) / 1000)) : 30 * 60;
+}
+
+// Saves the order, then asks the server for a GCash payment: "qrph" (QR image) or "gcash" (app link)
+async function requestGcashPayment(type) {
+  const { order_id: orderId } = await saveServerOrder();
   orderStore.updateOrderDraft({ payment_method: "gcash" });
 
-  gcashReference.value = `SL-${Date.now().toString(36).toUpperCase()}`;
-  gcashPaid.value = false;
-  secondsLeft.value = QR_TTL_SECONDS;
-  showGcashModal.value = true;
+  const response = await fetch(PAYMENT_INTENT_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-order-token": readOrderDraft().order_token ?? "",
+    },
+    body: JSON.stringify({ order_id: orderId, payment_method: type }),
+  });
+  if (!response.ok) throw new Error(`Payment request failed with status ${response.status}.`);
 
-  clearInterval(countdownTimer);
+  orderStore.updateOrderDraft({ order_status: "pending_payment" });
+  return { orderId, ...(await response.json()) };
+}
+
+async function openGcashApp() {
+  isPaying.value = true;
+  paymentError.value = "";
+  try {
+    const payment = await requestGcashPayment("gcash");
+    if (payment.kind !== "redirect" || !payment.url?.startsWith("https://")) {
+      throw new Error("GCash link is missing.");
+    }
+    stopGcashTimers();
+    // GCash sends the customer back to /order/:id/processing, which waits for the webhook
+    window.location.assign(payment.url);
+  } catch (error) {
+    console.error(error);
+    paymentError.value = "We couldn't open GCash. Please try again.";
+    showGcashModal.value = false;
+    isPaying.value = false;
+  }
+}
+
+async function showGcashQr() {
+  isPaying.value = true;
+  paymentError.value = "";
+  try {
+    const payment = await requestGcashPayment("qrph");
+    if (payment.kind !== "qr" || !payment.image?.startsWith("data:image/")) {
+      throw new Error("QR code is missing.");
+    }
+    qrImage.value = payment.image;
+    qrReference.value = payment.reference;
+    qrTestUrl.value = payment.test_url ?? "";
+    secondsLeft.value = secondsUntil(payment.expires_at);
+    showGcashModal.value = true;
+    startGcashTimers(payment.orderId);
+
+    await nextTick();
+    document.querySelector(".qr-modal .qr-close")?.focus();
+  } catch (error) {
+    console.error(error);
+    paymentError.value = "We couldn't create the GCash QR code. Please try again.";
+    showGcashModal.value = false;
+  } finally {
+    isPaying.value = false;
+  }
+}
+
+// Counts down the QR expiry and checks every 3 seconds whether the webhook marked the order paid.
+// Only the server (verified PayMongo webhook) marks it paid; this page only reads the status.
+function startGcashTimers(orderId) {
+  stopGcashTimers();
   countdownTimer = setInterval(() => {
     if (secondsLeft.value > 0) secondsLeft.value--;
     else clearInterval(countdownTimer);
   }, 1000);
+  paidCheckTimer = setInterval(() => checkGcashPaid(orderId), 3000);
+}
 
-  await nextTick();
-  document.querySelector(".qr-modal .qr-close")?.focus();
+function stopGcashTimers() {
+  clearInterval(countdownTimer);
+  clearInterval(paidCheckTimer);
+}
+
+async function checkGcashPaid(orderId) {
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
+      headers: { "x-order-token": readOrderDraft().order_token ?? "" },
+    });
+    if (!response.ok) return;
+    const { order_status: orderStatus } = await response.json();
+    if (PAID_STATUSES.includes(orderStatus)) {
+      stopGcashTimers();
+      showGcashModal.value = false;
+      router.push(`/order/${orderId}/processing`);
+    }
+  } catch {
+    // a dropped connection just means we check again on the next tick
+  }
 }
 
 function closeGcashModal() {
-  clearInterval(countdownTimer);
+  stopGcashTimers();
   showGcashModal.value = false;
 }
 
-// hindi dito minamarkahang paid; ang processing screen ang naghihintay sa webhook ng server
-async function confirmGcashPaid() {
-  clearInterval(countdownTimer);
-  const { order_id: orderId, order_token: orderToken } = orderStore.updateOrderDraft({
-    order_status: "pending_payment",
-    payment_reference: gcashReference.value,
-  });
-
-  // DEV ONLY: pansamantalang kapalit ng webhook; gumagana lang kapag DEV_FAKE_PAYMENT=true sa server
-  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/dev-confirm`, {
-    method: "POST",
-    headers: { "x-order-token": orderToken },
-  });
-  if (!response.ok && response.status !== 404) {
-    const { error } = await response.json().catch(() => ({}));
-    paymentError.value = error || "We couldn't confirm your payment. Please try again.";
-  }
-
-  showGcashModal.value = false;
-  if (!paymentError.value) router.push(`/order/${orderId}/processing`);
-}
-
-onBeforeUnmount(() => clearInterval(countdownTimer));
+onBeforeUnmount(stopGcashTimers);
 
 // gumagawa ang server ng PayMongo Checkout Session; walang halaga o card number na galing dito
 async function startCheckout() {
@@ -911,12 +891,13 @@ async function startCheckout() {
   border-radius: 12px;
   padding: 8px;
 }
-.qr-box svg {
+.qr-box img {
   display: block;
   width: 100%;
   height: auto;
+  image-rendering: pixelated;
 }
-.qr-box.expired svg {
+.qr-box.expired img {
   opacity: 0.15;
 }
 .qr-expired-label {
@@ -956,10 +937,61 @@ async function startCheckout() {
 .qr-warning {
   color: #d83a3a !important;
 }
-.qr-sample-note {
-  margin: 10px 0 0;
+.qr-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+  color: #3e4864;
+  font-size: 12px;
+  font-weight: 600;
+}
+.qr-pulse {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #007dfe;
+  animation: qr-pulse 1.2s ease-in-out infinite;
+}
+@keyframes qr-pulse {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qr-pulse {
+    animation: none;
+  }
+}
+.qr-secondary {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #cfd8ea;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  color: #007dfe;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qr-secondary:hover:not(:disabled) {
+  background: #f1f6ff;
+}
+.qr-secondary:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.qr-test-link {
+  display: inline-block;
+  margin-top: 10px;
   color: #b07a12;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 700;
 }
 .qr-cancel {
   margin-top: 8px;
@@ -970,22 +1002,6 @@ async function startCheckout() {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-}
-.qr-success {
-  padding: 10px 0 4px;
-}
-.qr-check {
-  display: inline-grid;
-  width: 52px;
-  height: 52px;
-  place-items: center;
-  border-radius: 50%;
-  background: #e3f6e8;
-  color: #2f9a55;
-}
-.qr-check svg {
-  width: 28px;
-  height: 28px;
 }
 @media (max-width: 760px) {
   .review-page {

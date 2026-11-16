@@ -15,6 +15,16 @@ Vue 3 + Vite app using PrimeVue, Tailwind CSS v4, Pinia, and Vue Router.
 - Run `npm run lint` before committing
 - Always ask for approval
 
+## Testing
+
+- Always run tests live, so the developer can watch what is being tested:
+  - Drive a visible (not headless) Chrome window through the real app, with an on-screen banner naming the current step.
+  - Post a short update in chat as each step passes or fails, not only a summary at the end.
+  - When a step needs a person (e.g. "Authorize Test Payment" on PayMongo), stop and say clearly that it is the developer's turn.
+- Report every result honestly: pass, fail, or manual. Show the failing output, and say when a test ran against the wrong server or was skipped.
+- Use PayMongo test keys only. Payments only complete on the deployed site (https://smile-link-mu.vercel.app), because the PayMongo webhook points there, not to localhost.
+- For email tests, send to the Resend account's own address; the test sender can't deliver anywhere else.
+
 ## Process Flow (SmileLink prototype)
 
 ### Customer ordering
