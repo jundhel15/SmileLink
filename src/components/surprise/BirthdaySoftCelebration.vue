@@ -4,7 +4,7 @@
        - Wind-up music box (CSS 3D): paikutin ang susi para bumukas ang takip at umikot ang cake
        - Aurora background na gumagalaw + grain texture
        - Whack-the-piñata (tap o swipe): bawat hampas may lalabas na wish, sa huli mabibiyak at babagsak ang candy. Holographic na memory cards (3D flip + swipe) para sa mga litrato
-       - Finale: ikonekta ang mga bituin para mabuo ang puso, tapos fireworks at confetti sa canvas
+       - Finale: bubble wand; i-swipe para bumuga ng bula, i-pop ang mga salita, tapos lalabas ang card mula sa bula
        Lahat ng laman ay galing sa `content` prop. -->
   <SurpriseShell
     class="soft-shell"
@@ -514,7 +514,7 @@
 
         <!-- 3. MEMORY CARDS: holographic na card stack (dito lumalabas ang litrato ng customer) -->
         <section v-else-if="scene === 'memories'" key="memories" class="scene scene-memories">
-          <p class="eyebrow"><span class="eyebrow-line" /> Memory {{ Math.min(cardIndex + 1, photos.length) }} of {{ photos.length }} <span class="eyebrow-line" /></p>
+          <p class="eyebrow"><span class="eyebrow-line" /> Memory {{ Math.min(cardIndex + 1, memoryPhotos.length) }} of {{ memoryPhotos.length }} <span class="eyebrow-line" /></p>
           <h3 class="scene-title">Your <em>memories</em></h3>
           <p class="scene-sub" aria-live="polite">{{ cardHint }}</p>
           <div class="cards-stage">
@@ -550,7 +550,7 @@
                     <svg class="csp c2" aria-hidden="true"><use href="#sl-sparkle" /></svg>
                   </div>
                   <div class="mcap">
-                    <span class="no">No. 0{{ item.i + 1 }}</span>
+                    <span class="no">No. {{ String(item.i + 1).padStart(2, "0") }}</span>
                     <p>{{ item.p.caption }}</p>
                   </div>
                   <span class="sheen" />
@@ -565,7 +565,7 @@
             Reveal memory <span aria-hidden="true">✨</span>
           </button>
           <button v-else class="primary-button" type="button" @click="throwCard(1)">
-            {{ cardIndex < photos.length - 1 ? "Next memory" : "Next surprise" }}
+            {{ cardIndex < memoryPhotos.length - 1 ? "Next memory" : "Next surprise" }}
             <span aria-hidden="true">→</span>
           </button>
         </section>
@@ -638,13 +638,12 @@
           </button>
         </section>
 
-        <!-- 5. TRACE THE HEART FINALE -->
+        <!-- 5. BUBBLE WAND FINALE -->
         <section
           v-else
           key="finale"
           class="scene scene-finale"
-          tabindex="0"
-          aria-label="Trace a heart among the stars"
+          aria-label="Wave the bubble wand and pop the word bubbles"
         >
           <span class="stars" aria-hidden="true" />
           <span class="moon" aria-hidden="true" />
@@ -659,69 +658,135 @@
               <rect v-for="(b, i) in skyline" :key="i" :x="b.x" :y="100 - b.h" :width="b.w" :height="b.h" />
             </g>
           </svg>
+          <!-- BUBBLE WAND: i-swipe (o i-tap) para bumuga ng bula; i-tap ang mga bulang may salita
+               para lumipad ang salita pataas at mabuo ang "Happy Birthday <pangalan> 💗" -->
           <div
-            v-if="!revealed"
-            class="trace"
-            :class="{ lit: traceDone }"
-            tabindex="0"
-            role="button"
-            aria-label="Light the heart (press Enter)"
-            @keydown.enter.prevent="litAll"
+            ref="bwLayerEl"
+            class="bw-layer"
+            :class="{ live: !revealed, done: bwDone }"
+            :tabindex="revealed ? -1 : 0"
+            role="application"
+            aria-label="Bubble wand. Swipe or tap to blow bubbles, press Enter to blow and pop"
+            @pointerdown="bwDown"
+            @pointermove="bwMove"
+            @pointerup="bwUp"
+            @pointercancel="bwUp"
+            @pointerleave="bwLeave"
+            @keydown.enter.prevent="bwKey"
+            @keydown.space.prevent="bwKey"
           >
-            <p class="sky-hint">
-              {{ traceDone ? "Made with love 💗" : "Trace the heart" }}<br />
-              {{ traceDone ? "" : "to light every star ✨" }}
-              <span>{{ traceCount }} / {{ HEART.pts.length }}</span>
-            </p>
-            <svg
-              ref="traceSvgEl"
-              class="trace-svg"
-              viewBox="0 0 200 190"
-              @pointerdown.stop="traceDown"
-              @pointermove="traceMove"
-              @pointerup="traceUp"
-              @pointercancel="traceUp"
+            <div v-if="!revealed" class="bw-head">
+              <p class="bw-title">{{ bwDone ? "Made with love 💗" : bwTitle }}</p>
+              <p class="bw-sub" aria-live="polite">{{ bwHint }}</p>
+              <ol class="bw-slots" :class="{ full: bwDone }">
+                <li
+                  v-for="(w, i) in bwWords"
+                  :key="i"
+                  :ref="(el) => (bwSlotEls[i] = el)"
+                  class="bw-slot"
+                  :class="{ on: bwGot[i] }"
+                  :style="{ '--ch': Math.max(2, w.length) }"
+                >
+                  <span>{{ bwGot[i] ? w : "" }}</span>
+                </li>
+              </ol>
+            </div>
+
+            <div
+              v-for="b in bwList"
+              :key="b.id"
+              :ref="(el) => bwSetEl(b.id, el)"
+              class="bub"
+              :class="{ word: b.word, pop: b.popping }"
+              :style="{ '--r': `${b.r}px`, '--spin': `${b.spin}s` }"
+              @pointerdown.stop="bwPop(b, $event)"
             >
+              <span v-if="b.word">{{ b.word }}</span>
+            </div>
+
+
+            <span v-for="f in bwFlyers" :key="f.id" :ref="(el) => bwFly(el, f)" class="bw-fly">{{ f.text }}</span>
+
+            <svg v-if="!revealed" ref="bwWandEl" class="bw-wand" :class="{ idle: !bwActive }" viewBox="0 0 80 150" aria-hidden="true">
               <defs>
-                <radialGradient id="tr-fill" cx="50%" cy="36%" r="70%">
-                  <stop offset="0" stop-color="#ffd6e4" />
-                  <stop offset="1" stop-color="#ff5f8d" />
+                <linearGradient id="bw-gold" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#fff2c9" />
+                  <stop offset="0.5" stop-color="#e9bf6a" />
+                  <stop offset="1" stop-color="#c8913f" />
+                </linearGradient>
+                <radialGradient id="bw-film" cx="40%" cy="35%" r="70%">
+                  <stop offset="0" stop-color="#fff" stop-opacity="0.55" />
+                  <stop offset="0.55" stop-color="#ffc6de" stop-opacity="0.18" />
+                  <stop offset="1" stop-color="#a9d8ff" stop-opacity="0.35" />
                 </radialGradient>
               </defs>
-              <path class="trace-fill" :d="HEART.d" />
-              <path class="trace-guide" :d="HEART.d" />
-              <polyline v-if="traceOrder.length > 1" class="trace-link" :points="constellation" />
-              <polyline v-if="tracePath.length > 1" class="trace-line" :points="traceTrail" />
-              <g
-                v-for="(p, i) in HEART.pts"
-                :key="i"
-                class="trace-star"
-                :class="{ on: traceHit[i], pulse: i === 0 && !traceCount }"
-                :transform="`translate(${p.x} ${p.y})`"
-              >
-                <circle class="trace-halo" r="11" />
-                <path class="trace-st" d="M0 -6.5L1.7 -1.7L6.5 0L1.7 1.7L0 6.5L-1.7 1.7L-6.5 0L-1.7 -1.7Z" />
-              </g>
-              <circle v-if="traceTip" class="trace-tip" :cx="traceTip.x" :cy="traceTip.y" r="4" />
+              <rect x="37" y="66" width="6" height="80" rx="3" fill="url(#bw-gold)" />
+              <rect x="34" y="128" width="12" height="18" rx="5" fill="#ff8fb0" />
+              <ellipse class="bw-film" cx="40" cy="36" rx="27" ry="27" fill="url(#bw-film)" />
+              <circle cx="40" cy="36" r="29" fill="none" stroke="url(#bw-gold)" stroke-width="6" />
+              <path d="M40 72c-4-3-9-6-9-10 0-3 4-4 9 0 5-4 9-3 9 0 0 4-5 7-9 10z" fill="#ff6f95" />
             </svg>
           </div>
-          <Transition name="reveal">
-            <div v-if="revealed" class="finale-card" @pointerdown.stop>
-              <div class="finale-medallion">
+
+          <!-- HULING CARD: lumalabas mula sa malaking bula na pumuputok -->
+          <Transition name="bk">
+            <article v-if="revealed" class="bk-card" @pointerdown.stop>
+              <figure v-if="photos[0]" class="bk-photo">
+                <span class="bk-tape" aria-hidden="true" />
                 <img :src="photos[0].src" :alt="photos[0].caption" />
-                <svg class="medallion-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-gbow" width="60" height="44" /></svg>
+                <figcaption>{{ photos[0].caption }}</figcaption>
+              </figure>
+              <div class="bk-body">
+                <p class="bk-eyebrow">Happy Birthday</p>
+                <h3 class="bk-name">{{ c.recipient }}!</h3>
+                <p class="bk-msg">{{ c.message }}</p>
+                <p class="bk-from">— {{ c.sender }} ♡</p>
+                <ul v-if="photos.length > 1" class="bk-gallery" aria-label="All our photos">
+                  <li v-for="(p, i) in photos" :key="i">
+                    <button
+                      type="button"
+                      class="bk-thumb"
+                      :style="{ '--tilt': `${(i % 2 ? 1 : -1) * (2 + (i % 3))}deg` }"
+                      :aria-label="`Open photo ${i + 1}: ${p.caption || ''}`"
+                      @click="galleryIndex = i"
+                    >
+                      <img :src="p.src" alt="" draggable="false" />
+                    </button>
+                  </li>
+                </ul>
+                <Transition name="pop-in">
+                  <p v-if="showExtra" class="bk-extra">{{ c.extraMessage }}</p>
+                </Transition>
+                <div class="bk-actions">
+                  <button v-if="!showExtra" class="bk-more" type="button" @click="revealExtra">
+                    <span class="bk-more-bub" aria-hidden="true" />
+                    Pop for one more ✨
+                  </button>
+                  <button class="replay-button" type="button" @click="goTo('cover')">↻ Replay</button>
+                </div>
               </div>
-              <h3>Happy Birthday, <em>{{ c.recipient }}!</em></h3>
-              <p>{{ c.message }}</p>
-              <p class="finale-from">— {{ c.sender }} ♡</p>
-              <Transition name="pop-in">
-                <p v-if="showExtra" class="finale-extra">{{ c.extraMessage }}</p>
-              </Transition>
-              <div class="finale-actions">
-                <button v-if="!showExtra" class="primary-button" type="button" @click="revealExtra">
-                  One more sweet ✨
-                </button>
-                <button class="replay-button" type="button" @click="goTo('cover')">↻ Replay</button>
+            </article>
+          </Transition>
+
+          <!-- LIGHTBOX: malaking polaroid ng napiling litrato sa gallery -->
+          <Transition name="pop-in">
+            <div
+              v-if="revealed && galleryIndex >= 0 && photos[galleryIndex]"
+              class="bk-light"
+              role="dialog"
+              aria-label="Photo viewer"
+              @pointerdown.stop
+              @click.self="galleryIndex = -1"
+            >
+              <figure class="bk-light-pol">
+                <img :src="photos[galleryIndex].src" :alt="photos[galleryIndex].caption" draggable="false" />
+                <figcaption>{{ photos[galleryIndex].caption }}</figcaption>
+                <span class="bk-light-no">{{ galleryIndex + 1 }} / {{ photos.length }}</span>
+              </figure>
+              <div class="bk-light-nav">
+                <button type="button" aria-label="Previous photo" @click="galleryStep(-1)">‹</button>
+                <button type="button" aria-label="Close photo" @click="galleryIndex = -1">✕</button>
+                <button type="button" aria-label="Next photo" @click="galleryStep(1)">›</button>
               </div>
             </div>
           </Transition>
@@ -774,7 +839,9 @@ function samplePhoto(top, bottom, emoji) {
 }
 
 /* SAMPLE na laman. Papalitan ito ng sagot ng customer sa form:
-   recipient/sender, code + hint, 5 wishes, 1–3 photos (may caption), 3 coupons, message */
+   recipient/sender, code + hint, 5 wishes, 6–10 photos (may caption), 3 coupons, message
+   Saan lumalabas ang litrato: Memory Cards (unang 5)
+   at LAHAT sa gallery ng huling card. */
 const sampleContent = {
   recipient: "Maria",
   sender: "Juan",
@@ -790,6 +857,10 @@ const sampleContent = {
   photos: [
     { src: samplePhoto("#ffd9e3", "#f7a8c0", "🎂"), caption: "Your best smile, always." },
     { src: samplePhoto("#ffe6c9", "#f9b9a3", "🌸"), caption: "Here's to another beautiful year." },
+    { src: samplePhoto("#e3e0ff", "#b9b0f5", "🎈"), caption: "That surprise you never saw coming." },
+    { src: samplePhoto("#ffeccf", "#f6c48f", "🍰"), caption: "Sweetest day of the year." },
+    { src: samplePhoto("#d9f3ea", "#9fd9c4", "🎁"), caption: "Little gifts, big smiles." },
+    { src: samplePhoto("#ffe0ef", "#f39ac0", "✨"), caption: "Here's to you, always." },
   ],
   coupons: ["Free milk tea 🧋", "One movie night, your pick 🎬", "A day with no chores ✨"],
   message: "Thank you for making every day brighter. I'm so lucky to celebrate you today!",
@@ -803,7 +874,9 @@ const emit = defineEmits(["close", "use"]);
 
 const c = computed(() => ({ ...sampleContent, ...props.content }));
 const wishes = computed(() => c.value.wishes.slice(0, 5));
-const photos = computed(() => c.value.photos.slice(0, 3));
+const photos = computed(() => (Array.isArray(c.value.photos) ? c.value.photos.filter((p) => p?.src) : []).slice(0, 10));
+// Memory Cards: hanggang 5 lang (nakakapagod mag-swipe ng 10); ang iba ay nasa Bubble Wand at gallery
+const memoryPhotos = computed(() => photos.value.slice(0, 5));
 const coupons = computed(() => c.value.coupons.slice(0, 3));
 
 /* mga talulot na bumabagsak sa background */
@@ -820,7 +893,7 @@ const scenes = [
   { id: "balloons", label: "Whack the Pinata Wishes" },
   { id: "memories", label: "Memory Cards" },
   { id: "gacha", label: "Gacha Love Coupons" },
-  { id: "finale", label: "Trace the Heart" },
+  { id: "finale", label: "Bubble Wand Wishes" },
 ];
 const scene = ref("cover");
 const sceneIndex = computed(() => scenes.findIndex((step) => step.id === scene.value));
@@ -1095,7 +1168,6 @@ function buzz(ms = 8) {
 
 /* ===== Timers ===== */
 const timers = new Set();
-let fireworksInterval = null;
 function later(fn, ms) {
   const timer = setTimeout(() => {
     timers.delete(timer);
@@ -1106,8 +1178,6 @@ function later(fn, ms) {
 function clearTimers() {
   timers.forEach(clearTimeout);
   timers.clear();
-  clearInterval(fireworksInterval);
-  fireworksInterval = null;
 }
 
 /* =====================================================================
@@ -1308,13 +1378,6 @@ function explode(x, y, heart = false) {
   }
 }
 
-function launchRocket({ x, y }, heart = false) {
-  if (!H) return;
-  addPart({
-    t: "rocket", x: Math.min(Math.max(x, 24), W - 24), y: H + 10, ty: y,
-    vy: -Math.max(9, (H - y) / 34), color: "#ffeab5", size: 2.4, trail: [], heart,
-  });
-}
 
 function confettiAt({ x, y }, count = 38) {
   for (let i = 0; i < count; i += 1) {
@@ -1792,7 +1855,7 @@ const leaveDir = ref(0);
 const drag = ref({ x: 0, y: 0, active: false });
 const tilt = ref({ ...TILT0 });
 const visibleCards = computed(() =>
-  photos.value
+  memoryPhotos.value
     .map((p, i) => ({ p, i }))
     .filter(({ i }) => i >= cardIndex.value && i < cardIndex.value + 3),
 );
@@ -1803,14 +1866,14 @@ const cardHint = computed(() => {
 
 function uiScale() {
   const phone = phoneEl.value;
-  return phone ? phone.getBoundingClientRect().width / phone.offsetWidth || 1 : 1;
+  return (phone ? phone.getBoundingClientRect().width / phone.offsetWidth || 1 : 1) * sceneFit;
 }
 function cardStyle(i) {
   const o = i - cardIndex.value;
   if (o !== 0) {
     return {
       transform: `translateY(${o * 14}px) scale(${1 - o * 0.06}) rotate(${o % 2 ? 4 : -4}deg)`,
-      zIndex: photos.value.length - o,
+      zIndex: memoryPhotos.value.length - o,
       filter: `brightness(${1 - o * 0.05})`,
     };
   }
@@ -1923,7 +1986,7 @@ function throwCard(dir) {
     leaveDir.value = 0;
     flipped.value = false;
     tilt.value = { ...TILT0 };
-    if (cardIndex.value < photos.value.length - 1) {
+    if (cardIndex.value < memoryPhotos.value.length - 1) {
       cardIndex.value += 1;
     } else {
       goTo("gacha");
@@ -2171,21 +2234,42 @@ function initScratch() {
   g.textBaseline = "middle";
   g.fillText("✨ Scratch to reveal ✨", cv.width / 2, cv.height / 2);
 }
+/* Linya (hindi tuldok) mula sa huling punto papunta sa bago, para kahit mabilis ang swipe ay
+   tuloy-tuloy ang nabubura. Malaki ang brush para madaling kaskasin sa cellphone. */
+const SCRATCH_BRUSH = 30; // radius sa CSS px
+const SCRATCH_REVEAL = 0.35; // gaano kalaki ang kailangang mabura bago lumabas
+let scratchPrev = null;
 function scratchAt(event) {
   const cv = scratchEl.value;
   if (!cv) return;
   const r = cv.getBoundingClientRect();
-  const x = ((event.clientX - r.left) / r.width) * cv.width;
-  const y = ((event.clientY - r.top) / r.height) * cv.height;
+  if (!r.width || !r.height) return;
   const g = cv.getContext("2d");
   g.globalCompositeOperation = "destination-out";
-  g.beginPath();
-  g.arc(x, y, 22 * (cv.width / cv.offsetWidth), 0, 6.283);
-  g.fill();
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.lineWidth = SCRATCH_BRUSH * 2 * (cv.width / cv.offsetWidth);
+  const points = event.getCoalescedEvents?.().length ? event.getCoalescedEvents() : [event];
+  for (const p of points) {
+    const x = ((p.clientX - r.left) / r.width) * cv.width;
+    const y = ((p.clientY - r.top) / r.height) * cv.height;
+    g.beginPath();
+    if (scratchPrev) {
+      g.moveTo(scratchPrev.x, scratchPrev.y);
+      g.lineTo(x, y);
+      g.stroke();
+    } else {
+      g.arc(x, y, g.lineWidth / 2, 0, 6.283);
+      g.fill();
+    }
+    scratchPrev = { x, y };
+  }
 }
 function scratchStart(event) {
   if (scratched.value) return;
+  event.preventDefault();
   scratchDown = true;
+  scratchPrev = null;
   event.currentTarget.setPointerCapture?.(event.pointerId);
   scratchAt(event);
 }
@@ -2193,10 +2277,11 @@ function scratchMove(event) {
   if (!scratchDown || scratched.value) return;
   scratchAt(event);
   scratchMoves += 1;
-  if (scratchMoves % 5 === 0) checkScratch(event);
+  if (scratchMoves % 4 === 0) checkScratch(event);
 }
 function scratchEnd(event) {
   scratchDown = false;
+  scratchPrev = null;
   if (!scratched.value) checkScratch(event);
 }
 function checkScratch(event) {
@@ -2214,7 +2299,7 @@ function checkScratch(event) {
       if (data[(y * w + x) * 4 + 3] < 40) clear += 1;
     }
   }
-  if (clear / total > 0.5) {
+  if (clear / total > SCRATCH_REVEAL) {
     scratched.value = true;
     buzz(24);
     const p = pointFrom(event);
@@ -2228,138 +2313,390 @@ function redeem(event) {
   confettiAt(pointFrom(event), 26);
 }
 
-/* ===== 5. Finale: ikonekta ang mga bituin para mabuo ang puso ===== */
+/* ===== 5. Finale: BUBBLE WAND =====
+   I-swipe ang wand (o i-tap) para bumuga ng bula. Habang bumubuga, lalabas ang 4 na bulang may salita;
+   i-tap ang bawat isa para pumutok at lumipad ang salita sa itaas. Kapag buo na ang
+   "Happy Birthday <pangalan> 💗", lalabas ang huling card mula sa isang malaking bula.
+   Ang galaw ng bula ay nasa rAF loop at direktang sa DOM ang posisyon (hindi reactive bawat frame). */
 const revealed = ref(false);
 const showExtra = ref(false);
 
-function buildHeart() {
-  const raw = [];
-  for (let i = 0; i <= 360; i += 1) {
-    const t = Math.PI + (i / 360) * Math.PI * 2; // simula sa ibaba ng puso
-    raw.push({
-      x: 16 * Math.sin(t) ** 3,
-      y: -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)),
-    });
-  }
-  const xs = raw.map((p) => p.x);
-  const ys = raw.map((p) => p.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-  const k = Math.min(172 / (maxX - minX), 160 / (maxY - minY));
-  const ox = 100 - ((minX + maxX) / 2) * k;
-  const oy = 95 - ((minY + maxY) / 2) * k;
-  const full = raw.map((p) => ({ x: +(p.x * k + ox).toFixed(1), y: +(p.y * k + oy).toFixed(1) }));
-  const lens = [0];
-  for (let i = 1; i < full.length; i += 1) {
-    lens.push(lens[i - 1] + Math.hypot(full[i].x - full[i - 1].x, full[i].y - full[i - 1].y));
-  }
-  const total = lens[lens.length - 1];
-  const pts = [];
-  let at = 0;
-  for (let j = 0; j < 24; j += 1) {
-    const target = (total * j) / 24;
-    while (at < lens.length - 1 && lens[at] < target) at += 1;
-    pts.push(full[at]);
-  }
-  return { pts, d: `M${full.map((p) => `${p.x} ${p.y}`).join("L")}Z` };
+const bwLayerEl = ref(null);
+const bwWandEl = ref(null);
+const bwSlotEls = [];
+const bwWords = computed(() => {
+  const full = String(c.value.recipient || "you").trim();
+  const name = full.length > 12 ? full.split(/\s+/)[0] : full;
+  return ["Happy", "Birthday", name || "you", "💗"];
+});
+const bwList = ref([]); // { id, word, wordIndex, r, spin, popping }
+const galleryIndex = ref(-1);
+function galleryStep(d) {
+  const n = photos.value.length;
+  if (n) galleryIndex.value = (galleryIndex.value + d + n) % n;
 }
-const HEART = buildHeart();
-const HIT_R = 13; // gaano kalapit ang daliri para umilaw ang bituin
+const bwFlyers = ref([]); // { id, text, index, from, to }
+const bwGot = ref([false, false, false, false]);
+const bwSpawned = ref(0);
+const bwActive = ref(false);
+const bwDone = ref(false);
+const bwTitle = "Wave the bubble wand";
+const bwHint = computed(() => {
+  const got = bwGot.value.filter(Boolean).length;
+  if (bwSpawned.value === 0) return "Swipe or tap anywhere to blow bubbles 🫧";
+  if (got === 0) return "Pop the bubbles with words ✨";
+  return `${got} of ${bwWords.value.length} words · keep blowing & popping`;
+});
 
-const traceSvgEl = ref(null);
-const traceHit = ref(Array(HEART.pts.length).fill(false));
-const traceOrder = ref([]);
-const tracePath = ref([]);
-const traceTip = ref(null);
-const traceDragging = ref(false);
-const traceDone = ref(false);
-const traceCount = computed(() => traceHit.value.filter(Boolean).length);
-const constellation = computed(() => traceOrder.value.map((i) => `${HEART.pts[i].x},${HEART.pts[i].y}`).join(" "));
-const traceTrail = computed(() => tracePath.value.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" "));
+const BW_SMALL_EVERY = 46; // px ng mabilis na galaw bawat maliit na bula
+const BW_WORD_EVERY = 230; // px ng galaw bago lumabas ang susunod na bulang may salita
+const BW_TAP_CREDIT = 120; // bawat tap ay parang 120px na galaw (2 tap = 1 salita)
+const bwBodies = new Map(); // id -> { x, y, vx, vy, r, word, wordIndex, seed, life, el, popping }
+const bwFlown = new Set();
+const bwWand = { x: 0, y: 0, tx: 0, ty: 0, tilt: 0 };
+let bwId = 0;
+let bwRaf = 0;
+let bwLast = 0;
+let bwHolding = false;
+let bwPrev = null;
+let bwStroke = 0;
+let bwDist = 0;
+let bwWordDist = 0;
+let bwAmbient = null;
 
-function svgPoint(event) {
-  const r = traceSvgEl.value.getBoundingClientRect();
-  return { x: ((event.clientX - r.left) / r.width) * 200, y: ((event.clientY - r.top) / r.height) * 190 };
+function bwSize() {
+  const el = bwLayerEl.value;
+  return el ? { w: el.offsetWidth, h: el.offsetHeight } : { w: 0, h: 0 };
 }
-function traceAt(event) {
-  const p = svgPoint(event);
-  traceTip.value = p;
-  tracePath.value.push(p);
-  if (tracePath.value.length > 26) tracePath.value.shift();
-  let lit = false;
-  HEART.pts.forEach((star, i) => {
-    if (traceHit.value[i]) return;
-    if (Math.hypot(star.x - p.x, star.y - p.y) < HIT_R) {
-      traceHit.value[i] = true;
-      traceOrder.value.push(i);
-      lit = true;
-    }
-  });
-  if (lit) {
-    buzz(8);
-    heartsAt(pointFrom(event), 2);
-    if (traceCount.value >= HEART.pts.length) finishTrace();
+// posisyon ng pointer sa loob ng bubble layer (hinahati sa scale ng stage at ng auto-fit)
+function bwLocal(event) {
+  const el = bwLayerEl.value;
+  const r = el.getBoundingClientRect();
+  const k = r.width / el.offsetWidth || 1;
+  return { x: (event.clientX - r.left) / k, y: (event.clientY - r.top) / k };
+}
+function bwSetEl(id, el) {
+  const b = bwBodies.get(id);
+  if (b) b.el = el;
+}
+
+function bwSpawn({ x, y, vx = 0, vy = 0, word = null, wordIndex = -1 }) {
+  const id = (bwId += 1);
+  const k = stage.value.wide ? 1.3 : 1;
+  const r = word ? Math.min(66, 34 + word.length * 4.5) * k : rand(7, 17) * k;
+  const life = word ? Infinity : rand(4200, 7600);
+  bwBodies.set(id, { x, y, vx, vy, r, word, wordIndex, seed: rand(0, 6.28), life, el: null, popping: false });
+  bwList.value = [...bwList.value, { id, word, wordIndex, r: Math.round(r), spin: rand(5, 9).toFixed(1), popping: false }];
+  // hindi hihigit sa 22 na maliit na bula; ang pinakaluma ang puputok
+  const small = bwList.value.filter((b) => !b.word && !b.popping);
+  if (small.length > 22) bwPopById(small[0].id, false);
+  bwStart();
+  return id;
+}
+function bwSpawnWord(p, vx = 0) {
+  if (bwSpawned.value >= bwWords.value.length) return;
+  const i = bwSpawned.value;
+  bwSpawned.value += 1;
+  bwSpawn({ x: p.x, y: p.y - 10, vx: Math.max(-3, Math.min(3, vx)), vy: -2.6, word: bwWords.value[i], wordIndex: i });
+  buzz(10);
+}
+function bwPuff(p, n = 3) {
+  for (let i = 0; i < n; i += 1) {
+    bwSpawn({ x: p.x + rand(-8, 8), y: p.y + rand(-8, 8), vx: rand(-1.4, 1.4), vy: -rand(1, 2.6) });
   }
 }
-function traceDown(event) {
-  if (traceDone.value) return;
-  traceDragging.value = true;
-  tracePath.value = [];
+
+function bwDown(event) {
+  if (revealed.value) return;
   event.currentTarget.setPointerCapture?.(event.pointerId);
-  traceAt(event);
+  const p = bwLocal(event);
+  bwHolding = true;
+  bwStroke = 0;
+  bwPrev = { ...p, t: performance.now() };
+  bwWand.tx = p.x;
+  bwWand.ty = p.y;
+  bwActive.value = true;
+  bwSpawn({ x: p.x, y: p.y, vx: rand(-1, 1), vy: -rand(1, 2) });
 }
-function traceMove(event) {
-  if (traceDragging.value) traceAt(event);
+function bwMove(event) {
+  if (revealed.value || !bwLayerEl.value) return;
+  const p = bwLocal(event);
+  bwWand.tx = p.x;
+  bwWand.ty = p.y;
+  bwActive.value = true;
+  const now = performance.now();
+  if (!bwHolding || !bwPrev) {
+    bwPrev = { ...p, t: now }; // hover lang ng mouse: gumagalaw ang wand pero walang bula
+    return;
+  }
+  const dx = p.x - bwPrev.x;
+  const dy = p.y - bwPrev.y;
+  const d = Math.hypot(dx, dy);
+  const dt = Math.max(8, now - bwPrev.t);
+  bwPrev = { ...p, t: now };
+  bwStroke += d;
+  if (d / dt < 0.12) return; // masyadong mabagal: hindi bumubuga
+  const vx = (dx / dt) * 16 * 0.3;
+  const vy = (dy / dt) * 16 * 0.3;
+  bwDist += d;
+  bwWordDist += d;
+  while (bwDist > BW_SMALL_EVERY) {
+    bwDist -= BW_SMALL_EVERY;
+    bwSpawn({ x: p.x + rand(-6, 6), y: p.y + rand(-6, 6), vx: vx + rand(-0.6, 0.6), vy: vy - rand(0.3, 1) });
+  }
+  if (bwWordDist > BW_WORD_EVERY) {
+    bwWordDist = 0;
+    bwSpawnWord(p, vx);
+  }
 }
-function traceUp() {
-  traceDragging.value = false;
-  traceTip.value = null;
-  tracePath.value = [];
-}
-/* para sa keyboard: Enter ang magpapailaw ng natitirang bituin */
-function litAll() {
-  if (traceDone.value) return;
-  HEART.pts.forEach((_, i) => {
-    if (!traceHit.value[i]) {
-      traceHit.value[i] = true;
-      traceOrder.value.push(i);
+function bwUp() {
+  if (!bwHolding) return;
+  bwHolding = false;
+  if (bwStroke < 14 && !revealed.value) {
+    // TAP: maliit na buga, at bawat 2 tap ay may lalabas na bulang may salita
+    const p = { x: bwWand.tx, y: bwWand.ty };
+    bwPuff(p, 3);
+    bwWordDist += BW_TAP_CREDIT;
+    if (bwWordDist > BW_WORD_EVERY) {
+      bwWordDist = 0;
+      bwSpawnWord(p, 0);
     }
-  });
-  finishTrace();
+  }
 }
-function finishTrace() {
-  if (traceDone.value) return;
-  traceDone.value = true;
-  traceDragging.value = false;
-  traceTip.value = null;
-  tracePath.value = [];
+function bwLeave() {
+  if (!bwHolding) bwActive.value = false;
+}
+// keyboard: Enter/Space ay puputok sa pinakalumang bulang may salita, o bubuga ng bago
+function bwKey() {
+  if (revealed.value) return;
+  const waiting = bwList.value.find((b) => b.word && !b.popping);
+  if (waiting) return bwPopById(waiting.id, true);
+  const { w, h } = bwSize();
+  const p = { x: w / 2, y: h * 0.62 };
+  bwPuff(p, 4);
+  bwSpawnWord(p, 0);
+}
+
+function bwPop(b) {
+  bwPopById(b.id, true);
+}
+function bwPopById(id, byUser) {
+  const body = bwBodies.get(id);
+  if (!body || body.popping) return;
+  body.popping = true;
+  bwList.value = bwList.value.map((x) => (x.id === id ? { ...x, popping: true } : x));
+  if (byUser && body.el) {
+    buzz(body.word ? 18 : 6);
+    heartsAt(pointFrom({ currentTarget: body.el }), body.word ? 8 : 2);
+  }
+  if (body.word) bwSendWord(body);
+  later(() => {
+    bwBodies.delete(id);
+    bwList.value = bwList.value.filter((x) => x.id !== id);
+  }, 340);
+}
+// ang salita ay lilipad mula sa pumutok na bula papunta sa puwang nito sa itaas
+function bwSendWord(body) {
+  const layer = bwLayerEl.value;
+  const slot = bwSlotEls[body.wordIndex];
+  if (!layer || !slot) return;
+  const L = layer.getBoundingClientRect();
+  const k = L.width / layer.offsetWidth || 1;
+  const s = slot.getBoundingClientRect();
+  const to = { x: (s.left + s.width / 2 - L.left) / k, y: (s.top + s.height / 2 - L.top) / k };
+  bwId += 1;
+  bwFlyers.value = [...bwFlyers.value, { id: bwId, text: body.word, index: body.wordIndex, from: { x: body.x, y: body.y }, to }];
+}
+function bwFly(el, f) {
+  if (!el || bwFlown.has(f.id)) return;
+  bwFlown.add(f.id);
+  const mid = { x: (f.from.x + f.to.x) / 2, y: Math.min(f.from.y, f.to.y) - 40 };
+  const at = (p, s) => `translate(${p.x}px, ${p.y}px) translate(-50%, -50%) scale(${s})`;
+  const anim = el.animate(
+    [
+      { transform: at(f.from, 1.25) },
+      { transform: at(mid, 1.1), offset: 0.55 },
+      { transform: at(f.to, 1) },
+    ],
+    { duration: reduceMotion ? 1 : 720, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" },
+  );
+  anim.onfinish = () => {
+    if (!bwFlyers.value.some((x) => x.id === f.id)) return; // lumipat na ng eksena
+    bwGot.value = bwGot.value.map((g, i) => (i === f.index ? true : g));
+    bwFlyers.value = bwFlyers.value.filter((x) => x.id !== f.id);
+    buzz(8);
+    if (bwGot.value.every(Boolean)) bwFinish();
+  };
+}
+
+function bwFinish() {
+  if (bwDone.value) return;
+  bwDone.value = true;
   buzz(30);
-  const p = pointFrom({ currentTarget: traceSvgEl.value });
-  confettiAt(p, 40);
-  heartsAt(p, 22);
-  launchRocket({ x: W / 2, y: H * 0.22 }, true);
+  const { w, h } = bwSize();
+  // bubble shower mula sa ibaba, confetti at puso
+  for (let i = 0; i < 26; i += 1) {
+    later(() => bwSpawn({ x: rand(0.05, 0.95) * w, y: h + 20, vx: rand(-0.6, 0.6), vy: -rand(2.2, 4.2) }), i * 45);
+  }
+  confettiRain();
+  heartsAt({ x: W / 2, y: H * 0.3 }, 24);
   later(() => {
     revealed.value = true;
-    launchRocket({ x: W * 0.25, y: H * 0.17 }, true);
-    launchRocket({ x: W * 0.75, y: H * 0.19 }, true);
-    later(confettiRain, 500);
-    fireworksInterval = setInterval(() => {
-      randomFirework();
-      if (Math.random() < 0.5) confettiRain();
-    }, 2600);
+    later(confettiRain, 600);
+    // maliliit na bula na patuloy na lumulutang sa likod ng card
+    clearInterval(bwAmbient);
+    bwAmbient = setInterval(() => {
+      const s = bwSize();
+      if (s.w) bwSpawn({ x: rand(0.04, 0.96) * s.w, y: s.h + 16, vx: rand(-0.4, 0.4), vy: -rand(1.2, 2.4) });
+    }, 900);
   }, 1500);
 }
-function randomFirework() {
-  if (!W) return;
-  launchRocket({ x: W * (0.15 + Math.random() * 0.7), y: H * (0.1 + Math.random() * 0.18) }, Math.random() < 0.3);
-}
-function revealExtra() {
+function revealExtra(event) {
   showExtra.value = true;
-  launchRocket({ x: W * 0.3, y: H * 0.16 }, true);
-  launchRocket({ x: W * 0.7, y: H * 0.14 }, true);
+  buzz(14);
+  heartsAt(pointFrom(event), 14);
+  const { w, h } = bwSize();
+  for (let i = 0; i < 10; i += 1) bwSpawn({ x: rand(0.2, 0.8) * w, y: h + 10, vx: rand(-0.5, 0.5), vy: -rand(2, 3.6) });
 }
+
+function bwStart() {
+  if (bwRaf) return;
+  bwLast = performance.now();
+  bwRaf = requestAnimationFrame(bwTick);
+}
+function bwStop() {
+  cancelAnimationFrame(bwRaf);
+  bwRaf = 0;
+}
+function bwTick(now) {
+  bwRaf = 0;
+  const layer = bwLayerEl.value;
+  if (!layer) return;
+  const dt = Math.min(2.5, (now - bwLast) / 16.67 || 1);
+  bwLast = now;
+  const w = layer.offsetWidth;
+  const h = layer.offsetHeight;
+  const head = layer.querySelector(".bw-head");
+  const bandTop = head ? head.offsetTop + head.offsetHeight + 12 : h * 0.12;
+  const bandBottom = h * 0.68;
+  const words = [];
+  for (const [id, b] of bwBodies) {
+    if (b.popping) continue;
+    if (b.word) {
+      words.push(b);
+      // lumulutang sa gitnang bahagi: hindi tatakip sa mga salita sa itaas o sa wand sa ibaba
+      b.vy += (b.y - b.r < bandTop ? 0.07 : b.y + b.r > bandBottom ? -0.06 : -0.004) * dt;
+      b.vx *= 0.97 ** dt;
+      b.vy *= 0.97 ** dt;
+    } else {
+      b.vy -= 0.02 * dt;
+      b.vx *= 0.985 ** dt;
+      b.vy *= 0.99 ** dt;
+      b.life -= 16.67 * dt;
+      if (b.life <= 0 || b.y < -b.r * 2) {
+        bwPopById(id, false);
+        continue;
+      }
+    }
+    b.x += (b.vx + Math.sin(now * 0.0014 + b.seed) * 0.22) * dt;
+    b.y += b.vy * dt;
+    if (b.x < b.r) {
+      b.x = b.r;
+      b.vx = Math.abs(b.vx) * 0.6;
+    } else if (b.x > w - b.r) {
+      b.x = w - b.r;
+      b.vx = -Math.abs(b.vx) * 0.6;
+    }
+    if (b.word && b.y > h - b.r) {
+      b.y = h - b.r;
+      b.vy = -Math.abs(b.vy);
+    }
+  }
+  // ang mga bulang may salita ay hindi nagpapatong
+  for (let i = 0; i < words.length; i += 1) {
+    for (let j = i + 1; j < words.length; j += 1) {
+      const a = words[i];
+      const o = words[j];
+      const dx = o.x - a.x;
+      const dy = o.y - a.y;
+      const dist = Math.hypot(dx, dy) || 0.01;
+      const min = a.r + o.r + 6;
+      if (dist < min) {
+        const push = (min - dist) / 2;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        a.x -= nx * push;
+        a.y -= ny * push;
+        o.x += nx * push;
+        o.y += ny * push;
+        a.vx -= nx * 0.2;
+        o.vx += nx * 0.2;
+      }
+    }
+  }
+  for (const b of bwBodies.values()) {
+    if (!b.el || b.popping) continue;
+    const sq = 1 + Math.sin(now * 0.004 + b.seed) * 0.035;
+    b.el.style.transform = `translate(${(b.x - b.r).toFixed(1)}px, ${(b.y - b.r).toFixed(1)}px) scale(${sq.toFixed(3)}, ${(2 - sq).toFixed(3)})`;
+  }
+  const wand = bwWandEl.value;
+  if (wand) {
+    if (!bwActive.value) {
+      bwWand.tx = w / 2;
+      bwWand.ty = h * 0.76;
+    }
+    if (!bwWand.x && !bwWand.y) {
+      bwWand.x = bwWand.tx;
+      bwWand.y = bwWand.ty;
+    }
+    const k = Math.min(1, 0.35 * dt);
+    const px = bwWand.x;
+    bwWand.x += (bwWand.tx - bwWand.x) * k;
+    bwWand.y += (bwWand.ty - bwWand.y) * k;
+    bwWand.tilt += (Math.max(-28, Math.min(28, (bwWand.x - px) * 2.2)) - bwWand.tilt) * 0.2;
+    // (SVG ay walang offsetWidth; clientWidth ang gumagana sa outer <svg>)
+    const ww = wand.clientWidth || 64;
+    const wh = wand.clientHeight || 120;
+    wand.style.transform = `translate(${(bwWand.x - ww * 0.5).toFixed(1)}px, ${(bwWand.y - wh * 0.24).toFixed(1)}px) rotate(${bwWand.tilt.toFixed(1)}deg)`;
+  }
+  if (bwBodies.size || wand) bwRaf = requestAnimationFrame(bwTick);
+}
+function bwReset() {
+  bwStop();
+  clearInterval(bwAmbient);
+  bwAmbient = null;
+  bwBodies.clear();
+  bwFlown.clear();
+  bwList.value = [];
+  galleryIndex.value = -1;
+  bwFlyers.value = [];
+  bwGot.value = bwWords.value.map(() => false);
+  bwSpawned.value = 0;
+  bwDone.value = false;
+  bwActive.value = false;
+  bwHolding = false;
+  bwPrev = null;
+  bwDist = 0;
+  bwWordDist = 0;
+  bwWand.x = 0;
+  bwWand.y = 0;
+  bwWand.tilt = 0;
+}
+// pagpasok sa finale: simulan ang loop at bumuga ng ilang bula para makita agad ang gagawin
+watch(
+  scene,
+  (id) => {
+    if (id !== "finale") return;
+    nextTick(() => {
+      bwStart();
+      later(() => {
+        const { w, h } = bwSize();
+        if (w) bwPuff({ x: w / 2, y: h * 0.7 }, 5);
+      }, 700);
+    });
+  },
+  { flush: "post" },
+);
 
 /* ===== Lipat ng eksena ===== */
 function goTo(id) {
@@ -2388,12 +2725,7 @@ function goTo(id) {
   scratched.value = false;
   gachaState.value = "idle";
   redeemed.value = [];
-  traceHit.value = Array(HEART.pts.length).fill(false);
-  traceOrder.value = [];
-  tracePath.value = [];
-  traceTip.value = null;
-  traceDragging.value = false;
-  traceDone.value = false;
+  bwReset();
   revealed.value = false;
   showExtra.value = false;
   scene.value = id;
@@ -2406,6 +2738,78 @@ function onKeydown(event) {
   else if (event.key === "Backspace") pressKey("back");
   else if (event.key === "Enter" && !event.target.closest?.("button")) pressKey("ok");
 }
+
+/* AUTO-FIT NG EKSENA: kapag mas mataas ang laman kaysa sa screen (hal. lumabas ang coupon + Next),
+   liliitan ang buong eksena (CSS `scale`, nakagitna sa itaas) para walang scroll sa kahit anong device.
+   Direktang sa DOM ang style (walang :style sa section) para hindi magulo ng re-render ni Vue. */
+const SCENE_MIN_FIT = 0.62;
+let sceneFit = 1;
+let sceneFitMo = null;
+let sceneFitRo = null;
+function currentSceneEl() {
+  return phoneEl.value?.querySelector(":scope > .scene:not(.scene-leave-active)") ?? null;
+}
+function clearSceneFit(sec) {
+  for (const p of ["top", "bottom", "height", "scale", "transform-origin"]) sec.style.removeProperty(p);
+}
+function fitScene() {
+  const sec = currentSceneEl();
+  const avail = phoneEl.value?.clientHeight || 0;
+  if (!sec || !avail) return;
+  // sukatin ang natural na taas ng laman (height:auto), hindi ang taas ng screen
+  clearSceneFit(sec);
+  sec.style.bottom = "auto";
+  sec.style.height = "auto";
+  const need = sec.offsetHeight;
+  if (need <= avail + 1) {
+    clearSceneFit(sec);
+    sceneFit = 1;
+    return;
+  }
+  const k = Math.max(SCENE_MIN_FIT, avail / need);
+  sec.style.height = `${avail / k}px`;
+  sec.style.transformOrigin = "50% 0";
+  sec.style.scale = String(k);
+  sceneFit = k;
+}
+/* Diretsong tinatawag (hindi requestAnimationFrame): ang Mutation/ResizeObserver ay tumatakbo na
+   bago mag-paint, at ang rAF ay humihinto kapag natatakpan ang window kaya naiipit ang auto-fit. */
+let sceneFitting = false;
+function queueSceneFit() {
+  if (sceneFitting) return;
+  sceneFitting = true;
+  try {
+    fitScene();
+  } finally {
+    sceneFitting = false;
+  }
+}
+function startSceneFit() {
+  stopSceneFit();
+  const phone = phoneEl.value;
+  if (!phone) return;
+  // may bagong laman (coupon, button, hint) o nagbago ang text → sukatin ulit
+  // (hindi pinapansin ang trail/confetti sa labas ng eksena para hindi sumukat bawat galaw ng daliri)
+  sceneFitMo = new MutationObserver((records) => {
+    const sec = currentSceneEl();
+    if (records.some((r) => r.target === phone || (sec && sec.contains(r.target)))) queueSceneFit();
+  });
+  sceneFitMo.observe(phone, { childList: true, subtree: true, characterData: true });
+  if (typeof ResizeObserver !== "undefined") {
+    sceneFitRo = new ResizeObserver(queueSceneFit);
+    sceneFitRo.observe(phone);
+  }
+  queueSceneFit();
+}
+function stopSceneFit() {
+  sceneFitMo?.disconnect();
+  sceneFitRo?.disconnect();
+}
+watch(scene, () => nextTick(queueSceneFit), { flush: "post" });
+// bagong .phone element kapag lumipat ng device (may :key ang screen sa SurpriseShell) → ikabit ulit
+watch(phoneEl, (el) => (el ? startSceneFit() : stopSceneFit()), { flush: "post" });
+// pagkatapos mag-load ng fonts, puwedeng magbago ang taas ng text
+document.fonts?.ready.then(queueSceneFit);
 
 /* simulan/itigil ang animation loops kapag lumabas/nawala ang eksena */
 watch(mbEl, (el) => (el ? startMusicBox() : stopMusicBox()), { flush: "post" });
@@ -2434,15 +2838,19 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(resizeCanvas);
     resizeObserver.observe(phoneEl.value);
   }
+  if (!sceneFitMo) startSceneFit();
 });
 onUnmounted(() => {
   clearTimers();
+  bwStop();
+  clearInterval(bwAmbient);
   stopMusicBox();
   stopGacha();
   cancelAnimationFrame(raf);
   raf = 0;
   resizeObserver?.disconnect();
   fitObserver?.disconnect();
+  stopSceneFit();
   window.removeEventListener("resize", fitStage);
   window.removeEventListener("keydown", onEscCapture, true);
   removeNoneOption();
@@ -3437,12 +3845,15 @@ onUnmounted(() => {
   align-items: center;
   width: 220px;
   margin-top: 20px;
+  /* puwang para sa ribbon sa loob mismo ng .gacha, para hindi tumapat sa text sa itaas
+     kahit maging 0 ang margin (margin-block: auto kapag puno ang screen) */
+  padding-top: 24px;
   filter: drop-shadow(0 16px 18px rgb(232 80 123 / 0.22));
 }
 .gacha-bow {
   position: absolute;
   z-index: 2;
-  top: -24px;
+  top: 0;
   width: 78px;
   height: 56px;
 }
@@ -3704,120 +4115,6 @@ onUnmounted(() => {
 .skyline .lights {
   animation: twinkle 2.6s ease-in-out infinite alternate;
 }
-.sky-hint {
-  margin: 0;
-  color: #fff;
-  font-family: var(--serif);
-  font-size: 23px;
-  font-style: italic;
-  font-weight: 500;
-  text-shadow: 0 0 18px rgb(255 168 200 / 0.9);
-  pointer-events: none;
-}
-.sky-hint span {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 3px 14px;
-  border: 1px solid rgb(255 255 255 / 0.3);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.12);
-  color: #ffd1e0;
-  font-family: var(--ui);
-  font-size: 13px;
-  font-style: normal;
-  font-weight: 800;
-}
-.finale-card {
-  width: 100%;
-  margin-top: 58px;
-  padding: 0 18px 20px;
-  border: 1px solid rgb(255 255 255 / 0.9);
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgb(255 251 244 / 0.97), rgb(255 238 232 / 0.95));
-  color: #6b4a4a;
-  cursor: default;
-  box-shadow:
-    inset 0 0 0 5px rgb(255 251 244 / 0.9),
-    inset 0 0 0 6px #ecd3a2,
-    0 28px 54px rgb(0 0 0 / 0.4);
-}
-.finale-medallion {
-  position: relative;
-  width: 118px;
-  height: 118px;
-  margin: -62px auto 6px;
-}
-.finale-medallion img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 4px solid #fffaf2;
-  border-radius: 50%;
-  object-fit: cover;
-  box-shadow: 0 0 0 2px var(--gold), 0 0 28px rgb(255 213 140 / 0.7);
-}
-.medallion-bow {
-  position: absolute;
-  bottom: -20px;
-  left: 50%;
-  width: 92px;
-  height: 66px;
-  transform: translateX(-50%);
-}
-.finale-card h3 {
-  margin: 30px 0 8px;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.1;
-}
-.finale-card h3 em {
-  background: linear-gradient(110deg, #ff5f8d 0%, #ff9bb6 35%, #d63f78 55%, #ff6f95 100%);
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  font-style: italic;
-  font-weight: 600;
-  animation: shimmer 4.5s linear infinite;
-}
-.finale-card p {
-  margin: 0;
-  color: #6b4a4a;
-  font-family: var(--serif);
-  font-size: 15px;
-  line-height: 1.5;
-}
-.finale-card .finale-from {
-  margin-top: 8px;
-  color: var(--rose-deep);
-  font-family: var(--script);
-  font-size: 27px;
-}
-.finale-card .finale-extra {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border: 1.5px dashed #f0b3c1;
-  border-radius: 16px;
-  background: #fff1f3;
-  color: var(--ink);
-  font-family: var(--script);
-  font-size: 23px;
-  line-height: 1.1;
-}
-.finale-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-.finale-actions .primary-button {
-  margin-top: 0;
-  padding: 13px 34px;
-  font-size: 16px;
-}
 .replay-button {
   border: 1.5px solid var(--gold);
   border-radius: 999px;
@@ -4032,7 +4329,6 @@ onUnmounted(() => {
 .phone .gacha { zoom: 1.38; margin-block: auto; }
 
 /* finale */
-.phone .scene-finale .sky-hint { font-size: 30px; }
 .fclouds { position: absolute !important; left: -10%; right: -10%; bottom: 5%; height: 36%; pointer-events: none; }
 .fclouds i { position: absolute; border-radius: 50%; background: radial-gradient(circle at 40% 30%, rgb(255 205 210 / 0.95), rgb(236 130 170 / 0.92) 52%, rgb(140 88 170 / 0.9)); filter: blur(0.6px); }
 .fclouds i:nth-child(1) { left: 0; bottom: 10%; width: 46%; aspect-ratio: 1.5; }
@@ -4057,7 +4353,6 @@ onUnmounted(() => {
 .phone .scenery { width: min(100%, 560px); height: auto; aspect-ratio: 4 / 3; left: 50%; transform: translateX(-50%); }
 .phone .sky::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(min(100cqw, 560px) * 0.75 * 0.29); background: linear-gradient(180deg, #f9d2cf, #ffe9dd); }
 .phone .skyline { height: 100px; aspect-ratio: auto; width: 100%; }
-.phone .scene-finale .finale-card { max-width: 440px; }
 .phone .cards-stage { --cw: min(76cqw, 300px, 40cqh); }
 
 
@@ -4150,10 +4445,6 @@ onUnmounted(() => {
 
 /* finale */
 .phone.is-wide .scene-finale { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px 7%; }
-.phone.is-wide .scene-finale .sky-hint { font-size: 38px; }
-.phone.is-wide .scene-finale .finale-card { max-width: 560px; margin-top: 70px; }
-.phone.is-wide .scene-finale .finale-card h3 { font-size: 38px; }
-.phone.is-wide .scene-finale .finale-card p { font-size: 18px; }
 .phone.is-wide .skyline { height: 150px; }
 
 
@@ -4741,82 +5032,8 @@ onUnmounted(() => {
   75% { transform: translate(-2px, 0) rotate(-0.8deg); }
 }
 
-/* ----- FINALE: trace the heart ----- */
-.trace {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  outline: none;
-}
-.trace .sky-hint { text-align: center; }
-.trace-svg {
-  width: min(80cqw, 340px, 46cqh);
-  aspect-ratio: 200 / 190;
-  height: auto;
-  overflow: visible;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  filter: drop-shadow(0 0 18px rgb(255 140 190 / 0.35));
-}
-.trace.lit .trace-svg { animation: trbeat 0.9s ease-in-out infinite; }
-@keyframes trbeat { 0%, 100% { scale: 1; } 50% { scale: 1.05; } }
-.trace-fill { fill: url(#tr-fill); opacity: 0; transition: opacity 0.9s ease; }
-.trace.lit .trace-fill { opacity: 0.92; }
-.trace-guide {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.34);
-  stroke-dasharray: 2 5;
-  stroke-linecap: round;
-  stroke-width: 1.4;
-}
-.trace-link {
-  fill: none;
-  stroke: rgb(255 214 232 / 0.85);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
-  filter: drop-shadow(0 0 3px #ff9fc3);
-}
-.trace-line {
-  fill: none;
-  stroke: #fff;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 3;
-  opacity: 0.8;
-  filter: drop-shadow(0 0 5px #ff9fc3);
-}
-.trace-halo { fill: rgb(255 200 220 / 0); transition: fill 0.3s; }
-.trace-st {
-  fill: #ffe9a8;
-  opacity: 0.6;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: twinkle 2.4s ease-in-out infinite alternate;
-}
-.trace-star:nth-child(odd) .trace-st { animation-delay: 0.7s; }
-.trace-star.on .trace-halo { fill: rgb(255 190 215 / 0.4); }
-.trace-star.on .trace-st {
-  fill: #fff;
-  opacity: 1;
-  scale: 1.5;
-  animation: none;
-  filter: drop-shadow(0 0 4px #ffd36b);
-  transition: scale 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-.trace-star.pulse .trace-halo { animation: trpulse 1s ease-in-out infinite; }
-@keyframes trpulse { 0%, 100% { fill: rgb(255 200 220 / 0.12); } 50% { fill: rgb(255 200 220 / 0.6); } }
-.trace-tip { fill: #fff; filter: drop-shadow(0 0 6px #ff9fc3); pointer-events: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .trace-svg,
-  .trace-star,
   .aurora i,
   .ambient i,
   .rays,
@@ -4826,7 +5043,6 @@ onUnmounted(() => {
   .orbit,
   .primary-button::after,
   .scene-title em,
-  .finale-card h3 em,
   .tw,
   .cards-aura,
   .sheen,
@@ -4853,4 +5069,466 @@ onUnmounted(() => {
     display: none;
   }
 }
+
+/* ===================== FINALE: bubble wand + huling card mula sa bula ===================== */
+.bw-layer {
+  position: absolute !important;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  outline: none;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bw-layer.live {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.bw-head {
+  position: absolute;
+  z-index: 3;
+  top: 62px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(100% - 36px, 480px);
+  text-align: center;
+  translate: -50% 0;
+  pointer-events: none;
+}
+.bw-title {
+  margin: 0;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-style: italic;
+  font-weight: 500;
+  line-height: 1.1;
+  text-shadow: 0 0 18px rgb(255 168 200 / 0.9);
+}
+.bw-sub {
+  margin: 0;
+  color: #ffd1e0;
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.bw-slots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bw-slot {
+  display: grid;
+  place-items: center;
+  min-width: calc(var(--ch) * 0.55em + 18px);
+  height: 36px;
+  padding: 0 9px;
+  border: 1.5px dashed rgb(255 255 255 / 0.4);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+}
+.bw-slot.on {
+  border-style: solid;
+  border-color: rgb(255 255 255 / 0.85);
+  background: linear-gradient(135deg, rgb(255 160 200 / 0.45), rgb(170 200 255 / 0.35));
+  box-shadow: 0 0 18px rgb(255 170 210 / 0.55);
+}
+.bw-slot.on span { animation: bwLand 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.bw-slots.full .bw-slot { animation: bwGlow 1.2s ease-in-out infinite alternate; }
+@keyframes bwLand { from { scale: 0.5; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes bwGlow { to { box-shadow: 0 0 30px rgb(255 190 225 / 0.95); } }
+
+/* bula: manipis na sabon na may iridescent na gilid at kislap */
+.bub {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: calc(var(--r) * 2);
+  height: calc(var(--r) * 2);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 26%, rgb(255 255 255 / 0.95) 0 5%, rgb(255 255 255 / 0) 13%),
+    radial-gradient(circle at 70% 76%, rgb(255 255 255 / 0.45) 0 3%, rgb(255 255 255 / 0) 10%),
+    radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0) 56%, rgb(255 255 255 / 0.14) 70%, rgb(255 214 236 / 0.55) 100%);
+  box-shadow: inset 0 0 10px rgb(255 255 255 / 0.3), 0 0 14px rgb(255 170 210 / 0.22);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+  will-change: transform;
+}
+.bub::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#ff9ac1, #ffd59a, #9af0d8, #9ac8ff, #d6a8ff, #ff9ac1);
+  opacity: 0.5;
+  mix-blend-mode: screen;
+  -webkit-mask: radial-gradient(circle, transparent 60%, #000 74%);
+  mask: radial-gradient(circle, transparent 60%, #000 74%);
+  animation: bwSpin var(--spin) linear infinite;
+}
+@keyframes bwSpin { to { rotate: 1turn; } }
+.bub.word {
+  z-index: 3;
+  box-shadow: inset 0 0 16px rgb(255 255 255 / 0.4), 0 0 26px rgb(255 170 215 / 0.45);
+}
+.bub.word::before { opacity: 0.78; }
+.bub.word::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 1.5px solid rgb(255 255 255 / 0.5);
+  border-radius: 50%;
+  animation: bwRing 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes bwRing { from { scale: 0.9; opacity: 0.8; } to { scale: 1.25; opacity: 0; } }
+.bub span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: calc(var(--r) * 0.42);
+  font-style: italic;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgb(255 120 170 / 0.9), 0 1px 2px rgb(60 20 60 / 0.5);
+  pointer-events: none;
+}
+.bub.pop {
+  pointer-events: none;
+  animation: bwPopA 0.32s ease-out forwards;
+}
+.bub.pop span { opacity: 0; }
+.bub.pop::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px dotted rgb(255 255 255 / 0.9);
+  border-radius: 50%;
+  animation: bwBurst 0.32s ease-out forwards;
+}
+@keyframes bwPopA { 0% { scale: 1; opacity: 1; } 40% { scale: 1.22; opacity: 0.9; } 100% { scale: 1.45; opacity: 0; } }
+@keyframes bwBurst { from { scale: 1; opacity: 1; } to { scale: 1.8; opacity: 0; } }
+
+.bw-fly {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 600;
+  white-space: nowrap;
+  text-shadow: 0 0 14px rgb(255 140 190);
+  pointer-events: none;
+}
+
+.bw-wand {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  left: 0;
+  width: 64px;
+  height: 120px;
+  overflow: visible;
+  transform-origin: 50% 24%;
+  filter: drop-shadow(0 8px 14px rgb(0 0 0 / 0.35)) drop-shadow(0 0 10px rgb(255 200 120 / 0.35));
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+.bw-wand.idle { animation: bwBob 2.4s ease-in-out infinite; }
+@keyframes bwBob { 50% { translate: 0 -8px; } }
+.bw-film {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bwFilm 3s ease-in-out infinite alternate;
+}
+@keyframes bwFilm { from { opacity: 0.55; } to { opacity: 1; } }
+.bw-layer.done .bw-wand { opacity: 0; }
+
+/* huling card: dahan-dahang lumilitaw at umaangat */
+.bk-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  margin-top: 70px;
+  padding: 0 20px 20px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgb(255 252 247 / 0.97), rgb(255 238 244 / 0.95));
+  color: #6b4a4a;
+  text-align: center;
+  cursor: default;
+  box-shadow:
+    inset 0 0 0 5px rgb(255 252 247 / 0.9),
+    inset 0 0 0 6px #f3c7d4,
+    0 28px 60px rgb(0 0 0 / 0.42),
+    0 0 60px rgb(255 160 205 / 0.25);
+}
+.bk-enter-active { animation: bkIn 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.bk-leave-active { transition: opacity 0.3s; }
+.bk-leave-to { opacity: 0; }
+@keyframes bkIn {
+  from { opacity: 0; translate: 0 28px; scale: 0.96; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+.bk-photo {
+  position: relative;
+  width: 150px;
+  margin: -64px auto 4px;
+  padding: 8px 8px 6px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgb(60 20 50 / 0.3);
+  rotate: -4deg;
+}
+.bk-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.bk-photo figcaption {
+  margin-top: 6px;
+  color: #8a5a6a;
+  font-family: var(--script);
+  font-size: 18px;
+  line-height: 1;
+}
+.bk-tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 70px;
+  height: 20px;
+  background: repeating-linear-gradient(45deg, rgb(255 182 205 / 0.85) 0 6px, rgb(255 214 228 / 0.85) 6px 12px);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.12);
+  translate: -50% 0;
+  rotate: 6deg;
+}
+.bk-eyebrow {
+  margin: 12px 0 0;
+  color: var(--rose-deep);
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.bk-name {
+  margin: 2px 0 8px;
+  background: linear-gradient(110deg, #ff5f8d 0%, #ff9bb6 30%, #b38cff 50%, #ff6f95 70%, #ff5f8d 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--serif);
+  font-size: 38px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.05;
+  animation: shimmer 4.5s linear infinite;
+}
+.bk-msg {
+  margin: 0;
+  color: #6b4a4a;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.bk-from {
+  margin: 8px 0 0;
+  color: var(--rose-deep);
+  font-family: var(--script);
+  font-size: 27px;
+}
+.bk-extra {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border: 1.5px solid #f6c9d8;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff1f6, #f1f0ff);
+  color: var(--ink);
+  font-family: var(--script);
+  font-size: 22px;
+  line-height: 1.15;
+}
+.bk-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+.bk-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px 10px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7aa8, #c98bff);
+  color: #fff;
+  font-family: var(--ui);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgb(201 90 160 / 0.35);
+}
+.bk-more-bub {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, #fff 0 12%, transparent 30%),
+    radial-gradient(circle, rgb(255 255 255 / 0.15) 55%, rgb(255 255 255 / 0.85) 100%);
+  animation: bwWob 1.6s ease-in-out infinite;
+}
+@keyframes bwWob { 50% { scale: 1.12 0.92; } }
+
+/* malapad na screen (laptop): mas malaki, at magkatabi ang litrato at ang sulat sa card */
+.phone.is-wide .bw-head { top: 70px; }
+.phone.is-wide .bw-title { font-size: 40px; }
+.phone.is-wide .bw-sub { font-size: 15px; }
+.phone.is-wide .bw-slot { height: 46px; font-size: 24px; }
+.phone.is-wide .bw-fly { font-size: 26px; }
+.phone.is-wide .bw-wand { width: 84px; height: 158px; }
+.phone.is-wide .scene-finale .bk-card {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 0 34px;
+  align-items: center;
+  max-width: 720px;
+  margin-top: 0;
+  padding: 34px 40px 30px;
+  text-align: left;
+}
+.phone.is-wide .bk-photo { width: 220px; margin: 0; }
+.phone.is-wide .bk-name { font-size: 52px; }
+.phone.is-wide .bk-msg { font-size: 18px; }
+.phone.is-wide .bk-actions { flex-direction: row; justify-content: flex-start; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bub::before,
+  .bub.word::after,
+  .bw-wand.idle,
+  .bw-film,
+  .bk-name,
+  .bk-more-bub,
+  .bw-slots.full .bw-slot {
+    animation: none;
+  }
+}
+
+/* gallery ng lahat ng litrato sa huling card */
+.bk-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 6px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.bk-thumb {
+  display: block;
+  width: 54px;
+  padding: 3px 3px 9px;
+  border: 0;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgb(80 30 60 / 0.22);
+  cursor: zoom-in;
+  rotate: var(--tilt);
+  transition: rotate 0.25s, scale 0.25s;
+}
+.bk-thumb:hover,
+.bk-thumb:focus-visible { rotate: 0deg; scale: 1.12; }
+.bk-thumb img { display: block; width: 100%; aspect-ratio: 1; border-radius: 2px; object-fit: cover; }
+.phone.is-wide .bk-gallery { justify-content: flex-start; }
+.phone.is-wide .bk-thumb { width: 58px; }
+
+/* lightbox */
+.bk-light {
+  position: absolute !important;
+  z-index: 6;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgb(14 10 40 / 0.72);
+  backdrop-filter: blur(4px);
+}
+.bk-light-pol {
+  position: relative;
+  width: min(78%, 330px);
+  margin: 0;
+  padding: 10px 10px 8px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 24px 50px rgb(0 0 0 / 0.5);
+  rotate: -2deg;
+}
+.bk-light-pol img { display: block; width: 100%; aspect-ratio: 1; border-radius: 2px; object-fit: cover; }
+.bk-light-pol figcaption {
+  margin-top: 8px;
+  color: #8a5a6a;
+  font-family: var(--script);
+  font-size: 22px;
+  line-height: 1.1;
+  text-align: center;
+}
+.bk-light-no {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 800;
+}
+.bk-light-nav { display: flex; gap: 14px; }
+.bk-light-nav button {
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid rgb(255 255 255 / 0.6);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-family: var(--ui);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.phone.is-wide .bk-light-pol { width: min(40%, 380px); }
 </style>

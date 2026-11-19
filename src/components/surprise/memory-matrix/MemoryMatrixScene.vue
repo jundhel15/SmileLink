@@ -1,15 +1,18 @@
 <template>
-  <!-- EKSENA ng 03 Memory Lane (nasa loob ng SurpriseShell screen):
+  <!-- EKSENA ng 03 Memory Matrix (nasa loob ng SurpriseShell screen):
        1) matrix rain + "Hold to decode" → nabubuo ang HAPPY BIRTHDAY <NAME>
-       2) memory lane timeline (i-decrypt ang bawat memory)
-       3) terminal letter → "Send a hug" → umuulan ng puso → finale -->
+       2) binary switches: i-flip ang bits para mabuo ang araw ng birthday → access granted
+       3) memory matrix timeline (i-decrypt ang bawat memory; unang 4 na litrato)
+       4) signal tuning: i-tune ang lumang TV, 3 channel = 3 litrato
+       5) VHS rewind: i-rewind ang tape → montage ng LAHAT ng litrato (6–10)
+       6) terminal letter → "Send a hug" → umuulan ng puso → finale -->
   <div :key="runKey" class="ml-root">
     <MatrixRain
       :glyphs="glyphs"
       :message="messageLines"
       :decoding="holding && phase === 'rain'"
       :show-message="phase === 'rain' || phase === 'decoded'"
-      :dim="phase === 'lane' || phase === 'letter'"
+      :dim="!['rain', 'decoded', 'finale'].includes(phase)"
       :hearts="phase === 'finale'"
       :reduced="reduced"
       @progress="progress = $event"
@@ -22,7 +25,7 @@
       <!-- 1. MATRIX RAIN -->
       <div v-if="phase === 'rain'" key="rain" class="overlay-ui">
         <div class="boot" aria-hidden="true">
-          <p style="--d: 0.3s">&gt; memory_lane.exe</p>
+          <p style="--d: 0.3s">&gt; memory_matrix.exe</p>
           <p style="--d: 1.1s">&gt; 1 encrypted message for {{ upperName }}</p>
           <p style="--d: 1.9s">&gt; awaiting your touch<span class="cursor">▍</span></p>
         </div>
@@ -58,16 +61,25 @@
         <div />
         <div class="hold-area">
           <p class="hint">Message decrypted ♥</p>
-          <button class="cta" type="button" @click="phase = 'lane'">
-            Rewind the memories <span aria-hidden="true">⟲</span>
+          <button class="cta" type="button" @click="phase = 'binary'">
+            Open the archive <span aria-hidden="true">⟶</span>
           </button>
         </div>
       </div>
 
-      <!-- 2. MEMORY LANE -->
-      <MemoryTimeline v-else-if="phase === 'lane'" key="lane" :memories="content.memories" @done="phase = 'letter'" />
+      <!-- 2. BINARY SWITCHES -->
+      <BinarySwitches v-else-if="phase === 'binary'" key="binary" :date="String(content.date || '')" @done="phase = 'lane'" />
 
-      <!-- 3. TERMINAL LETTER -->
+      <!-- 3. MEMORY MATRIX (timeline) -->
+      <MemoryTimeline v-else-if="phase === 'lane'" key="lane" :memories="memories" @done="phase = 'tuning'" />
+
+      <!-- 4. SIGNAL TUNING -->
+      <SignalTuning v-else-if="phase === 'tuning'" key="tuning" :photos="tunePhotos" :reduced="reduced" @done="phase = 'vhs'" />
+
+      <!-- 5. VHS REWIND -->
+      <VhsRewind v-else-if="phase === 'vhs'" key="vhs" :photos="photos" :reduced="reduced" @done="phase = 'letter'" />
+
+      <!-- 6. TERMINAL LETTER -->
       <TerminalLetter
         v-else-if="phase === 'letter'"
         key="letter"
@@ -95,8 +107,13 @@ import { computed, ref } from "vue";
 import MatrixRain from "./MatrixRain.vue";
 import MemoryTimeline from "./MemoryTimeline.vue";
 import TerminalLetter from "./TerminalLetter.vue";
+import BinarySwitches from "./BinarySwitches.vue";
+import SignalTuning from "./SignalTuning.vue";
+import VhsRewind from "./VhsRewind.vue";
 
-// content = recipient, sender, date, memories [{ year, title, caption, src }], message, finaleLine
+// content = recipient, sender, date (MMDD), photos [{ src, caption }] (6–10),
+//           memories [{ year, title, caption, src? }] (kung walang src, ang photos[i] ang gagamitin),
+//           message, finaleLine
 const props = defineProps({
   content: { type: Object, required: true },
 });
@@ -109,7 +126,27 @@ const glyphs = computed(() =>
   `${props.content.recipient}${props.content.sender}${props.content.date}♥✦♥✦`.toUpperCase(),
 );
 
-const phase = ref("rain"); // rain → decoded → lane → letter → finale
+/* ===== Litrato: 6–10. Unang 4 sa timeline, ika-5 hanggang ika-7 sa TV, lahat sa VHS ===== */
+const photos = computed(() => {
+  const list = (Array.isArray(props.content.photos) ? props.content.photos : [])
+    .filter(Boolean)
+    .map((p) => (typeof p === "string" ? { src: p, caption: "" } : { src: p.src, caption: p.caption || "" }))
+    .filter((p) => p.src);
+  // luma na laman (walang photos): ang mga litrato ng memories
+  if (!list.length) return (props.content.memories || []).filter((m) => m?.src).map((m) => ({ src: m.src, caption: m.title }));
+  return list.slice(0, 10);
+});
+const memories = computed(() =>
+  (props.content.memories || []).slice(0, 4).map((m, i) => ({ ...m, src: m.src || photos.value[i]?.src || "" })),
+);
+// TV: ang mga litratong wala sa timeline; kung kulang, uulitin mula sa simula
+const tunePhotos = computed(() => {
+  const rest = photos.value.slice(memories.value.length);
+  const pool = rest.length >= 3 ? rest : [...rest, ...photos.value].slice(0, 3);
+  return pool.slice(0, 3);
+});
+
+const phase = ref("rain"); // rain → decoded → binary → lane → tuning → vhs → letter → finale
 const holding = ref(false);
 const progress = ref(0);
 const runKey = ref(0);

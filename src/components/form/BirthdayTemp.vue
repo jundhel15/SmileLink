@@ -190,7 +190,7 @@
       @confirm="useSelectedTemplate"
     />
 
-    <!-- DAGDAG: interactive surprise (01 Soft Celebration, 02 Starry Night, 03 Memory Lane, 08 Cozy Corner) -->
+    <!-- DAGDAG: interactive surprise (01 Soft Celebration, 02 Starry Night, 03 Memory Matrix, 08 Cozy Corner) -->
     <component
       :is="surpriseComponents[surpriseTemplate.id]"
       v-if="surpriseTemplate"
@@ -207,7 +207,7 @@ import ConFirm from "../dialog/ConFirm.vue";
 import BirthdaySoftCelebration from "../surprise/BirthdaySoftCelebration.vue";
 import BirthdayStarryNight from "../surprise/BirthdayStarryNight.vue";
 import BirthdayCozyCorner from "../surprise/BirthdayCozyCorner.vue";
-import BirthdayMemoryLane from "../surprise/BirthdayMemoryLane.vue";
+import BirthdayMemoryMatrix from "../surprise/BirthdayMemoryMatrix.vue";
 import BirthdayGoldenHour from "../surprise/BirthdayGoldenHour.vue";
 import BirthdayTimelessElegance from "../surprise/BirthdayTimelessElegance.vue";
 import BirthdayOceanBreeze from "../surprise/BirthdayOceanBreeze.vue";
@@ -222,8 +222,8 @@ import softCelebration from "@/assets/templates/birthday/birthday-soft-celebrati
 import softCelebrationFull from "@/assets/templates/birthday/birthday-soft-celebration-full.webp";
 import starryNight from "@/assets/templates/birthday/birthday-starry-night.webp";
 import starryNightFull from "@/assets/templates/birthday/birthday-starry-night-full.webp";
-import memoryLane from "@/assets/templates/birthday/birthday-memory-lane.webp";
-import memoryLaneFull from "@/assets/templates/birthday/birthday-memory-lane-full.webp";
+import memoryMatrix from "@/assets/templates/birthday/birthday-memory-matrix.webp";
+import memoryMatrixFull from "@/assets/templates/birthday/birthday-memory-matrix-full.webp";
 import happyVibes from "@/assets/templates/birthday/birthday-happy-vibes.webp";
 import happyVibesFull from "@/assets/templates/birthday/birthday-happy-vibes-full.webp";
 import timelessElegance from "@/assets/templates/birthday/birthday-timeless-elegance.webp";
@@ -275,17 +275,17 @@ const templates = [
     buttonStyle: "white-navy",
   },
   {
-    id: "memory-lane",
+    id: "memory-matrix",
     number: "03",
-    name: "Memory Lane",
+    name: "Memory Matrix",
     heading: "Happy Birthday",
     style: "Fun",
-    image: memoryLane,
-    fullImage: memoryLaneFull,
+    image: memoryMatrix,
+    fullImage: memoryMatrixFull,
     titleY: 34,
     buttonY: 68,
     cardButtonY: 68,
-    buttonStyle: "navy",
+    buttonStyle: "white-navy",
   },
   {
     id: "happy-vibes",
@@ -408,7 +408,7 @@ function usePreviewTemplate() {
 const surpriseComponents = {
   "soft-celebration": BirthdaySoftCelebration,
   "starry-night": BirthdayStarryNight,
-  "memory-lane": BirthdayMemoryLane,
+  "memory-matrix": BirthdayMemoryMatrix,
   "cozy-corner": BirthdayCozyCorner,
   "happy-vibes": BirthdayGoldenHour,
   "timeless-elegance": BirthdayTimelessElegance,

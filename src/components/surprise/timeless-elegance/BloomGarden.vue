@@ -1,7 +1,7 @@
 <template>
   <!-- 2) BLOOM GARDEN: bouquet ng mga usbong sa vase; i-tap ang bawat usbong para mamukadkad.
        Sa gitna ng bawat bulaklak lalabas ang isang litrato + isang bagay na hinahangaan niya sa kanya. -->
-  <section class="garden-stage">
+  <section ref="stageEl" class="garden-stage">
     <header class="head">
       <p class="eyebrow">Things I adore about you</p>
       <h2>Let each bud bloom</h2>
@@ -38,9 +38,8 @@
         '--delay': `${i * 0.2}s`,
       }"
       type="button"
-      :disabled="opened.includes(i)"
-      :aria-label="`Bloom flower ${i + 1}`"
-      @click="bloom(i, $event)"
+      :aria-label="opened.includes(i) && photoAt(i) ? `View photo ${i + 1}` : `Bloom flower ${i + 1}`"
+      @click="onFlower(i, $event)"
     >
       <span class="sway">
         <svg viewBox="-50 -50 100 100" aria-hidden="true">
@@ -83,6 +82,8 @@
               :clip-path="`url(#te-bg-c${i})`"
             />
             <circle r="19.5" fill="none" stroke="#b8914f" stroke-width="1.6" />
+            <!-- mas malaking sakop para madaling ma-tap ang maliit na litrato -->
+            <circle class="pic-hit" r="25" fill="transparent" />
           </g>
         </svg>
       </span>
@@ -91,13 +92,23 @@
     <p v-if="!allOpen" class="hint">{{ opened.length }} / {{ blooms.length }} in bloom</p>
 
     <Transition name="rise">
-      <button v-if="allOpen" class="next" type="button" @click="emit('done')">Continue ✦</button>
+      <button v-if="allOpen" class="next" type="button" @click="onContinue">Continue ✦</button>
+    </Transition>
+
+    <!-- Paglaki ng litrato: lumalaki mula sa gitna ng bulaklak, kusang bumabalik at naglalaho. Opsyonal lang ito. -->
+    <Transition :css="false" mode="out-in" @enter="onViewerEnter" @leave="onViewerLeave">
+      <div v-if="viewer" :key="viewer.i" class="viewer">
+        <div class="veil" />
+        <figure class="frame" role="button" tabindex="0" aria-label="Close photo" @click="closeViewer" @keydown.enter="closeViewer" @keydown.esc="closeViewer">
+          <img :src="viewer.src" alt="" draggable="false" />
+        </figure>
+      </div>
     </Transition>
   </section>
 </template>
 
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 const props = defineProps({
   blooms: { type: Array, required: true },
@@ -136,6 +147,94 @@ function stem(i) {
 const opened = ref([]);
 const current = ref(-1);
 const allOpen = computed(() => opened.value.length === props.blooms.length);
+
+// ===== Paglaki ng litrato =====
+const VIEW_MS = 3800; // gaano katagal bago kusang mawala
+const stageEl = ref(null);
+const viewer = ref(null);
+let viewTarget = null; // bilog sa gitna ng bulaklak na pinanggalingan
+let viewTimer = 0;
+const reduceMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+function onFlower(i, event) {
+  if (!opened.value.includes(i)) return bloom(i, event);
+  // bukas na: litrato lang sa gitna ang lalaki (o Enter gamit ang keyboard)
+  const onPhoto = event.detail === 0 || event.target.closest?.(".center");
+  if (!onPhoto || !photoAt(i)) return;
+  if (viewer.value?.i === i) return closeViewer();
+  openViewer(i, event.currentTarget);
+}
+function openViewer(i, button) {
+  clearTimeout(viewTimer);
+  viewTarget = button.querySelector(".center circle");
+  current.value = i; // para tumugma ang sulat sa litratong tinitingnan
+  viewer.value = { i, src: photoAt(i) };
+}
+function closeViewer() {
+  clearTimeout(viewTimer);
+  viewer.value = null;
+}
+function originOf(frame) {
+  const o = viewTarget.getBoundingClientRect();
+  const f = frame.getBoundingClientRect();
+  return {
+    dx: o.left + o.width / 2 - (f.left + f.width / 2),
+    dy: o.top + o.height / 2 - (f.top + f.height / 2),
+    s: o.width / f.width,
+  };
+}
+function onViewerEnter(el, done) {
+  const frame = el.querySelector(".frame");
+  const veil = el.querySelector(".veil");
+  if (!viewTarget || reduceMotion()) {
+    veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, fill: "both" });
+    frame.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 250, fill: "both" }).finished.then(arm);
+    return done();
+  }
+  const { dx, dy, s } = originOf(frame);
+  veil.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: "ease-out", fill: "both" });
+  frame
+    .animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${s})`, borderRadius: "50%", opacity: 0.2 },
+        { opacity: 1, offset: 0.25 },
+        { transform: "translate(0, 0) scale(1)", borderRadius: "10px", opacity: 1 },
+      ],
+      { duration: 720, easing: "cubic-bezier(0.22, 1.1, 0.36, 1)", fill: "both" },
+    )
+    .finished.then(arm, () => {});
+  done();
+  function arm() {
+    clearTimeout(viewTimer);
+    viewTimer = setTimeout(closeViewer, VIEW_MS);
+  }
+}
+function onViewerLeave(el, done) {
+  const frame = el.querySelector(".frame");
+  const veil = el.querySelector(".veil");
+  const end = () => done();
+  if (!viewTarget || !viewTarget.isConnected || reduceMotion()) {
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: "both" }).finished.then(end, end);
+    return;
+  }
+  const { dx, dy, s } = originOf(frame);
+  veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, easing: "ease-in", fill: "both" });
+  frame
+    .animate(
+      [
+        { transform: "translate(0, 0) scale(1)", borderRadius: "10px", opacity: 1, filter: "blur(0)" },
+        { opacity: 1, offset: 0.55 },
+        { transform: `translate(${dx}px, ${dy}px) scale(${s})`, borderRadius: "50%", opacity: 0, filter: "blur(2px)" },
+      ],
+      { duration: 650, easing: "cubic-bezier(0.5, 0, 0.75, 0.4)", fill: "both" },
+    )
+    .finished.then(end, end);
+}
+function onContinue() {
+  closeViewer();
+  emit("done");
+}
+onBeforeUnmount(() => clearTimeout(viewTimer));
 
 function bloom(i, event) {
   if (opened.value.includes(i)) return;
@@ -284,6 +383,12 @@ h2 {
   translate: -50% -50%;
   animation: grow-in 1.4s cubic-bezier(0.3, 1.4, 0.5, 1) var(--delay) both;
 }
+.flower.open {
+  cursor: default;
+}
+.flower.open .center {
+  cursor: zoom-in;
+}
 .flower:focus-visible {
   outline: 2px solid #b8914f;
   outline-offset: 4px;
@@ -347,6 +452,49 @@ h2 {
 .open .center {
   transform: scale(1);
 }
+/* ===== Paglaki ng litrato ===== */
+.viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding-bottom: 8%;
+  pointer-events: none; /* hindi hinaharangan ang Continue at ibang bulaklak */
+}
+.veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 46%, rgb(255 250 238 / 0.82), rgb(255 250 238 / 0.45) 80%);
+}
+.frame {
+  position: relative;
+  box-sizing: border-box;
+  width: min(62cqi, 46cqb, 290px);
+  aspect-ratio: 1;
+  margin: 0;
+  padding: 8px;
+  border: 1.5px solid #b8914f;
+  border-radius: 10px;
+  background: #fffdf8;
+  box-shadow:
+    0 0 0 5px rgb(255 253 247 / 0.7),
+    0 22px 48px rgb(90 65 25 / 0.32);
+  cursor: zoom-out;
+  pointer-events: auto;
+  will-change: transform;
+}
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.frame:focus-visible {
+  outline: 2px solid #b8914f;
+  outline-offset: 5px;
+}
 .hint {
   position: absolute;
   left: 0;
@@ -365,7 +513,7 @@ h2 {
   position: absolute;
   left: 50%;
   bottom: 3%;
-  z-index: 4;
+  z-index: 6;
   padding: 11px 30px;
   white-space: nowrap;
   border: 1px solid #b8914f;

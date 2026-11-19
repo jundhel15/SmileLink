@@ -3,9 +3,9 @@
        1) curtains: hilahin pahalang ang olive-green na kurtina → lilitaw ang pangalan
        2) bloom garden: i-tap ang 5 usbong sa vase → mamumukadkad, may bagay na hinahangaan sa kanya
        3) memory lights: i-tap ang mga ilaw → sisindi, lilinaw ang polaroid + mahalagang sandali ninyo
-       4) cheers: i-drag ang dalawang champagne glass papunta sa gitna → clink + pangalan nilang dalawa
+       4) make a wish: i-drag ang posporo para sindihan ang 5 kandila → i-hold ang cake para mag-wish → i-swipe para hipan → confetti + pangalan niya
        5) ink letter: i-hold ang PLUMA (hindi ang papel) → isinusulat ang love letter
-       6) gift key: i-drag ang gintong susi sa kandado → bubukas ang regalo, lilipad ang mga litrato + final message
+       6) pop the balloons: i-tap ang mga lobo (isa bawat litrato) → pumuputok, lumilipad ang litrato + final message
        Litrato (5-10): sa gitna ng mga bulaklak (1-5), sa memory lights (6-9), sa sulat (10), at lahat sa regalo -->
   <div ref="sceneEl" class="scene-root" @pointermove="onPointerMove" @pointerleave="pointerActive = false">
     <ElegantBackdrop />
@@ -48,8 +48,9 @@
           v-if="phase === 'toast'"
           :recipient="content.recipient"
           :sender="content.sender"
-          :together="content.together"
-          @linked="onLinked"
+          @blown="burstAt($event, 14)"
+          @pop="onPop"
+          @wished="onWished"
           @done="go('letter')"
         />
       </Transition>
@@ -71,6 +72,7 @@
           :sender="content.sender"
           :message="content.message"
           :photos="photos"
+          @popped="burstAt($event, 16)"
           @opened="onOpened"
           @replay="replay"
         />
@@ -143,14 +145,19 @@ function burstAt(el, count) {
   dustRef.value?.burst(x, y, { count, speed: 210 });
 }
 
-function onLinked(el) {
+function onWished(el) {
   burstAt(el, 80);
-  dustRef.value?.petals(2.6);
+  dustRef.value?.confetti(3.2);
+}
+
+function onPop(el) {
+  burstAt(el, 40);
+  dustRef.value?.confetti(1.4);
 }
 
 function onOpened(el) {
   burstAt(el, 100);
-  dustRef.value?.petals(5);
+  dustRef.value?.confetti(5);
 }
 
 function replay() {

@@ -1,79 +1,73 @@
 <template>
-  <!-- 6) GIFT KEY: may gintong susi sa ibaba. I-drag ang susi pataas sa kandado ng regalo (o i-tap ang susi):
-       iikot ito, bubukas ang takip, at ang lahat ng litrato ay lilipad palabas na parang pamaypay.
-       Pagkatapos: final message + mga litrato nila na pwedeng pindutin isa-isa. -->
-  <section class="gift-stage" :class="{ opened, near, turning }" :style="{ '--n': fan.length }">
+  <!-- 6) POP THE BALLOONS: lumulutang na mga lobo (isa bawat litrato). I-tap ang bawat lobo para pumutok:
+       may kumakalat na confetti at lilipad ang litrato papunta sa tumpok sa ibaba.
+       Kapag pumutok na ang lahat: liwanag + confetti, tapos final message at mga litrato nila na pwedeng pindutin isa-isa. -->
+  <section class="gift-stage" :class="{ opened }" :style="{ '--n': fan.length }">
     <Transition name="swap" mode="out-in">
       <div v-if="!showMessage" key="box" class="box-area">
         <header class="head">
           <p class="eyebrow">{{ opened ? "Surprise" : "One last thing" }}</p>
-          <h2 v-if="!opened">Unlock your gift</h2>
+          <h2 v-if="!opened">Pop the balloons</h2>
           <h2 v-else class="pop">Happy birthday, my love</h2>
         </header>
 
-        <div ref="boxEl" class="gift">
+        <div ref="fieldEl" class="field">
           <span class="rays" />
 
+          <!-- mga litrato: lumilipad mula sa lobo papunta sa tumpok -->
           <figure
             v-for="(ph, k) in fan"
-            :key="k"
+            :key="`ph${k}`"
             class="fly"
-            :style="{ '--x': `${ph.x}px`, '--y': `${ph.y}px`, '--r': `${ph.r}deg`, '--k': k }"
+            :class="{ shown: gone[k] }"
+            :style="{ '--x': `${ph.x}px`, '--y': `${ph.y}px`, '--r': `${ph.r}deg`, '--fx': `${balloons[k].x - CX}px`, '--fy': `${balloons[k].y - CY}px`, '--k': k }"
             aria-hidden="true"
           >
             <img :src="ph.src" alt="" draggable="false" />
           </figure>
 
-          <div class="body">
-            <span class="ribbon-v" />
-            <span class="ribbon-h" />
-            <span ref="holeEl" class="lock">
-              <span class="plate"><span class="hole" /></span>
+          <!-- mga lobo -->
+          <button
+            v-for="(b, k) in balloons"
+            :key="`b${k}`"
+            class="balloon"
+            :class="{ gone: gone[k] }"
+            :style="{ left: `${b.x}px`, top: `${b.y - 33}px`, '--c': b.color, '--dur': `${b.dur}s`, '--del': `${b.del}s`, zIndex: 3 + (k % 2) }"
+            type="button"
+            :disabled="gone[k]"
+            :aria-label="`Pop balloon ${k + 1}`"
+            @pointerdown.prevent="pop(k, $event)"
+            @pointerenter="$event.buttons > 0 && pop(k, $event)"
+            @keydown.enter.prevent="pop(k, $event)"
+            @keydown.space.prevent="pop(k, $event)"
+          >
+            <span class="sway">
+              <svg viewBox="0 0 54 120" aria-hidden="true">
+                <defs>
+                  <linearGradient :id="`te-bl-shade-${k}`" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0.45" stop-color="#fff" stop-opacity="0" />
+                    <stop offset="1" stop-color="#6b3a2a" stop-opacity="0.22" />
+                  </linearGradient>
+                </defs>
+                <path d="M27 72C20 84 34 94 27 106C22 114 30 116 27 120" fill="none" stroke="#b8a27a" stroke-width="1.2" stroke-linecap="round" />
+                <path d="M27 2C10 2 2 18 2 32C2 50 14 62 27 66C40 62 52 50 52 32C52 18 44 2 27 2Z" :fill="b.color" />
+                <path d="M27 2C10 2 2 18 2 32C2 50 14 62 27 66C40 62 52 50 52 32C52 18 44 2 27 2Z" :fill="`url(#te-bl-shade-${k})`" />
+                <path d="M26 64L21 73H33Z" :fill="b.color" />
+                <path d="M26 64L21 73H33Z" fill="#000" opacity="0.12" />
+                <ellipse cx="17" cy="19" rx="5" ry="9" fill="#fff" opacity="0.5" transform="rotate(24 17 19)" />
+                <path v-if="b.star" d="M27 22Q28 31 37 32Q28 33 27 42Q26 33 17 32Q26 31 27 22Z" fill="#fff8dc" opacity="0.85" />
+              </svg>
             </span>
-          </div>
-          <div class="lid">
-            <span class="ribbon-v" />
-          </div>
-          <div class="bow">
-            <span class="loop l" />
-            <span class="loop r" />
-            <span class="knot" />
-          </div>
+          </button>
+
+          <!-- pagputok -->
+          <span v-for="f in fx" :key="f.id" class="burst" :style="{ left: `${f.x}px`, top: `${f.y}px`, '--c': f.color }" aria-hidden="true">
+            <i class="ring" />
+            <i v-for="n in 12" :key="n" class="shard" :style="{ '--a': `${n * 30 + (f.id % 3) * 7}deg`, '--d': `${34 + ((n * 7) % 5) * 9}px` }" />
+          </span>
         </div>
 
-        <div v-if="!opened" class="key-dock">
-          <button
-            ref="keyEl"
-            class="key"
-            :class="{ dragging }"
-            :style="{ translate: `${tx}px ${ty}px` }"
-            type="button"
-            aria-label="Golden key. Drag it to the lock, or press Enter to unlock the gift"
-            @pointerdown.prevent="onDown"
-            @pointermove="onMove"
-            @pointerup="onUp"
-            @pointercancel="onCancel"
-            @contextmenu.prevent
-            @click="onKeyClick"
-          >
-            <svg viewBox="0 0 36 84" aria-hidden="true">
-              <defs>
-                <linearGradient id="te-key-gold" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stop-color="#f6e4b0" />
-                  <stop offset="0.5" stop-color="#b8914f" />
-                  <stop offset="1" stop-color="#e9d3a0" />
-                </linearGradient>
-              </defs>
-              <g class="key-art">
-                <path class="teeth" d="M15 6H27V12H21V17H27V23H21V28H15Z" />
-                <rect x="15" y="4" width="6" height="52" rx="3" fill="url(#te-key-gold)" />
-                <circle cx="18" cy="68" r="13" fill="none" stroke="url(#te-key-gold)" stroke-width="6" />
-                <circle cx="18" cy="68" r="4" fill="#fff7dc" />
-              </g>
-            </svg>
-          </button>
-          <p class="hint">{{ near ? "Let go to unlock ✦" : "Drag the key to the lock ↑" }}</p>
-        </div>
+        <p v-if="!opened" class="hint">{{ goneCount }} / {{ total }} popped · tap a balloon</p>
       </div>
 
       <div v-else key="msg" class="message">
@@ -115,111 +109,90 @@ const props = defineProps({
   message: { type: String, required: true },
   photos: { type: Array, default: () => [] }, // 1 hanggang 10 URL
 });
-const emit = defineEmits(["opened", "replay"]);
+const emit = defineEmits(["popped", "opened", "replay"]);
 
 const gallery = computed(() => props.photos.filter(Boolean).slice(0, 10));
-// mga litratong lilipad palabas sa kahon, naka-pamaypay
+const total = computed(() => gallery.value.length || 5); // isang lobo bawat litrato (5 kung walang litrato)
+
+// sukat ng field (px) at gitna ng tumpok ng litrato
+const W = 320;
+const CX = W / 2;
+const CY = 238;
+const COLORS = ["#f0a79a", "#f4c9c0", "#e79bb4", "#ecc873", "#a3b294", "#cfdcc4", "#d9b46a", "#f6dca0", "#e8b4c4", "#b9c9a8"];
+
+// posisyon ng mga lobo: isang hilera kung 5 pababa; dalawang hilera kapag mas marami
+const balloons = computed(() => {
+  const n = total.value;
+  return Array.from({ length: n }, (_, i) => {
+    let x;
+    let y;
+    if (n <= 5) {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      x = n > 1 ? 52 + t * 216 : CX;
+      y = 76 + (i % 2 ? 22 : -6);
+    } else {
+      const row = i % 2;
+      const idx = Math.floor(i / 2);
+      const count = Math.ceil((n - row) / 2);
+      const t = count > 1 ? idx / (count - 1) : 0.5;
+      x = 48 + t * 224 + (row ? 0 : 0);
+      y = row ? 112 : 58;
+    }
+    return { x: Math.round(x), y: Math.round(y), color: COLORS[i % COLORS.length], dur: 2.6 + (i % 4) * 0.45, del: -(i * 0.6), star: i % 3 === 1 };
+  });
+});
+
+// mga litratong bumabagsak sa tumpok, naka-pamaypay
 const fan = computed(() => {
   const list = gallery.value;
   const n = list.length;
   return list.map((src, k) => {
     const t = n > 1 ? k / (n - 1) - 0.5 : 0;
-    return { src, x: Math.round(t * Math.min(230, 40 + n * 24)), y: Math.round(-62 + t * t * 56), r: Math.round(t * 38) };
+    return { src, x: Math.round(t * Math.min(230, 40 + n * 24)), y: Math.round(-8 + t * t * 56), r: Math.round(t * 34) };
   });
 });
 
-const boxEl = ref(null);
-const holeEl = ref(null);
-const keyEl = ref(null);
-const tx = ref(0);
-const ty = ref(0);
-const dragging = ref(false);
-const near = ref(false);
-const turning = ref(false);
+const fieldEl = ref(null);
+const gone = ref([]);
+const fx = ref([]);
+const goneCount = computed(() => gone.value.filter(Boolean).length);
 const opened = ref(false);
 const showMessage = ref(false);
 const sel = ref(0);
-
-let startX = 0;
-let startY = 0;
-let moved = 0;
+let fxId = 0;
 let busy = false;
 const timers = [];
 let slideTimer = 0;
 
-/* ang preview ay pinaliliit ng SurpriseShell, kaya hinahati ang layo ng daliri sa scale */
-function scaleOf() {
-  const el = keyEl.value?.closest(".gift-stage");
-  return el ? el.getBoundingClientRect().width / el.offsetWidth || 1 : 1;
-}
-/* layo (sa lokal na px) mula sa dulo ng susi papunta sa butas ng kandado, at ang kailangang galaw para sumalpak */
-function toHole() {
-  const k = keyEl.value.getBoundingClientRect();
-  const h = holeEl.value.getBoundingClientRect();
-  const s = scaleOf();
-  const dx = (h.left + h.width / 2 - (k.left + k.width / 2)) / s;
-  const dy = (h.top + h.height / 2 - (k.top + 6)) / s;
-  return { dx, dy, dist: Math.hypot(dx, dy) };
-}
-
-function onDown(event) {
-  if (busy || opened.value) return;
-  event.currentTarget.setPointerCapture?.(event.pointerId);
-  dragging.value = true;
-  startX = event.clientX - tx.value * scaleOf();
-  startY = event.clientY - ty.value * scaleOf();
-  moved = 0;
-}
-function onMove(event) {
-  if (!dragging.value) return;
-  const s = scaleOf();
-  const nx = (event.clientX - startX) / s;
-  const ny = (event.clientY - startY) / s;
-  moved = Math.max(moved, Math.hypot(nx, ny));
-  tx.value = nx;
-  ty.value = ny;
-  near.value = toHole().dist < 48;
-}
-function onUp() {
-  if (!dragging.value) return;
-  dragging.value = false;
-  if (moved < 6 || near.value) unlock();
-  else onCancel();
-}
-function onCancel() {
-  dragging.value = false;
-  near.value = false;
-  if (!busy) {
-    tx.value = 0;
-    ty.value = 0;
-  }
-}
-// keyboard (Enter/Space) lang ang aabot dito; ang mouse/daliri ay hawak na ng pointer events
-function onKeyClick(event) {
-  if (event.detail === 0) unlock();
-}
-
 function later(fn, ms) {
   timers.push(setTimeout(fn, ms));
 }
-function unlock() {
-  if (busy || opened.value) return;
-  busy = true;
-  near.value = true;
-  const { dx, dy } = toHole();
-  tx.value += dx; // sumasalpak sa butas
-  ty.value += dy;
-  navigator.vibrate?.(20);
-  later(() => (turning.value = true), 450); // umiikot ang susi
-  later(() => {
-    opened.value = true;
-    navigator.vibrate?.([30, 50, 30]);
-    emit("opened", boxEl.value);
-  }, 1000);
-  later(() => {
-    showMessage.value = true;
-    startSlides();
-  }, 4200);
+
+function pop(k, event) {
+  if (gone.value[k] || opened.value) return;
+  const next = [...gone.value];
+  next[k] = true;
+  gone.value = next;
+  const b = balloons.value[k];
+  const id = ++fxId;
+  fx.value = [...fx.value, { id, x: b.x, y: b.y, color: b.color }];
+  later(() => (fx.value = fx.value.filter((f) => f.id !== id)), 900);
+  navigator.vibrate?.(14);
+  // confetti ng pagputok: mula mismo sa katawan ng lobo
+  emit("popped", event?.currentTarget?.querySelector?.("path:nth-of-type(2)") || fieldEl.value);
+
+  if (goneCount.value >= total.value && !busy) {
+    busy = true;
+    later(() => {
+      opened.value = true;
+      navigator.vibrate?.([30, 50, 30]);
+      emit("opened", fieldEl.value);
+    }, 700);
+    later(() => {
+      showMessage.value = true;
+      startSlides();
+    }, 3800);
+  }
 }
 
 function startSlides() {
@@ -279,174 +252,119 @@ h2 {
   font-weight: 500;
   line-height: 1.15;
 }
+.hint {
+  margin: 0;
+  color: #6f5a35;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-style: italic;
+  pointer-events: none;
+}
 
-/* ===== Regalo (CSS lang) ===== */
-.gift {
+/* ===== Field ng mga lobo ===== */
+.field {
   position: relative;
   flex: none;
-  width: 240px;
-  height: 250px;
-  margin-top: 14px;
-  transition: margin-top 0.8s ease;
-}
-.opened .gift {
-  margin-top: 54px;
+  width: 320px;
+  height: 300px;
+  margin-top: 6px;
+  touch-action: none;
 }
 .rays {
   position: absolute;
   left: 50%;
-  bottom: 70px;
+  top: 238px;
   width: 360px;
   height: 360px;
-  margin-left: -180px;
+  margin: -180px 0 0 -180px;
   background: repeating-conic-gradient(rgb(255 232 170 / 0.6) 0 8deg, transparent 8deg 24deg);
   -webkit-mask-image: radial-gradient(circle, #000 15%, transparent 68%);
   mask-image: radial-gradient(circle, #000 15%, transparent 68%);
   opacity: 0;
-  transition: opacity 1.4s ease 0.4s;
+  transition: opacity 1.4s ease 0.2s;
   animation: spin 18s linear infinite;
   pointer-events: none;
 }
 .opened .rays {
   opacity: 1;
 }
-.body {
-  position: absolute;
-  left: 20px;
-  bottom: 0;
-  z-index: 3;
-  width: 200px;
-  height: 116px;
-  border-radius: 3px;
-  background:
-    linear-gradient(180deg, rgb(0 0 0 / 0.06), transparent 30%),
-    linear-gradient(90deg, #f1e7d2, #fffaf0 45%, #eadfc6);
-  box-shadow: 0 16px 30px rgb(100 75 30 / 0.3);
-}
-.lid {
-  position: absolute;
-  left: 8px;
-  bottom: 116px;
-  z-index: 4;
-  width: 224px;
-  height: 44px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #fffdf7, #f0e5cd);
-  box-shadow: 0 6px 14px rgb(100 75 30 / 0.22);
-  transition:
-    transform 1s cubic-bezier(0.3, 1, 0.4, 1),
-    opacity 0.8s ease 0.6s;
-}
-.opened .lid {
-  opacity: 0;
-  transform: translate(70px, -90px) rotate(16deg);
-}
-.ribbon-v,
-.ribbon-h {
-  position: absolute;
-  background: linear-gradient(90deg, #b8914f, #ecd6a0 45%, #b8914f);
-}
-.ribbon-v {
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 30px;
-  margin-left: -15px;
-}
-.ribbon-h {
-  top: 40%;
-  left: 0;
-  right: 0;
-  height: 22px;
-  background: linear-gradient(180deg, #b8914f, #ecd6a0 45%, #b8914f);
-}
 
-/* ===== Kandado ===== */
-.lock {
+.balloon {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
-  width: 44px;
-  height: 52px;
-  margin: -24px 0 0 -22px;
+  width: 54px;
+  height: 120px;
+  margin-left: -27px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(0 6px 5px rgb(100 75 30 / 0.22));
+  transition: transform 0.12s ease-out, opacity 0.12s ease-out;
 }
-.plate {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border: 2px solid #8f6d33;
-  border-radius: 10px 10px 18px 18px;
-  background: radial-gradient(circle at 35% 25%, #fff0c4, #c9a15a 70%);
-  box-shadow: 0 4px 8px rgb(100 75 30 / 0.4);
-  transition: box-shadow 0.4s ease, transform 0.4s ease;
+.balloon:focus-visible {
+  outline: 2px dashed #3f3a2e;
+  outline-offset: 4px;
 }
-.near .plate,
-.turning .plate {
-  box-shadow:
-    0 0 0 5px rgb(255 226 140 / 0.45),
-    0 0 22px 6px rgb(255 214 112 / 0.9);
-  transform: scale(1.08);
+.balloon:active:not(.gone) {
+  transform: scale(1.12);
 }
-.hole {
+.balloon.gone {
+  opacity: 0;
+  transform: scale(1.5);
+  pointer-events: none;
+}
+.sway {
   display: block;
-  width: 9px;
-  height: 20px;
-  border-radius: 5px 5px 2px 2px;
-  background: #3d2e12;
-  clip-path: polygon(50% 0, 100% 24%, 100% 100%, 0 100%, 0 24%);
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  animation: float var(--dur) ease-in-out var(--del) infinite alternate;
+}
+.sway svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-/* ===== Bow (palamuti na lang) ===== */
-.bow {
+/* ===== Pagputok ===== */
+.burst {
   position: absolute;
-  left: 50%;
-  bottom: 150px;
-  z-index: 6;
-  width: 96px;
-  height: 56px;
-  margin-left: -48px;
-  transition: transform 0.6s ease, opacity 0.6s ease;
+  z-index: 8;
+  width: 0;
+  height: 0;
+  pointer-events: none;
 }
-.opened .bow {
+.ring {
+  position: absolute;
+  left: -26px;
+  top: -26px;
+  width: 52px;
+  height: 52px;
+  border: 3px solid var(--c);
+  border-radius: 50%;
   opacity: 0;
-  transform: translateY(-30px) scale(0.6);
+  animation: ring 0.5s ease-out;
 }
-.loop {
+.shard {
   position: absolute;
-  top: 8px;
-  width: 50px;
-  height: 36px;
-  border: 9px solid #c9a15a;
-  border-radius: 50%;
-  box-shadow: inset 0 2px 3px rgb(255 255 255 / 0.45), 0 3px 6px rgb(100 75 30 / 0.3);
-}
-.loop.l {
-  left: 0;
-  transform: rotate(-22deg);
-}
-.loop.r {
-  right: 0;
-  transform: rotate(22deg);
-}
-.knot {
-  position: absolute;
-  top: 16px;
-  left: 50%;
-  width: 22px;
-  height: 22px;
-  margin-left: -11px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff0c4, #b8914f 75%);
-  box-shadow: 0 3px 6px rgb(100 75 30 / 0.35);
+  left: -4px;
+  top: -3px;
+  width: 8px;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0;
+  animation: shard 0.8s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
-/* ===== Mga litratong lumilipad palabas ===== */
+/* ===== Mga litratong lumilipad papunta sa tumpok ===== */
 .fly {
   position: absolute;
   left: 50%;
-  bottom: 110px;
+  top: 238px;
   z-index: 2;
   width: 64px;
   margin: 0;
@@ -454,10 +372,7 @@ h2 {
   background: #fffdf7;
   box-shadow: 0 8px 16px rgb(100 75 30 / 0.3);
   opacity: 0;
-  transform: translate(-50%, 70px) scale(0.3) rotate(0deg);
-  transition:
-    transform 1.3s cubic-bezier(0.25, 1.15, 0.35, 1) calc(var(--k) * 0.09s + 0.35s),
-    opacity 0.5s ease calc(var(--k) * 0.09s + 0.35s);
+  transform: translate(calc(-50% + var(--fx)), calc(-50% + var(--fy))) scale(0.2) rotate(-20deg);
   pointer-events: none;
 }
 .fly img {
@@ -466,69 +381,13 @@ h2 {
   aspect-ratio: 1;
   object-fit: cover;
 }
-.opened .fly {
+.fly.shown {
   opacity: 1;
   z-index: calc(2 + var(--k));
-  transform: translate(calc(-50% + var(--x)), var(--y)) rotate(var(--r));
-}
-
-/* ===== Susi ===== */
-.key-dock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-}
-.key {
-  position: relative;
-  z-index: 8;
-  width: 46px;
-  height: 100px;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: grab;
-  touch-action: none;
-  transition: translate 0.55s cubic-bezier(0.3, 1.3, 0.5, 1);
-  animation: bob 1.8s ease-in-out infinite alternate;
-  filter: drop-shadow(0 6px 6px rgb(100 70 20 / 0.35));
-}
-.key.dragging {
-  cursor: grabbing;
-  transition: none;
-  animation: none;
-}
-.key:focus-visible {
-  outline: 2px dashed #3f3a2e;
-  outline-offset: 4px;
-}
-.key svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-.key-art {
-  transform-origin: 18px 10px;
-  transition: transform 0.55s cubic-bezier(0.3, 1.2, 0.5, 1);
-}
-.teeth {
-  fill: url(#te-key-gold);
-}
-.turning .key-art {
-  transform: rotate(90deg);
-}
-.opened .key {
-  opacity: 0;
-}
-.hint {
-  margin: 0;
-  color: #6f5a35;
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-style: italic;
-  pointer-events: none;
+  transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r));
+  transition:
+    transform 1.1s cubic-bezier(0.25, 1.2, 0.35, 1),
+    opacity 0.4s ease;
 }
 
 /* ===== Mensahe ===== */
@@ -668,9 +527,32 @@ h2 {
     transform: rotate(360deg);
   }
 }
-@keyframes bob {
+@keyframes float {
+  from {
+    transform: translateY(0) rotate(-3deg);
+  }
   to {
-    transform: translateY(-6px);
+    transform: translateY(-9px) rotate(3deg);
+  }
+}
+@keyframes ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+@keyframes shard {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateX(4px) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateX(var(--d)) rotate(280deg) translateY(10px);
   }
 }
 @keyframes pop-in {
@@ -683,8 +565,10 @@ h2 {
   .gift-stage {
     padding: 16px 22px 16px;
   }
-  .gift {
-    zoom: 0.72;
+  .field {
+    transform: scale(0.72);
+    transform-origin: top center;
+    margin-bottom: -84px; /* bawi sa espasyong naiwan ng scale */
   }
   .photo-oval {
     width: 100px;
@@ -706,7 +590,7 @@ h2 {
 }
 @media (prefers-reduced-motion: reduce) {
   .rays,
-  .key {
+  .sway {
     animation: none;
   }
 }

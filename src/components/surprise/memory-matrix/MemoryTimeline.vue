@@ -1,8 +1,8 @@
 <template>
-  <!-- MEMORY LANE: daan na may mga taon; bawat memory ay "encrypted" (hex code ng title) hanggang i-tap -->
+  <!-- MEMORY MATRIX TIMELINE: daan na may mga taon; bawat memory ay "encrypted" (hex code ng title) hanggang i-tap -->
   <section class="timeline">
     <header class="timeline-head">
-      <p class="eyebrow">memory_lane / {{ opened.length }} of {{ memories.length }} unlocked</p>
+      <p class="eyebrow">memory_matrix / {{ opened.length }} of {{ memories.length }} unlocked</p>
       <h2>Walk down memory lane</h2>
       <p class="sub">Tap each memory to decrypt it.</p>
     </header>

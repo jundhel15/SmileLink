@@ -22,6 +22,8 @@ let last = 0;
 let observer = null;
 let items = [];
 let petalUntil = 0;
+let confettiUntil = 0;
+const CONFETTI = ["#d9b46a", "#ecd49a", "#f0a79a", "#e79bb4", "#a3b294", "#fff2c4", "#cfdcc4"];
 
 /* sprite ng kinang: iginuguhit isang beses lang */
 const glow = makeGlowSprite();
@@ -65,12 +67,18 @@ function petals(seconds = 3) {
   petalUntil = performance.now() / 1000 + (props.reduced ? seconds / 3 : seconds);
 }
 
+// confetti pang-birthday: makukulay na piraso (ginto, blush, sage) na bumabagsak
+function confetti(seconds = 3) {
+  confettiUntil = performance.now() / 1000 + (props.reduced ? seconds / 3 : seconds);
+}
+
 function reset() {
   items = [];
   petalUntil = 0;
+  confettiUntil = 0;
 }
 
-defineExpose({ burst, petals, reset });
+defineExpose({ burst, petals, confetti, reset });
 
 /* ===== Galaw bawat frame ===== */
 function update(dt, now) {
@@ -90,6 +98,24 @@ function update(dt, now) {
       age: 0,
     });
   }
+  if (now < confettiUntil && items.length < 260 && Math.random() < 0.8) {
+    items.push({
+      type: "confetti",
+      x: rand(0, width),
+      y: -12,
+      vx: rand(-25, 25),
+      vy: rand(70, 140),
+      size: rand(6, 11),
+      round: Math.random() < 0.3,
+      color: CONFETTI[Math.floor(Math.random() * CONFETTI.length)],
+      rot: rand(0, Math.PI * 2),
+      spin: rand(-5, 5),
+      flip: rand(0, Math.PI * 2),
+      phase: rand(0, Math.PI * 2),
+      life: 8,
+      age: 0,
+    });
+  }
   items.forEach((item) => {
     item.age += dt;
     if (item.type === "spark") {
@@ -97,6 +123,10 @@ function update(dt, now) {
       item.vx *= 1 - 1.4 * dt;
       item.vy *= 1 - 1.1 * dt;
       item.x += item.vx * dt;
+      item.y += item.vy * dt;
+      item.rot += item.spin * dt;
+    } else if (item.type === "confetti") {
+      item.x += (item.vx + Math.sin(item.age * 2.4 + item.phase) * 22) * dt;
       item.y += item.vy * dt;
       item.rot += item.spin * dt;
     } else {
@@ -133,6 +163,22 @@ function draw(t) {
       ctx.rotate(item.rot);
       ctx.fillStyle = "#fff8dc";
       star(item.size * 0.55);
+      ctx.restore();
+    } else if (item.type === "confetti") {
+      const fade = Math.min(1, (item.life - item.age) / 1.2);
+      ctx.save();
+      ctx.translate(item.x, item.y);
+      ctx.rotate(item.rot);
+      ctx.scale(1, 0.25 + 0.75 * Math.abs(Math.cos(t * 3 + item.flip)));
+      ctx.globalAlpha = 0.95 * fade;
+      ctx.fillStyle = item.color;
+      if (item.round) {
+        ctx.beginPath();
+        ctx.arc(0, 0, item.size * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(-item.size * 0.35, -item.size * 0.6, item.size * 0.7, item.size * 1.2);
+      }
       ctx.restore();
     } else {
       const fade = Math.min(1, (item.life - item.age) / 1.2);

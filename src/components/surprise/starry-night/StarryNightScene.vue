@@ -6,8 +6,9 @@
        3) constellation: i-drag mula bituin hanggang bituin → hugis-pusong constellation
        4) hidden words: i-tap ang dagat → ripple + nakatagong salita
        5) message in a bottle: hilahin ang bote sa pampang → buksan ang sulat
-       6) punuin ang buwan (paikutin ang daliri) → mga litrato sa loob + birthday message
-       7) "See our memories": swipeable na gallery ng 5-10 litrato -->
+       6) play the stars: i-tap ang umiilaw na bituin para tumugtog ang "Happy birthday to you"
+       7) firefly jar: madilim; buksan ang garapon → ang mga alitaptap ang nagpapaliwanag sa mga litrato → message
+          (pag tapos: i-tap ang litrato para lumaki) -->
   <div
     ref="sceneEl"
     class="scene-root"
@@ -15,7 +16,7 @@
     @pointermove="onPointerMove"
     @pointerleave="pointerActive = false"
   >
-    <MoonEnvironment :glow="moonlight" :hide-moon="phase === 'moon'" />
+    <MoonEnvironment :glow="moonlight" />
     <OceanEnvironment />
     <div class="vignette" />
     <SakuraBranches />
@@ -75,23 +76,24 @@
         :sender="content.sender"
         :note="content.bottleNote"
         @opened="burstAt($event, 40)"
-        @done="phase = 'moon'"
+        @done="phase = 'stars'"
       />
     </Transition>
     <Transition name="stage">
-      <MoonReveal
-        v-if="phase === 'moon'"
+      <StarSong v-if="phase === 'stars'" @note="burstAt($event, 14)" @complete="burstAt($event, 60)" @done="phase = 'jar'" />
+    </Transition>
+    <Transition name="stage">
+      <FireflyJar
+        v-if="phase === 'jar'"
         :recipient="content.recipient"
         :sender="content.sender"
         :message="content.message"
         :photos="photos"
-        @full="onMoonFull"
-        @gallery="phase = 'gallery'"
+        :reduced="reduced"
+        @opened="burstAt($event, 30)"
+        @complete="burstAt($event, 80)"
         @replay="replay"
       />
-    </Transition>
-    <Transition name="stage">
-      <MemoryGallery v-if="phase === 'gallery'" :recipient="content.recipient" :photos="photos" @replay="replay" />
     </Transition>
 
     <div class="veil" :class="{ on: veil }" />
@@ -112,8 +114,8 @@ import LanternRelease from "./LanternRelease.vue";
 import ConstellationTrace from "./ConstellationTrace.vue";
 import WaterRipples from "./WaterRipples.vue";
 import MessageBottle from "./MessageBottle.vue";
-import MoonReveal from "./MoonReveal.vue";
-import MemoryGallery from "./MemoryGallery.vue";
+import StarSong from "./StarSong.vue";
+import FireflyJar from "./FireflyJar.vue";
 
 // content = recipient, sender, wishes (5), lanterns (3 maikling sulat), waterWords (pangungusap),
 //           bottleNote (sulat sa bote), message, photos (5-10 litrato: URL o { src, caption }),
@@ -135,7 +137,7 @@ const buttonWrap = ref(null);
 const heartRef = ref(null);
 const particlesRef = ref(null);
 
-const phase = ref("intro"); // intro → journey → lanterns → constellation → ripples → bottle → moon → gallery
+const phase = ref("intro"); // intro → journey → lanterns → constellation → ripples → bottle → stars → jar
 const revealed = ref(false); // lalabas ang wish stars pagkatapos ng title animation
 const foundCount = ref(0);
 const veil = ref(false);
@@ -219,10 +221,6 @@ function burstAt(el, count) {
   particlesRef.value?.burst(x, y, { count, speed: 120, life: 2, size: 1.1 });
 }
 
-function onMoonFull(el) {
-  const { x, y } = localCenter(el);
-  particlesRef.value?.burst(x, y, { count: 70, speed: 150, life: 2.4, size: 1.2 });
-}
 
 function replay() {
   clearTimers();

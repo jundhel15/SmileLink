@@ -14,7 +14,7 @@ import birthdayCake from "@/assets/occasions/birthday-cake.webp";
 /* SAMPLE na laman. Papalitan ito ng sagot ng customer sa form:
    recipient/sender, 5 wishes, 3 lantern notes, waterWords (pangungusap sa dagat),
    bottleNote (sulat sa bote), message,
-   photos: 5-10 litrato (URL, o { src, caption }). Lalabas sa loob ng full moon + sa gallery */
+   photos: 6-10 litrato (URL, o { src, caption }). Lalabas sa "See our memories" gallery */
 const sampleContent = {
   recipient: "Maria",
   sender: "Juan",
@@ -30,13 +30,14 @@ const sampleContent = {
   bottleNote:
     "If this bottle found you, it means the sea knew where to go. Wherever life takes you this year, I hope you always find your way back to the people who love you.",
   message: "Thank you for making every day brighter. I'm so lucky to celebrate you today!",
-  // SAMPLE lang: iisang larawan ang inuulit. Papalitan ng mga na-upload ng customer (5 hanggang 10).
+  // SAMPLE lang: iisang larawan ang inuulit. Papalitan ng mga na-upload ng customer (6 hanggang 10).
   photos: [
     { src: birthdayCake, caption: "Our first adventure" },
     { src: birthdayCake, caption: "That silly day" },
     { src: birthdayCake, caption: "Sunset with you" },
     { src: birthdayCake, caption: "Just us" },
     { src: birthdayCake, caption: "Forever favorite" },
+    { src: birthdayCake, caption: "Here's to more" },
   ],
 };
 

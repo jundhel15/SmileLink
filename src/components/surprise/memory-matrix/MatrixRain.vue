@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-/* MATRIX RAIN ng Memory Lane: bumabagsak na letra galing sa pangalan, petsa at ♥ (hindi berdeng code).
+/* MATRIX RAIN ng Memory Matrix: bumabagsak na letra galing sa pangalan, petsa at ♥ (hindi berdeng code).
    Habang naka-`decoding`, bawat letra ng `message` na madaanan ng ulan ay nagsa-scramble tapos nabubuo.
    Iginuguhit sa canvas; ang trail ay galing sa translucent na fade bawat frame. */
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";

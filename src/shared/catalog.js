@@ -68,10 +68,10 @@ export const TEMPLATES = [
     isNew: true,
   },
   {
-    id: "memory-lane",
+    id: "memory-matrix",
     occasion: "birthday",
     number: "03",
-    name: "Memory Lane",
+    name: "Memory Matrix",
     heading: "Another Chapter",
     style: "Fun",
   },
