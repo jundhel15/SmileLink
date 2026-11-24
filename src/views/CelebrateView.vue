@@ -30,6 +30,7 @@
 
       <div class="account-actions">
         <a
+          v-if="my_orders_enabled"
           class="orders-link"
           :class="{ active: isOrdersPage }"
           href="/orders"
@@ -119,6 +120,8 @@ import ReviewpayTemp from "@/components/form/ReviewpayTemp.vue";
 
 const route = useRoute();
 const router = useRouter();
+// naka-off muna: wala pang login. Gawing true at ibalik ang component ng /orders sa router
+const my_orders_enabled = false;
 const isOrdersPage = computed(() => route.name === "my-orders");
 const isTemplateStep = computed(() => route.name === "birthday-template");
 const isMonthsaryStep = computed(() => route.name === "monthsary-template");

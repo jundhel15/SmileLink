@@ -168,9 +168,10 @@ const surpriseLink = computed(() =>
 );
 const displayLink = computed(() => surpriseLink.value.replace(/^https?:\/\//, ""));
 
+const copyNote = draft.send_copy ? " A copy of the link was sent to you." : "";
 const deliveryMessage = computed(() => {
   if (!scheduledAt.value) {
-    return `We've emailed it to ${recipientName}. A copy was sent to you.`;
+    return `We've emailed it to ${recipientName}.${copyNote}`;
   }
   const scheduled = new Date(scheduledAt.value);
   const date = scheduled.toLocaleDateString("en-US", {
@@ -184,7 +185,7 @@ const deliveryMessage = computed(() => {
     minute: "2-digit",
     timeZone: "Asia/Manila",
   });
-  return `We'll email it to ${recipientName} on ${date} at ${time} (PH time). A copy was sent to you.`;
+  return `We'll email it to ${recipientName} on ${date} at ${time} (PH time).${copyNote}`;
 });
 
 const confetti = [

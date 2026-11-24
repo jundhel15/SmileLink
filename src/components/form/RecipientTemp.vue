@@ -12,6 +12,7 @@
             <span>Recipient's name <span class="required-mark">*</span></span>
             <input
               v-model="form.recipient_name"
+              maxlength="60"
               type="text"
               autocomplete="name"
               placeholder="Maria Santos"
@@ -29,6 +30,7 @@
             <span>Recipient's email <span class="required-mark">*</span></span>
             <input
               v-model="form.recipient_email"
+              maxlength="254"
               type="email"
               autocomplete="email"
               placeholder="maria.santos@gmail.com"
@@ -46,6 +48,7 @@
             <span>Your name (shown as sender) <span class="required-mark">*</span></span>
             <input
               v-model="form.sender_name"
+              maxlength="60"
               type="text"
               autocomplete="name"
               placeholder="Juan"
@@ -63,6 +66,7 @@
             <span>Your email (for receipt) <span class="required-mark">*</span></span>
             <input
               v-model="form.sender_email"
+              maxlength="254"
               type="email"
               autocomplete="email"
               placeholder="juan@email.com"
@@ -188,7 +192,7 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import { errorMessage, readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
 const PHILIPPINE_OFFSET_HOURS = 8;
@@ -324,7 +328,7 @@ async function saveRecipient() {
   } catch (error) {
     console.error(error);
     saveState.value = "";
-    showToast("Couldn't save your details. Please try again.", "error");
+    showToast(errorMessage(error, "Couldn't save your details. Please try again."), "error");
     return;
   }
 

@@ -31,18 +31,32 @@ function escapeHtml(text) {
   );
 }
 
-// Sends the surprise link to the recipient. Throws if no sender is set up or the email is rejected.
-export async function sendSmileLinkEmail({ to, recipientName, senderName, link }) {
-  if (!gmail && !resend) {
+// Sends one email. Throws if no sender is set up or the email is rejected.
+async function send(message) {
+  if (gmail) {
+    try {
+      const info = await gmail.sendMail({ from: EMAIL_FROM, ...message });
+      return { id: info.messageId, via: "gmail" };
+    } catch (error) {
+      throw new Error(`Gmail failed: ${error.message}`, { cause: error });
+    }
+  }
+  if (!resend) {
     throw new Error("No email sender: set GMAIL_USER + GMAIL_APP_PASSWORD (or RESEND_API_KEY)");
   }
 
+  const { data, error } = await resend.emails.send({ from: EMAIL_FROM, ...message });
+  if (error) throw new Error(`Resend failed: ${error.message}`);
+  return { ...data, via: "resend" };
+}
+
+// Sends the surprise link to the recipient.
+export async function sendSmileLinkEmail({ to, recipientName, senderName, link }) {
   const recipient = escapeHtml(recipientName || "there");
   const sender = escapeHtml(senderName || "Someone");
   const safeLink = escapeHtml(link);
 
-  const message = {
-    from: EMAIL_FROM,
+  return send({
     to,
     subject: `${senderName || "Someone"} sent you a surprise 🎉`,
     text: `Hi ${recipientName || "there"},\n\n${senderName || "Someone"} made a surprise for you. Open it here:\n${link}\n\n— SmileLink`,
@@ -56,18 +70,48 @@ export async function sendSmileLinkEmail({ to, recipientName, senderName, link }
         </p>
         <p style="font-size: 13px; color: #6b7280;">Or copy this link: ${safeLink}</p>
       </div>`,
-  };
+  });
+}
 
-  if (gmail) {
-    try {
-      const info = await gmail.sendMail(message);
-      return { id: info.messageId, via: "gmail" };
-    } catch (error) {
-      throw new Error(`Gmail failed: ${error.message}`, { cause: error });
-    }
-  }
+// Sends the sender their own copy of the link, so they still have it if their browser is cleared.
+export async function sendSenderCopyEmail({ to, senderName, recipientName, link, scheduledAt }) {
+  const recipient = recipientName || "your recipient";
+  const opensAt = scheduledAt
+    ? new Date(scheduledAt).toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Manila",
+      })
+    : "";
+  const status = opensAt
+    ? `The link opens on ${opensAt} (Philippine time).`
+    : `We also emailed it to ${recipient}.`;
 
-  const { data, error } = await resend.emails.send(message);
-  if (error) throw new Error(`Resend failed: ${error.message}`);
-  return { ...data, via: "resend" };
+  return send({
+    to,
+    subject: `Your SmileLink for ${recipient} is ready`,
+    text: `Hi ${senderName || "there"},\n\nYour payment was received and your surprise for ${recipient} is ready. ${status}\n\nKeep this link:\n${link}\n\n— SmileLink`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #3264e8;">Your SmileLink is ready</h2>
+        <p>Hi ${escapeHtml(senderName || "there")},</p>
+        <p>Your payment was received and your surprise for ${escapeHtml(recipient)} is ready. ${escapeHtml(status)}</p>
+        <p style="margin: 28px 0;">
+          <a href="${escapeHtml(link)}" style="background: #3264e8; color: #fff; padding: 12px 22px; border-radius: 8px; text-decoration: none; font-weight: bold;">View the surprise</a>
+        </p>
+        <p style="font-size: 13px; color: #6b7280;">Keep this link: ${escapeHtml(link)}</p>
+      </div>`,
+  });
+}
+
+// Tells the shop owner about a payment that needs a person. Goes to ALERT_EMAIL, or the Gmail account.
+export async function sendOwnerAlertEmail({ subject, details }) {
+  const to = process.env.ALERT_EMAIL?.trim() || GMAIL_USER;
+  if (!to) throw new Error("No alert address: set ALERT_EMAIL");
+  const lines = Object.entries(details).map(([name, value]) => `${name}: ${value}`);
+  return send({
+    to,
+    subject: `[SmileLink alert] ${subject}`,
+    text: `${subject}\n\n${lines.join("\n")}`,
+  });
 }

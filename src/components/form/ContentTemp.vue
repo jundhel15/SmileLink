@@ -122,7 +122,13 @@
           </label>
           <label v-if="form.password_enabled" class="field">
             <span>Password</span>
-            <input v-model="form.password" type="text" maxlength="40" placeholder="Something only they know" />
+            <input
+              v-model="form.password"
+              type="text"
+              maxlength="40"
+              autocomplete="off"
+              :placeholder="passwordSet ? 'Saved. Type here only to change it' : 'Something only they know'"
+            />
           </label>
           <label v-if="form.password_enabled" class="field">
             <span>Hint (optional)</span>
@@ -134,7 +140,13 @@
           <div class="block-head"><span>Video clip</span></div>
           <label class="field">
             <span>YouTube link</span>
-            <input v-model="form.video_link" type="url" placeholder="https://youtu.be/..." />
+            <input
+              v-model="form.video_link"
+              type="url"
+              placeholder="https://youtu.be/..."
+              :aria-invalid="Boolean(videoLinkError)"
+            />
+            <small v-if="videoLinkError" class="field-error">{{ videoLinkError }}</small>
           </label>
           <small class="field-hint">Or upload a short clip after checkout.</small>
         </template>
@@ -244,8 +256,9 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import { errorMessage, readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
+import { VIDEO_LINK_PATTERN } from "@/shared/catalog";
 
 const MESSAGE_LIMIT = 1000;
 const MAX_PHOTO_WIDTH = 1600;
@@ -286,7 +299,7 @@ const form = reactive({
   music_track: draft.music_track || "",
   music_link: draft.music_link || "",
   password_enabled: draft.password_enabled ?? false,
-  password: draft.password || "",
+  password: "", // nasa form lang; hindi sine-save sa browser
   password_hint: draft.password_hint || "",
   video_link: draft.video_link || "",
 });
@@ -300,6 +313,7 @@ const sections = computed(() => [
   { id: "group", label: "Group wishes", icon: "group", locked: !packageLimits.has_group },
 ]);
 const activeSection = ref("message");
+const passwordSet = ref(Boolean(draft.password_set)); // may password na sa server
 const previewDevice = ref("phone");
 const photos = ref([]);
 const photoError = ref("");
@@ -337,6 +351,11 @@ const musicLinkError = computed(() => {
     : "Paste a YouTube or Spotify link.";
 });
 
+const videoLinkError = computed(() => {
+  const link = form.video_link.trim();
+  return !link || VIDEO_LINK_PATTERN.test(link) ? "" : "Paste a YouTube link.";
+});
+
 let autosaveTimer;
 watch(
   form,
@@ -353,6 +372,7 @@ onUnmounted(() => {
 });
 
 function persistDraft() {
+  // inaalis ng store ang password bago i-save
   orderStore.updateOrderDraft({ ...form, photo_count: photos.value.length });
   saveStatus.value = "Saved";
 }
@@ -406,20 +426,49 @@ function removePhoto(id) {
   persistDraft();
 }
 
+// Unang bagay na kailangang ayusin bago magpatuloy: { section, message } o null
+function contentProblem() {
+  if (packageLimits.has_music && musicLinkError.value) {
+    return { section: "music", message: musicLinkError.value };
+  }
+  if (packageLimits.has_video && videoLinkError.value) {
+    return { section: "video", message: videoLinkError.value };
+  }
+  const needsPassword = packageLimits.has_password && form.password_enabled && !passwordSet.value;
+  if (needsPassword && !form.password.trim()) {
+    return { section: "password", message: "Type a password, or turn the password lock off." };
+  }
+  return null;
+}
+
 async function saveContent() {
   if (isBusy.value) return;
   clearTimeout(autosaveTimer);
   persistDraft();
 
+  const problem = contentProblem();
+  if (problem) {
+    activeSection.value = problem.section;
+    showToast(problem.message, "error");
+    return;
+  }
+
   saveState.value = "saving";
+  const newPassword = form.password_enabled && form.password.trim() ? form.password : "";
   try {
-    await saveServerOrder();
+    await saveServerOrder(newPassword ? { password: newPassword } : {});
   } catch (error) {
     console.error(error);
     saveState.value = "";
-    showToast("Couldn't save your content. Please try again.", "error");
+    showToast(errorMessage(error, "Couldn't save your content. Please try again."), "error");
     return;
   }
+  // kapag naka-off ang lock, binubura ng server ang password
+  if (newPassword || !form.password_enabled) {
+    passwordSet.value = Boolean(newPassword);
+    orderStore.updateOrderDraft({ password_set: passwordSet.value });
+  }
+  form.password = "";
 
   // maikling pagitan para mabasa ang toast bago lumipat
   showToast("Content saved");

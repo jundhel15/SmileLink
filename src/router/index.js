@@ -62,7 +62,8 @@ const router = createRouter({
     {
       path: "/orders",
       name: "my-orders",
-      component: () => import("../views/CelebrateView.vue"),
+      // naka-off muna (wala pang login): component: () => import("../views/CelebrateView.vue")
+      redirect: "/create/occasion",
     },
     {
       path: "/s/:slug",

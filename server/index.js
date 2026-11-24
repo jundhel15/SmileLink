@@ -1,10 +1,9 @@
 import express from "express";
-import cors from "cors";
 import process from "node:process";
 import { registerRoutes } from "./config/apiserver.js";
 
 const app = express();
-app.use(cors());
+// No CORS: the site and the API share one origin (Vite proxies /api in dev), so other websites stay blocked
 // Keeps the raw body so the PayMongo webhook signature can be checked against the exact bytes sent
 app.use(
   express.json({
@@ -28,6 +27,16 @@ registerRoutes(app);
 app.get("/", (req, res) => {
   ///api/health
   res.json({ ok: true, message: "Express is running" });
+});
+
+// Anything a route didn't handle. Details are only logged, never sent to the visitor.
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  if (error.status >= 400 && error.status < 500) {
+    return res.status(error.status).json({ error: "The request couldn't be read." });
+  }
+  console.error(`[api] ${req.method} ${req.originalUrl}`, error.message);
+  res.status(500).json({ error: "Something went wrong. Please try again." });
 });
 
 // On Vercel, api/index.js hands this app to a serverless function; locally it runs as a normal server

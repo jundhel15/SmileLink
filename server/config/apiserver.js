@@ -2,13 +2,30 @@ import { Buffer } from "node:buffer";
 import crypto from "node:crypto";
 import process from "node:process";
 import { supabase } from "./supabase.js";
-import { sendSmileLinkEmail } from "./email.js";
+import { sendOwnerAlertEmail, sendSenderCopyEmail, sendSmileLinkEmail } from "./email.js";
 import { paymongo } from "./paymongo.js";
+import {
+  closeOpenPayments,
+  isCurrentPayment,
+  markPaymentPaid,
+  recordPayment,
+} from "./payments.js";
+import { addressKey, clearLimits, isLimited, LIMITS } from "./ratelimit.js";
+import {
+  cleanFields,
+  draftProblem,
+  isEmail,
+  isMusicLink,
+  isVideoLink,
+  unpayableReason,
+} from "./validate.js";
 import { PACKAGES } from "../../src/shared/catalog.js";
 export let registerapp = null;
 
 // Statuses where the customer can still edit and (re)start a checkout.
 const UNPAID_STATUSES = ["draft", "pending_payment", "failed"];
+
+const UUID_PATTERN = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 // Fields the client may save, per table. Anything else in the draft is ignored.
 const ORDER_FIELDS = ["occasion", "template_id", "package_id", "is_group"];
@@ -52,14 +69,19 @@ function verifyPassword(password, stored) {
 
 // Loads a paid surprise by its slug (the order id). Scheduled ones open only after their send time.
 async function findSurprise(slug) {
-  const { data: order } = await supabase
+  if (!UUID_PATTERN.test(slug)) return null;
+  const { data: order, error } = await supabase
     .from("orders")
     .select("id, order_status, occasion, template_id, package_id")
     .eq("id", slug)
     .maybeSingle();
+  if (error) throw new Error(error.message);
   if (!order || !["paid", "scheduled", "sent"].includes(order.order_status)) return null;
 
-  const [{ data: delivery }, { data: content }] = await Promise.all([
+  const [
+    { data: delivery, error: deliveryError },
+    { data: content, error: contentError },
+  ] = await Promise.all([
     supabase
       .from("order_delivery")
       .select("recipient_name, sender_name, scheduled_at")
@@ -67,6 +89,8 @@ async function findSurprise(slug) {
       .maybeSingle(),
     supabase.from("order_content").select("*").eq("order_id", order.id).maybeSingle(),
   ]);
+  // Without the content we couldn't tell whether there's a password, so don't open it
+  if (deliveryError || contentError) throw new Error((deliveryError ?? contentError).message);
   if (order.order_status === "scheduled" && new Date(delivery?.scheduled_at) > new Date()) {
     return null;
   }
@@ -75,13 +99,17 @@ async function findSurprise(slug) {
 
 // What the recipient sees. Never includes emails, tokens or the password hash.
 function surpriseBody({ order, delivery, content }) {
+  const limits = PACKAGES[order.package_id];
   return {
     occasion: order.occasion,
     template_id: order.template_id,
     package_id: order.package_id,
     recipient_name: delivery.recipient_name,
     sender_name: delivery.sender_name,
-    ...pick(content, ["headline", "message", "sign_off", "music_track", "music_link", "video_link"]),
+    ...pick(content, ["headline", "message", "sign_off"]),
+    ...(limits?.has_music && pick(content, ["music_track"])),
+    ...(limits?.has_music && isMusicLink(content.music_link) && pick(content, ["music_link"])),
+    ...(limits?.has_video && isVideoLink(content.video_link) && pick(content, ["video_link"])),
   };
 }
 
@@ -111,62 +139,169 @@ async function saveChildRow(table, orderId, values) {
 // Token comes from the x-order-token header, or order_token in the body (the draft sends it there).
 async function findAuthorizedOrder(req) {
   const token = req.get("x-order-token") || req.body?.order_token;
-  if (!token) return null;
+  if (typeof token !== "string" || !token || !UUID_PATTERN.test(req.params.id ?? "")) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("orders")
-    .select("id, order_status")
+    .select("id, order_status, occasion, template_id, package_id")
     .eq("id", req.params.id)
     .eq("access_token", hashToken(token))
     .maybeSingle();
+  // Not "not found": the browser would start a second order for something already being paid
+  if (error) throw new Error(error.message);
   return data;
 }
 
-// Marks the order paid, then emails the link (or leaves it "scheduled"). Safe to call again
-// for an order that is already "paid", so a failed email can be retried without charging again.
-async function fulfillPaidOrder(orderId) {
+// Loads what a payment needs and checks the order is complete, whatever the browser allowed.
+async function checkPayable(order) {
+  const [
+    { data: delivery, error: deliveryError },
+    { data: content, error: contentError },
+  ] = await Promise.all([
+    supabase
+      .from("order_delivery")
+      .select(
+        "recipient_name, recipient_email, sender_name, sender_email, delivery_mode, scheduled_at",
+      )
+      .eq("order_id", order.id)
+      .maybeSingle(),
+    supabase
+      .from("order_content")
+      .select("message, music_track, music_link, video_link, password_enabled, password_hash")
+      .eq("order_id", order.id)
+      .maybeSingle(),
+  ]);
+  if (deliveryError || contentError) throw new Error((deliveryError ?? contentError).message);
+  return { delivery, problem: unpayableReason(order, delivery, content) };
+}
+
+// Emails the sender their own copy of the link. The order is already safe, so a failure is only logged.
+async function emailSenderCopy(delivery, link, scheduledAt) {
+  if (!delivery.send_copy || !isEmail(delivery.sender_email)) return;
+  try {
+    await sendSenderCopyEmail({
+      to: delivery.sender_email.trim(),
+      senderName: delivery.sender_name,
+      recipientName: delivery.recipient_name,
+      link,
+      scheduledAt,
+    });
+  } catch (error) {
+    console.error("[email] sender copy:", error.message);
+  }
+}
+
+// How long one attempt may hold the right to send the email before a retry may take over
+const EMAIL_CLAIM_MS = 5 * 60 * 1000;
+
+// Marks the order paid, then emails the link (or leaves it "scheduled"). Safe to call again for an
+// order that is already "paid": sent_at lets only one attempt send, so retries don't email twice.
+async function fulfillPaidOrder(orderId, packageId) {
   const { data: delivery, error: deliveryError } = await supabase
     .from("order_delivery")
-    .select("recipient_name, recipient_email, sender_name, delivery_mode")
+    .select(
+      "id, recipient_name, recipient_email, sender_name, sender_email, send_copy, delivery_mode, scheduled_at",
+    )
     .eq("order_id", orderId)
     .maybeSingle();
   if (deliveryError) return { status: 500, error: deliveryError.message };
 
-  const setStatus = (order_status) =>
-    supabase
+  // package_id becomes the one that was paid for, even if the draft changed after the QR was shown
+  const { data: paidRows, error: paidError } = await supabase
+    .from("orders")
+    .update({
+      order_status: "paid",
+      ...(packageId && { package_id: packageId }),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId)
+    .not("order_status", "in", "(scheduled,sent)")
+    .select("id");
+  if (paidError) return { status: 500, error: paidError.message };
+  if (paidRows.length === 0) return { status: 200 }; // another attempt already finished
+
+  // Checked again: it can be edited between showing the QR and paying
+  if (!isEmail(delivery?.recipient_email)) {
+    return { status: 400, error: "Payment saved, but the recipient email isn't valid." };
+  }
+
+  // Moves the order on from "paid". Returns true only for the attempt that made the change.
+  const finishAs = async (order_status) => {
+    const { data, error } = await supabase
       .from("orders")
       .update({ order_status, updated_at: new Date().toISOString() })
-      .eq("id", orderId);
+      .eq("id", orderId)
+      .eq("order_status", "paid")
+      .select("id");
+    if (error) throw new Error(error.message);
+    return data.length > 0;
+  };
 
-  const { error: paidError } = await setStatus("paid");
-  if (paidError) return { status: 500, error: paidError.message };
-
-  if (!delivery?.recipient_email) {
-    return { status: 400, error: "Payment saved, but the recipient email is missing." };
-  }
+  const link = `${process.env.APP_URL || "http://localhost:5173"}/s/${orderId}`;
 
   // There is no scheduler yet, so scheduled orders stay "scheduled" and are not emailed.
   if (delivery.delivery_mode === "scheduled") {
-    await setStatus("scheduled");
+    try {
+      if (await finishAs("scheduled")) await emailSenderCopy(delivery, link, delivery.scheduled_at);
+    } catch (error) {
+      return { status: 500, error: error.message };
+    }
     return { status: 200, order_status: "scheduled" };
   }
 
-  const link = `${process.env.APP_URL || "http://localhost:5173"}/s/${orderId}`;
+  const claimedAt = new Date();
+  const staleBefore = new Date(claimedAt.getTime() - EMAIL_CLAIM_MS).toISOString();
+  const { data: claimed, error: claimError } = await supabase
+    .from("order_delivery")
+    .update({ sent_at: claimedAt.toISOString() })
+    .eq("id", delivery.id)
+    .or(`sent_at.is.null,sent_at.lt.${staleBefore}`)
+    .select("id");
+  if (claimError) return { status: 500, error: claimError.message };
+  if (claimed.length === 0) return { status: 503, error: "The email is already being sent." };
+
   try {
     await sendSmileLinkEmail({
-      to: delivery.recipient_email,
+      to: delivery.recipient_email.trim(),
       recipientName: delivery.recipient_name,
       senderName: delivery.sender_name,
       link,
     });
   } catch (error) {
     console.error("[email]", error.message);
+    await supabase.from("order_delivery").update({ sent_at: null }).eq("id", delivery.id);
     return { status: 502, error: "Payment saved, but the email could not be sent." };
   }
 
-  const { error: sentError } = await setStatus("sent");
-  if (sentError) return { status: 500, error: sentError.message };
+  try {
+    await finishAs("sent");
+  } catch (error) {
+    // The email went out, so a retry would only send it twice. "paid" still opens the link.
+    console.error(`[order] ${orderId} was emailed but couldn't be set to sent:`, error.message);
+  }
+  await emailSenderCopy(delivery, link);
   return { status: 200, order_status: "sent" };
+}
+
+// Tells the shop owner about a payment that needs a person (refund, missing email). Also logged.
+async function alertOwner(subject, details) {
+  console.error(`[alert] ${subject}`, JSON.stringify(details));
+  try {
+    await sendOwnerAlertEmail({ subject, details });
+  } catch (error) {
+    console.error("[alert] email failed:", error.message);
+  }
+}
+
+// Features that aren't in the chosen package are never stored.
+function enforcePackage(order, content, limits) {
+  if (!limits) return;
+  if (!limits.has_group) order.is_group = false;
+  if (!limits.has_music) Object.assign(content, { music_track: null, music_link: null });
+  if (!limits.has_video) content.video_link = null;
+  if (!limits.has_password) {
+    Object.assign(content, { password_enabled: false, password_hash: null, password_hint: null });
+  }
 }
 
 // PayMongo-Signature: "t=<timestamp>,te=<test sig>,li=<live sig>".
@@ -201,26 +336,24 @@ export function registerRoutes(app) {
     res.json({ ok: true, from: "apiserver.js" });
   });
 
-  // Optional: also checks the Supabase connection
-  app.get("/api/db-check", async (req, res) => {
-    const { error } = await supabase.from("orders").select("*").limit(1);
-    if (error) return res.status(500).json({ ok: false, error: error.message });
-    res.json({ ok: true, db: "connected" });
-  });
-
   // Creates the order and its access token. The raw token is only ever sent back here.
   app.post("/api/orders", async (req, res) => {
+    if (await isLimited(res, [[`order:${addressKey(req)}`, LIMITS.createOrder]])) return;
+    const draft = req.body ?? {};
+    const problem = draftProblem(draft);
+    if (problem) return res.status(400).json({ error: problem });
+
     const accessToken = crypto.randomBytes(32).toString("hex");
 
     const { data, error } = await supabase
       .from("orders")
       .insert({
-        ...pick(req.body ?? {}, ORDER_FIELDS),
+        ...cleanFields(pick(draft, ORDER_FIELDS)),
         access_token: hashToken(accessToken),
       })
       .select("id")
       .single();
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) throw new Error(error.message);
 
     res.status(201).json({ order_id: data.id, access_token: accessToken });
   });
@@ -233,22 +366,36 @@ export function registerRoutes(app) {
       return res.status(409).json({ error: "This order can no longer be edited." });
     }
 
+    if (await isLimited(res, [[`save:${order.id}`, LIMITS.saveOrder]])) return;
+
     const draft = req.body ?? {};
-    const content = pick(draft, CONTENT_FIELDS);
+    const problem = draftProblem(draft);
+    if (problem) return res.status(400).json({ error: problem });
+
+    const orderFields = cleanFields(pick(draft, ORDER_FIELDS));
+    const packageId = orderFields.package_id ?? order.package_id;
+    const content = cleanFields(pick(draft, CONTENT_FIELDS));
     if (draft.password_enabled && draft.password)
       content.password_hash = hashPassword(draft.password);
     if (draft.password_enabled === false) content.password_hash = null;
+    enforcePackage(orderFields, content, PACKAGES[packageId]);
 
-    const { error: orderError } = await supabase
+    // Checked again here, in case the webhook marked the order paid in the meantime
+    const { data: saved, error: orderError } = await supabase
       .from("orders")
-      .update({ ...pick(draft, ORDER_FIELDS), updated_at: new Date().toISOString() })
-      .eq("id", order.id);
-    if (orderError) return res.status(500).json({ error: orderError.message });
+      .update({ ...orderFields, updated_at: new Date().toISOString() })
+      .eq("id", order.id)
+      .in("order_status", UNPAID_STATUSES)
+      .select("id");
+    if (orderError) throw new Error(orderError.message);
+    if (saved.length === 0) {
+      return res.status(409).json({ error: "This order can no longer be edited." });
+    }
 
     const childError =
-      (await saveChildRow("order_delivery", order.id, pick(draft, DELIVERY_FIELDS))) ||
+      (await saveChildRow("order_delivery", order.id, cleanFields(pick(draft, DELIVERY_FIELDS)))) ||
       (await saveChildRow("order_content", order.id, content));
-    if (childError) return res.status(500).json({ error: childError.message });
+    if (childError) throw new Error(childError.message);
 
     res.json({ ok: true, order_id: order.id });
   });
@@ -273,47 +420,21 @@ export function registerRoutes(app) {
     });
   });
 
-  // DEV ONLY: stands in for the PayMongo webhook so "I've completed the payment" marks the order
-  // paid and emails the link. Only runs when DEV_FAKE_PAYMENT=true; remove once the webhook exists.
-  app.post("/api/orders/:id/dev-confirm", async (req, res) => {
-    if (process.env.DEV_FAKE_PAYMENT !== "true") {
-      return res.status(404).json({ error: "Not found." });
-    }
-
-    const order = await findAuthorizedOrder(req);
-    if (!order) return res.status(404).json({ error: "Order not found." });
-    // "paid" is allowed so a failed email can be retried
-    if (![...UNPAID_STATUSES, "paid"].includes(order.order_status)) {
-      return res.status(409).json({ error: "This order was already processed." });
-    }
-
-    const result = await fulfillPaidOrder(order.id);
-    if (result.error) return res.status(result.status).json({ error: result.error });
-    res.json({ ok: true, order_status: result.order_status, link_slug: order.id });
-  });
-
   // Creates a PayMongo Checkout Session (GCash or card). The amount comes from the server catalog,
   // never from the browser. The order is only marked paid later, by the verified webhook.
   app.post("/api/checkout-sessions", async (req, res) => {
     req.params.id = req.body?.order_id;
     const order = await findAuthorizedOrder(req);
     if (!order) return res.status(404).json({ error: "Order not found." });
+    if (await isLimited(res, [[`pay:${order.id}`, LIMITS.payPerOrder]])) return;
+    if (await isLimited(res, [[`pay:${addressKey(req)}`, LIMITS.payPerAddress]])) return;
     if (!UNPAID_STATUSES.includes(order.order_status)) {
       return res.status(409).json({ error: "This order was already paid." });
     }
 
-    const [{ data: details, error: detailsError }, { data: delivery }] = await Promise.all([
-      supabase.from("orders").select("package_id").eq("id", order.id).single(),
-      supabase
-        .from("order_delivery")
-        .select("sender_name, sender_email")
-        .eq("order_id", order.id)
-        .maybeSingle(),
-    ]);
-    if (detailsError) return res.status(500).json({ error: detailsError.message });
-
-    const selectedPackage = PACKAGES[details.package_id];
-    if (!selectedPackage) return res.status(400).json({ error: "Choose a package first." });
+    const { delivery, problem } = await checkPayable(order);
+    if (problem) return res.status(400).json(problem);
+    const selectedPackage = PACKAGES[order.package_id];
 
     // qrph shows a QR on PayMongo's page that GCash, Maya or any bank app can scan
     const methods = { gcash: ["gcash"], qrph: ["qrph"], card: ["card"] };
@@ -324,14 +445,19 @@ export function registerRoutes(app) {
       ? req.get("origin")
       : process.env.APP_URL || "http://localhost:5173";
 
+    const amount = Math.round(selectedPackage.price * 100); // centavos
     try {
+      // Any earlier QR, GCash link or checkout stops working, so the customer can't pay twice
+      if (!(await closeOpenPayments(order.id))) {
+        return res.status(409).json({ error: "A payment for this order is already being confirmed." });
+      }
       const session = await paymongo("/checkout_sessions", {
         method: "POST",
         body: {
           line_items: [
             {
               name: `SmileLink ${selectedPackage.name}`,
-              amount: Math.round(selectedPackage.price * 100), // centavos
+              amount,
               currency: "PHP",
               quantity: 1,
             },
@@ -339,7 +465,7 @@ export function registerRoutes(app) {
           payment_method_types: paymentMethodTypes,
           reference_number: order.id,
           description: `SmileLink order ${order.id}`,
-          metadata: { order_id: order.id },
+          metadata: { order_id: order.id, package_id: selectedPackage.id },
           ...(delivery?.sender_email && {
             billing: { name: delivery.sender_name || "SmileLink customer", email: delivery.sender_email },
           }),
@@ -349,6 +475,12 @@ export function registerRoutes(app) {
           success_url: `${origin}/order/${order.id}/processing`,
           cancel_url: `${origin}/create/review`,
         },
+      });
+      await recordPayment({
+        orderId: order.id,
+        paymongoId: session.id,
+        method: paymentMethodTypes.join(","),
+        amount,
       });
 
       const { error: statusError } = await supabase
@@ -371,45 +503,47 @@ export function registerRoutes(app) {
     req.params.id = req.body?.order_id;
     const order = await findAuthorizedOrder(req);
     if (!order) return res.status(404).json({ error: "Order not found." });
+    if (await isLimited(res, [[`pay:${order.id}`, LIMITS.payPerOrder]])) return;
+    if (await isLimited(res, [[`pay:${addressKey(req)}`, LIMITS.payPerAddress]])) return;
     if (!UNPAID_STATUSES.includes(order.order_status)) {
       return res.status(409).json({ error: "This order was already paid." });
     }
 
     const type = req.body?.payment_method === "qrph" ? "qrph" : "gcash";
-    const [{ data: details, error: detailsError }, { data: delivery }] = await Promise.all([
-      supabase.from("orders").select("package_id").eq("id", order.id).single(),
-      supabase
-        .from("order_delivery")
-        .select("sender_name, sender_email")
-        .eq("order_id", order.id)
-        .maybeSingle(),
-    ]);
-    if (detailsError) return res.status(500).json({ error: detailsError.message });
-
-    const selectedPackage = PACKAGES[details.package_id];
-    if (!selectedPackage) return res.status(400).json({ error: "Choose a package first." });
+    const { delivery, problem } = await checkPayable(order);
+    if (problem) return res.status(400).json(problem);
+    const selectedPackage = PACKAGES[order.package_id];
 
     const origin = /^https?:\/\/[^/]+$/.test(req.get("origin") ?? "")
       ? req.get("origin")
       : process.env.APP_URL || "http://localhost:5173";
 
+    const amount = Math.round(selectedPackage.price * 100); // centavos
     try {
+      // Any earlier QR, GCash link or checkout stops working, so the customer can't pay twice
+      if (!(await closeOpenPayments(order.id))) {
+        return res.status(409).json({ error: "A payment for this order is already being confirmed." });
+      }
       const intent = await paymongo("/payment_intents", {
         method: "POST",
         body: {
-          amount: Math.round(selectedPackage.price * 100), // centavos
+          amount,
           currency: "PHP",
           payment_method_allowed: [type],
           description: `SmileLink ${selectedPackage.name} (order ${order.id})`,
           statement_descriptor: "SmileLink",
           // flow marks intents made here, so the webhook doesn't also act on checkout-session payments
-          metadata: { order_id: order.id, flow: "direct" },
+          // package_id is what this payment buys, even if the draft changes later
+          metadata: { order_id: order.id, package_id: selectedPackage.id, flow: "direct" },
         },
       });
+      await recordPayment({ orderId: order.id, paymongoId: intent.id, method: type, amount });
       const method = await paymongo("/payment_methods", {
         method: "POST",
         body: {
           type,
+          // PayMongo's default is 30 minutes
+          ...(type === "qrph" && { expiry_seconds: 5 * 60 }),
           billing: {
             name: delivery?.sender_name || "SmileLink customer",
             ...(delivery?.sender_email && { email: delivery.sender_email }),
@@ -438,8 +572,6 @@ export function registerRoutes(app) {
           image: next.code.image_url,
           expires_at: next.code.expires_at,
           reference: intent.id,
-          // PayMongo's "simulate a scan" page; only exists in test mode
-          ...(!intent.attributes.livemode && next.code.test_url && { test_url: next.code.test_url }),
         });
       }
       if (next?.type === "redirect" && next.redirect?.url) {
@@ -453,7 +585,7 @@ export function registerRoutes(app) {
   });
 
   // PayMongo calls this. Only a correctly signed checkout_session.payment.paid marks an order paid.
-  // Answering non-2xx makes PayMongo retry, which is what we want if the email failed.
+  // Answering non-2xx makes PayMongo retry, which is what we want if the database or email failed.
   app.post("/api/webhooks/paymongo", async (req, res) => {
     const event = req.body?.data?.attributes;
     if (!verifyPaymongoSignature(req.get("paymongo-signature"), req.rawBody, event?.livemode)) {
@@ -468,12 +600,18 @@ export function registerRoutes(app) {
     // Their order id is on the payment intent. Checkout sessions also send payment.paid, but those
     // intents lack flow "direct", so they're left to checkout_session.payment.paid below.
     let isDirect = false;
+    let paymongoId = event?.data?.id;
+    let packageId = resource.metadata?.package_id;
+    let expectedCentavos;
     if (["payment.paid", "payment.failed"].includes(event?.type) && resource.payment_intent_id) {
       try {
         const intent = await paymongo(`/payment_intents/${resource.payment_intent_id}`);
         if (intent.attributes.metadata?.flow === "direct") {
           isDirect = true;
           orderId = intent.attributes.metadata.order_id;
+          paymongoId = intent.id;
+          packageId = intent.attributes.metadata.package_id;
+          expectedCentavos = intent.attributes.amount;
         }
       } catch (error) {
         console.error("[webhook] couldn't read payment intent:", error.message);
@@ -485,14 +623,20 @@ export function registerRoutes(app) {
     const isPaidEvent =
       event?.type === "checkout_session.payment.paid" || (event?.type === "payment.paid" && isDirect);
     if (isPaidEvent) {
-      const { data: order } = await supabase
+      if (!UUID_PATTERN.test(orderId ?? "")) return res.json({ ignored: "not a SmileLink order" });
+      const { data: order, error: orderError } = await supabase
         .from("orders")
         .select("id, order_status, package_id")
         .eq("id", orderId)
         .maybeSingle();
-      if (!order) return res.json({ ignored: "unknown order" });
-      // A repeat delivery of an event we already handled
-      if (["scheduled", "sent"].includes(order.order_status)) return res.json({ ok: true });
+      if (orderError) {
+        console.error("[webhook] couldn't read the order:", orderError.message);
+        return res.status(500).json({ error: "Try again." }); // PayMongo retries
+      }
+      if (!order) {
+        await alertOwner("Payment received for an order that doesn't exist", { orderId, paymongoId });
+        return res.json({ ignored: "unknown order" });
+      }
 
       // A checkout session lists its payments; a payment.paid event is a single payment
       const paidCentavos =
@@ -503,19 +647,58 @@ export function registerRoutes(app) {
           : (resource.payments ?? [])
               .filter((payment) => payment.attributes?.status === "paid")
               .reduce((sum, payment) => sum + (payment.attributes.amount ?? 0), 0);
-      const priceCentavos = Math.round((PACKAGES[order.package_id]?.price ?? 0) * 100);
-      if (paidCentavos < priceCentavos) {
-        console.error(`[webhook] order ${order.id}: paid ${paidCentavos}, expected ${priceCentavos}`);
+      // Compare with what this payment was created for, not with the draft's current package
+      const paidPackage = PACKAGES[packageId] ?? PACKAGES[order.package_id];
+      const priceCentavos = expectedCentavos ?? Math.round((paidPackage?.price ?? 0) * 100);
+      if (!priceCentavos || paidCentavos < priceCentavos) {
+        await alertOwner("Payment amount doesn't match the order", {
+          orderId: order.id,
+          paymongoId,
+          paidCentavos,
+          priceCentavos,
+        });
         return res.json({ ignored: "amount mismatch" });
       }
 
-      const result = await fulfillPaidOrder(order.id);
+      let isExtra;
+      try {
+        ({ isExtra } = await markPaymentPaid({
+          orderId: order.id,
+          paymongoId,
+          method: resource.source?.type ?? null,
+          amount: paidCentavos,
+        }));
+      } catch (error) {
+        console.error(`[webhook] order ${order.id}: couldn't record the payment:`, error.message);
+        return res.status(500).json({ error: "Try again." }); // PayMongo retries
+      }
+      if (isExtra) {
+        await alertOwner("An order was paid twice and may need a refund", {
+          orderId: order.id,
+          paymongoId,
+          paidCentavos,
+        });
+      }
+      // A repeat delivery of an event we already handled
+      if (["scheduled", "sent"].includes(order.order_status)) return res.json({ ok: true });
+
+      const result = await fulfillPaidOrder(order.id, isExtra ? undefined : paidPackage?.id);
       if (result.error) console.error(`[webhook] order ${order.id}: ${result.error}`);
-      // 500 only when the email failed, so PayMongo retries and the email is resent
-      return res.status(result.status === 502 ? 500 : 200).json({ ok: !result.error });
+      if (result.status === 400) {
+        await alertOwner("Paid order has no valid recipient email", { orderId: order.id, paymongoId });
+      }
+      // 5xx: the database or email failed, so let PayMongo retry
+      return res.status(result.status >= 500 ? 500 : 200).json({ ok: !result.error });
     }
 
-    if (event?.type === "payment.failed" && orderId) {
+    if (event?.type === "payment.failed" && UUID_PATTERN.test(orderId ?? "")) {
+      try {
+        // An old, replaced payment failing says nothing about the one the customer is paying now
+        if (isDirect && !(await isCurrentPayment(orderId, paymongoId))) return res.json({ ok: true });
+      } catch (error) {
+        console.error("[webhook] couldn't check the failed payment:", error.message);
+        return res.status(500).json({ error: "Try again." }); // PayMongo retries
+      }
       await supabase
         .from("orders")
         .update({ order_status: "failed", updated_at: new Date().toISOString() })
@@ -546,8 +729,19 @@ export function registerRoutes(app) {
     if (!surprise) return res.status(404).json({ error: "Surprise not found." });
 
     const { password_enabled: enabled, password_hash: hash } = surprise.content;
-    if (enabled && hash && !verifyPassword(req.body?.password, hash)) {
-      return res.status(401).json({ error: "That password isn't right. Try again." });
+    if (enabled && hash) {
+      // Counted before checking, so many guesses at the same moment can't slip through
+      const slugKey = `unlock:${surprise.order.id}`;
+      const visitorKey = `${slugKey}:${addressKey(req)}`;
+      if (await isLimited(res, [[visitorKey, LIMITS.unlockPerAddress]])) return;
+      if (await isLimited(res, [[slugKey, LIMITS.unlockPerSurprise]])) return;
+
+      const password = req.body?.password;
+      const isGuessable = typeof password === "string" && password.length <= 200;
+      if (!isGuessable || !verifyPassword(password, hash)) {
+        return res.status(401).json({ error: "That password isn't right. Try again." });
+      }
+      await clearLimits([visitorKey, slugKey]);
     }
     res.json({ locked: false, ...surpriseBody(surprise) });
   });

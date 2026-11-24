@@ -219,7 +219,7 @@
 
           <p v-if="secondsLeft > 0" class="qr-waiting" role="status">
             <span class="qr-pulse" aria-hidden="true"></span>
-            Waiting for your payment. This page moves on by itself once it's paid.
+            Waiting for your payment.
           </p>
           <button v-else class="pay-button" type="button" :disabled="isPaying" @click="showGcashQr">
             {{ isPaying ? "Preparing GCash..." : "Generate a new QR code" }}
@@ -228,9 +228,6 @@
           <button class="qr-secondary" type="button" :disabled="isPaying" @click="openGcashApp">
             Open GCash
           </button>
-          <a v-if="qrTestUrl" class="qr-test-link" :href="qrTestUrl" target="_blank" rel="noopener">
-            Test mode: simulate a GCash scan ↗
-          </a>
           <button class="qr-cancel" type="button" @click="closeGcashModal">Cancel</button>
         </div>
       </div>
@@ -241,7 +238,13 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
-import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import {
+  errorMessage,
+  OrderPaidError,
+  readOrderDraft,
+  saveServerOrder,
+  throwIfRefused,
+} from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 import { PACKAGES, TEMPLATES } from "@/shared/catalog";
 
@@ -362,7 +365,6 @@ function formatPeso(amount) {
 // GCash QR popup: the QR image, reference and expiry come from PayMongo through our server
 const showGcashModal = ref(false);
 const qrImage = ref("");
-const qrTestUrl = ref("");
 const secondsLeft = ref(0);
 let countdownTimer = null;
 let paidCheckTimer = null;
@@ -391,12 +393,12 @@ function secondsUntil(expiresAt) {
     typeof expiresAt === "number"
       ? expiresAt * 1000
       : Date.parse(String(expiresAt ?? "").replace(/(\.\d{3})\d+/, "$1"));
-  return Number.isFinite(ms) ? Math.max(0, Math.round((ms - Date.now()) / 1000)) : 30 * 60;
+  return Number.isFinite(ms) ? Math.max(0, Math.round((ms - Date.now()) / 1000)) : 5 * 60;
 }
 
 // Saves the order, then asks the server for a GCash payment: "qrph" (QR image) or "gcash" (app link)
 async function requestGcashPayment(type) {
-  const { order_id: orderId } = await saveServerOrder();
+  const { order_id: orderId } = await saveServerOrder({}, { newOrderIfPaid: false });
   orderStore.updateOrderDraft({ payment_method: "gcash" });
 
   const response = await fetch(PAYMENT_INTENT_ENDPOINT, {
@@ -407,10 +409,19 @@ async function requestGcashPayment(type) {
     },
     body: JSON.stringify({ order_id: orderId, payment_method: type }),
   });
+  if (response.status === 409) throw new OrderPaidError(orderId);
+  await throwIfRefused(response);
   if (!response.ok) throw new Error(`Payment request failed with status ${response.status}.`);
 
   orderStore.updateOrderDraft({ order_status: "pending_payment" });
   return { orderId, ...(await response.json()) };
+}
+
+// Already paid, or a payment is going through: go wait for it instead of paying again
+function goToProcessing(orderId) {
+  stopGcashTimers();
+  showGcashModal.value = false;
+  router.push(`/order/${orderId}/processing`);
 }
 
 async function openGcashApp() {
@@ -425,8 +436,9 @@ async function openGcashApp() {
     // GCash sends the customer back to /order/:id/processing, which waits for the webhook
     window.location.assign(payment.url);
   } catch (error) {
+    if (error instanceof OrderPaidError) return goToProcessing(error.orderId);
     console.error(error);
-    paymentError.value = "We couldn't open GCash. Please try again.";
+    paymentError.value = errorMessage(error, "We couldn't open GCash. Please try again.");
     showGcashModal.value = false;
     isPaying.value = false;
   }
@@ -441,7 +453,6 @@ async function showGcashQr() {
       throw new Error("QR code is missing.");
     }
     qrImage.value = payment.image;
-    qrTestUrl.value = payment.test_url ?? "";
     secondsLeft.value = secondsUntil(payment.expires_at);
     showGcashModal.value = true;
     startGcashTimers(payment.orderId);
@@ -449,8 +460,9 @@ async function showGcashQr() {
     await nextTick();
     document.querySelector(".qr-modal .qr-close")?.focus();
   } catch (error) {
+    if (error instanceof OrderPaidError) return goToProcessing(error.orderId);
     console.error(error);
-    paymentError.value = "We couldn't create the GCash QR code. Please try again.";
+    paymentError.value = errorMessage(error, "We couldn't create the GCash QR code. Please try again.");
     showGcashModal.value = false;
   } finally {
     isPaying.value = false;
@@ -504,7 +516,7 @@ async function startCheckout() {
   paymentError.value = "";
 
   try {
-    const { order_id: orderId } = await saveServerOrder();
+    const { order_id: orderId } = await saveServerOrder({}, { newOrderIfPaid: false });
     orderStore.updateOrderDraft({ payment_method: paymentMethod.value });
 
     const response = await fetch(CHECKOUT_ENDPOINT, {
@@ -515,6 +527,8 @@ async function startCheckout() {
       },
       body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod.value }),
     });
+    if (response.status === 409) throw new OrderPaidError(orderId);
+    await throwIfRefused(response);
     if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
 
     const { checkout_url: checkoutUrl } = await response.json();
@@ -523,8 +537,9 @@ async function startCheckout() {
     orderStore.updateOrderDraft({ order_status: "pending_payment" });
     window.location.assign(checkoutUrl);
   } catch (error) {
+    if (error instanceof OrderPaidError) return goToProcessing(error.orderId);
     console.error(error);
-    paymentError.value = "We couldn't open the secure checkout. Please try again.";
+    paymentError.value = errorMessage(error, "We couldn't open the secure checkout. Please try again.");
     isPaying.value = false;
   }
 }
@@ -979,13 +994,6 @@ async function startCheckout() {
 .qr-secondary:disabled {
   cursor: wait;
   opacity: 0.6;
-}
-.qr-test-link {
-  display: inline-block;
-  margin-top: 10px;
-  color: #b07a12;
-  font-size: 11px;
-  font-weight: 700;
 }
 .qr-cancel {
   margin-top: 8px;

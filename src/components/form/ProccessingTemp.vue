@@ -1,6 +1,23 @@
 <template>
   <main class="processing-page">
-    <section v-if="!paymentFailed" class="processing-card" aria-live="polite">
+    <section v-if="timedOut" class="failed-card" role="alert" aria-labelledby="timeout-heading">
+      <h3 id="timeout-heading" class="timeout-heading">We haven't received your payment yet</h3>
+      <p class="muted">
+        If you already paid, please don't pay again. Confirmation can take a few minutes, so check
+        again shortly. Keep your order number in case you need help.
+      </p>
+      <p class="order-ref">
+        Order <code>{{ orderId }}</code>
+      </p>
+      <div class="failed-actions">
+        <button class="primary-button" type="button" @click="startPolling">Check again</button>
+        <button class="secondary-button" type="button" @click="router.push('/create/review')">
+          I haven't paid yet
+        </button>
+      </div>
+    </section>
+
+    <section v-else-if="!paymentFailed" class="processing-card" aria-live="polite">
       <span class="status-icon" aria-hidden="true">
         <span class="spinner"></span>
       </span>
@@ -49,7 +66,7 @@
         </svg>
       </span>
       <h3 id="failed-heading">Payment didn't go through</h3>
-      <p class="muted">Your card was not charged. Try again or use a different card.</p>
+      <p class="muted">You were not charged for this attempt. You can try again.</p>
       <div class="failed-actions">
         <button class="primary-button" type="button" :disabled="isRetrying" @click="retryCheckout">
           {{ isRetrying ? "Opening checkout..." : "Try again" }}
@@ -66,13 +83,15 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { readOrderDraft } from "@/utils/orderDraft";
+import { errorMessage, readOrderDraft, throwIfRefused } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
 // ang status ay galing lang sa server (PayMongo webhook na checkout_session.payment.paid na na-verify ang signature)
 const orders_endpoint = "/api/orders";
 const checkout_endpoint = "/api/checkout-sessions";
 const poll_interval_ms = 3000;
+// after this long without a confirmation, stop checking and let the customer choose what to do
+const poll_timeout_ms = 2 * 60 * 1000;
 
 const paid_status = ["paid", "scheduled", "sent"];
 const failed_status = ["failed", "cancelled", "expired"];
@@ -91,11 +110,13 @@ const steps = [
   `Scheduling the email to ${recipientName}`,
 ];
 
-const orderStatus = ref("paid");
+const orderStatus = ref("pending_payment");
 const pollError = ref("");
 const isRetrying = ref(false);
 const retryError = ref("");
+const timedOut = ref(false);
 let pollTimer;
+let timeoutTimer;
 
 const paymentFailed = computed(() => failed_status.includes(orderStatus.value));
 const currentStep = computed(() => {
@@ -132,12 +153,18 @@ async function checkStatus() {
 
 function startPolling() {
   stopPolling();
+  timedOut.value = false;
   checkStatus();
   pollTimer = setInterval(checkStatus, poll_interval_ms);
+  timeoutTimer = setTimeout(() => {
+    stopPolling();
+    timedOut.value = true;
+  }, poll_timeout_ms);
 }
 
 function stopPolling() {
   clearInterval(pollTimer);
+  clearTimeout(timeoutTimer);
 }
 
 // bagong checkout session para sa parehong order
@@ -154,6 +181,13 @@ async function retryCheckout() {
       },
       body: JSON.stringify({ order_id: orderId, payment_method: draft.payment_method }),
     });
+    // 409: bayad na o kinukumpirma na, kaya maghintay na lang ulit
+    if (response.status === 409) {
+      isRetrying.value = false;
+      orderStatus.value = "pending_payment";
+      return startPolling();
+    }
+    await throwIfRefused(response);
     if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
 
     const { checkout_url: checkoutUrl } = await response.json();
@@ -163,7 +197,10 @@ async function retryCheckout() {
     window.location.assign(checkoutUrl);
   } catch (error) {
     console.error(error);
-    retryError.value = "We couldn't open the secure checkout. Please try again.";
+    retryError.value = errorMessage(
+      error,
+      "We couldn't open the secure checkout. Please try again.",
+    );
     isRetrying.value = false;
   }
 }
@@ -307,6 +344,9 @@ onBeforeUnmount(stopPolling);
   color: #1c2344;
   font-size: 15px;
   font-weight: 900;
+}
+.failed-card .timeout-heading {
+  margin-top: 0;
 }
 .muted {
   margin: 0;
