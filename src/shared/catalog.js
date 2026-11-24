@@ -182,3 +182,4 @@ export const MESSAGE_LIMIT = 1000;
 export const MIN_SCHEDULE_MINUTES = 10;
 export const MUSIC_LINK_PATTERN =
   /^https:\/\/(www\.)?(youtube\.com|youtu\.be|open\.spotify\.com)\//;
+export const VIDEO_LINK_PATTERN = /^https:\/\/((www|m)\.)?(youtube\.com|youtu\.be)\//;

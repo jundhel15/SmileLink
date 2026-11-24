@@ -12,7 +12,6 @@ HOW TO START THE APP
        SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
        PAYMONGO_SECRET_KEY, PAYMONGO_PUBLIC_KEY, PAYMONGO_WEBHOOK_SECRET
        RESEND_API_KEY, EMAIL_FROM
-       DEV_FAKE_PAYMENT=false        (true = orders can be "paid" without PayMongo; testing only)
      Never commit server/.env (it is in .gitignore).
 
 2. START THE APP (local, for building and testing on your PC)

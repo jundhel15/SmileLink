@@ -27,7 +27,9 @@ export async function paymongo(path, { method = "GET", body } = {}) {
   const json = await response.json();
   if (!response.ok) {
     const message = json.errors?.map((error) => error.detail).join(" ") || response.statusText;
-    throw new Error(`PayMongo ${method} ${path} failed: ${message}`);
+    const error = new Error(`PayMongo ${method} ${path} failed: ${message}`);
+    error.status = response.status;
+    throw error;
   }
   return json.data;
 }

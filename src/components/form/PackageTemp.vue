@@ -171,7 +171,7 @@
 <script setup>
 import { computed, onUnmounted, reactive, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import { errorMessage, readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 import { PACKAGES } from "@/shared/catalog";
 
@@ -241,7 +241,10 @@ async function confirmPackage(packageOption) {
   } catch (error) {
     console.error(error);
     saveState.value = "";
-    showToast(`Couldn't save ${packageOption.name}. Please try again.`, "error");
+    showToast(
+      errorMessage(error, `Couldn't save ${packageOption.name}. Please try again.`),
+      "error",
+    );
     return;
   }
 

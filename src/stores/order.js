@@ -9,6 +9,7 @@ export const useOrderStore = defineStore("order", {
   actions: {
     updateOrderDraft(updates) {
       this.orders = { ...readOrderDraft(), ...updates };
+      delete this.orders.password; // hindi sine-save sa browser
       localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(this.orders));
       return this.orders;
     },
