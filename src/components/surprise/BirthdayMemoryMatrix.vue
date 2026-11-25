@@ -47,7 +47,14 @@ const props = defineProps({
 });
 const emit = defineEmits(["close", "use"]);
 
-const c = computed(() => ({ ...sampleContent, ...props.content }));
+// mga litrato ng customer ang nasa bawat memory, inuulit kapag kulang
+const c = computed(() => {
+  const merged = { ...sampleContent, ...props.content };
+  const photos = props.content.photos ?? [];
+  if (!photos.length) return merged;
+  const memories = merged.memories.map((m, i) => ({ ...m, src: photos[i % photos.length].src }));
+  return { ...merged, memories };
+});
 </script>
 
 <style scoped>

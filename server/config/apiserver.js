@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import crypto from "node:crypto";
 import process from "node:process";
+import express from "express";
 import { supabase } from "./supabase.js";
 import { sendOwnerAlertEmail, sendSenderCopyEmail, sendSmileLinkEmail } from "./email.js";
 import { paymongo } from "./paymongo.js";
@@ -10,6 +11,15 @@ import {
   markPaymentPaid,
   recordPayment,
 } from "./payments.js";
+import {
+  deletePhoto,
+  isJpeg,
+  isPhotoId,
+  listPhotoIds,
+  MAX_PHOTO_BYTES,
+  photoLinks,
+  savePhoto,
+} from "./photos.js";
 import { addressKey, clearLimits, isLimited, LIMITS } from "./ratelimit.js";
 import {
   cleanFields,
@@ -19,7 +29,7 @@ import {
   isVideoLink,
   unpayableReason,
 } from "./validate.js";
-import { PACKAGES } from "../../src/shared/catalog.js";
+import { DEFAULT_PACKAGE_ID, PACKAGES } from "../../src/shared/catalog.js";
 export let registerapp = null;
 
 // Statuses where the customer can still edit and (re)start a checkout.
@@ -97,10 +107,23 @@ async function findSurprise(slug) {
   return { order, delivery: delivery ?? {}, content: content ?? {} };
 }
 
+// Links to the photos the package includes. A storage problem must not stop the surprise opening.
+async function surprisePhotos(order) {
+  try {
+    const ids = await listPhotoIds(order.id);
+    const links = await photoLinks(order.id, ids.slice(0, PACKAGES[order.package_id]?.max_photos ?? 0));
+    return links.map((photo) => photo.url);
+  } catch (error) {
+    console.error(`[photos] surprise ${order.id}:`, error.message);
+    return [];
+  }
+}
+
 // What the recipient sees. Never includes emails, tokens or the password hash.
-function surpriseBody({ order, delivery, content }) {
+async function surpriseBody({ order, delivery, content }) {
   const limits = PACKAGES[order.package_id];
   return {
+    photos: await surprisePhotos(order),
     occasion: order.occasion,
     template_id: order.template_id,
     package_id: order.package_id,
@@ -153,10 +176,11 @@ async function findAuthorizedOrder(req) {
 }
 
 // Loads what a payment needs and checks the order is complete, whatever the browser allowed.
-async function checkPayable(order) {
+async function checkPayable(order, expectedPhotos) {
   const [
     { data: delivery, error: deliveryError },
     { data: content, error: contentError },
+    photoIds,
   ] = await Promise.all([
     supabase
       .from("order_delivery")
@@ -170,9 +194,13 @@ async function checkPayable(order) {
       .select("message, music_track, music_link, video_link, password_enabled, password_hash")
       .eq("order_id", order.id)
       .maybeSingle(),
+    listPhotoIds(order.id),
   ]);
   if (deliveryError || contentError) throw new Error((deliveryError ?? contentError).message);
-  return { delivery, problem: unpayableReason(order, delivery, content) };
+  return {
+    delivery,
+    problem: unpayableReason(order, delivery, content, photoIds.length, expectedPhotos),
+  };
 }
 
 // Emails the sender their own copy of the link. The order is already safe, so a failure is only logged.
@@ -420,6 +448,57 @@ export function registerRoutes(app) {
     });
   });
 
+  // Photos can only be seen and changed here while the order can still be edited.
+  async function editableOrder(req, res, next) {
+    const order = await findAuthorizedOrder(req);
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    if (!UNPAID_STATUSES.includes(order.order_status)) {
+      return res.status(409).json({ error: "This order can no longer be edited." });
+    }
+    res.locals.order = order;
+    next();
+  }
+
+  app.get("/api/orders/:id/photos", editableOrder, async (req, res) => {
+    const { order } = res.locals;
+    res.json({ photos: await photoLinks(order.id, await listPhotoIds(order.id)) });
+  });
+
+  // One JPEG per request. Checked before the body is read, so strangers can't send large files.
+  app.post(
+    "/api/orders/:id/photos",
+    editableOrder,
+    async (req, res, next) => {
+      const { order } = res.locals;
+      if (await isLimited(res, [[`photo:${order.id}`, LIMITS.photoPerOrder]])) return;
+      if (await isLimited(res, [[`photo:${addressKey(req)}`, LIMITS.photoPerAddress]])) return;
+      next();
+    },
+    express.raw({ type: "image/jpeg", limit: MAX_PHOTO_BYTES }),
+    async (req, res) => {
+      const { order } = res.locals;
+      if (!isJpeg(req.body)) return res.status(400).json({ error: "That file isn't a photo we can use." });
+
+      const max = (PACKAGES[order.package_id] ?? PACKAGES[DEFAULT_PACKAGE_ID]).max_photos;
+      const tooMany = { error: `Your package allows ${max} photos.` };
+      if ((await listPhotoIds(order.id)).length >= max) return res.status(400).json(tooMany);
+
+      const id = await savePhoto(order.id, req.body);
+      // Two uploads at the same moment could both pass the check above
+      if ((await listPhotoIds(order.id)).length > max) {
+        await deletePhoto(order.id, id);
+        return res.status(400).json(tooMany);
+      }
+      res.status(201).json({ id });
+    },
+  );
+
+  app.delete("/api/orders/:id/photos/:photoId", editableOrder, async (req, res) => {
+    if (!isPhotoId(req.params.photoId)) return res.status(404).json({ error: "Photo not found." });
+    await deletePhoto(res.locals.order.id, req.params.photoId);
+    res.json({ ok: true });
+  });
+
   // Creates a PayMongo Checkout Session (GCash or card). The amount comes from the server catalog,
   // never from the browser. The order is only marked paid later, by the verified webhook.
   app.post("/api/checkout-sessions", async (req, res) => {
@@ -432,7 +511,7 @@ export function registerRoutes(app) {
       return res.status(409).json({ error: "This order was already paid." });
     }
 
-    const { delivery, problem } = await checkPayable(order);
+    const { delivery, problem } = await checkPayable(order, req.body?.photo_count);
     if (problem) return res.status(400).json(problem);
     const selectedPackage = PACKAGES[order.package_id];
 
@@ -510,7 +589,7 @@ export function registerRoutes(app) {
     }
 
     const type = req.body?.payment_method === "qrph" ? "qrph" : "gcash";
-    const { delivery, problem } = await checkPayable(order);
+    const { delivery, problem } = await checkPayable(order, req.body?.photo_count);
     if (problem) return res.status(400).json(problem);
     const selectedPackage = PACKAGES[order.package_id];
 
@@ -721,7 +800,7 @@ export function registerRoutes(app) {
         recipient_name: surprise.delivery.recipient_name,
       });
     }
-    res.json({ locked: false, ...surpriseBody(surprise) });
+    res.json({ locked: false, ...(await surpriseBody(surprise)) });
   });
 
   app.post("/api/surprise/:slug/unlock", async (req, res) => {
@@ -743,7 +822,7 @@ export function registerRoutes(app) {
       }
       await clearLimits([visitorKey, slugKey]);
     }
-    res.json({ locked: false, ...surpriseBody(surprise) });
+    res.json({ locked: false, ...(await surpriseBody(surprise)) });
   });
 
   registerapp = app;

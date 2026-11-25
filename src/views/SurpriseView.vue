@@ -66,6 +66,16 @@
         {{ surprise.headline || `Happy ${occasionLabel}, ${surprise.recipient_name || "you"}!` }}
       </h1>
       <p class="mt-6 whitespace-pre-line text-lg leading-relaxed text-slate-700">{{ surprise.message }}</p>
+      <div v-if="surprise.photos?.length" class="mt-8 grid grid-cols-2 gap-3">
+        <img
+          v-for="(photo, index) in surprise.photos"
+          :key="photo"
+          :src="photo"
+          :alt="`Photo ${index + 1}`"
+          loading="lazy"
+          class="aspect-square w-full rounded-2xl object-cover"
+        />
+      </div>
       <p class="mt-8 font-semibold text-slate-900">
         {{ surprise.sign_off || (surprise.sender_name ? `Love, ${surprise.sender_name}` : "") }}
       </p>
@@ -76,6 +86,8 @@
 <script setup>
 import { computed, defineAsyncComponent, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+
+import { templatePhotos } from "@/utils/surprisePhotos";
 
 const surprise_endpoint = "/api/surprise";
 
@@ -104,7 +116,7 @@ const isUnlocking = ref(false);
 
 const occasionLabel = computed(() => (surprise.value?.occasion === "monthsary" ? "Monthsary" : "Birthday"));
 
-// ang ibang laman ng template (wishes, photos, atbp.) ay sample pa; wala pa sa server
+// ang ibang laman ng template (wishes, captions, atbp.) ay sample pa; wala pa sa server
 const templateContent = computed(() => {
   const s = surprise.value ?? {};
   return Object.fromEntries(
@@ -112,6 +124,7 @@ const templateContent = computed(() => {
       recipient: s.recipient_name,
       sender: s.sender_name,
       message: s.message,
+      ...templatePhotos(s.template_id, s.photos),
     }).filter(([, value]) => value),
   );
 });

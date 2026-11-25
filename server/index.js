@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import express from "express";
 import process from "node:process";
 import { registerRoutes } from "./config/apiserver.js";
@@ -16,7 +17,8 @@ app.use(
 // Logs each API request and its status, to debug saves from the browser
 app.use("/api", (req, res, next) => {
   res.on("finish", () => {
-    const fields = req.body ? Object.keys(req.body).join(", ") : "";
+    // a photo's body is raw bytes, not fields
+    const fields = req.body && !Buffer.isBuffer(req.body) ? Object.keys(req.body).join(", ") : "";
     console.log(`[api] ${req.method} ${req.originalUrl} -> ${res.statusCode}${fields ? ` | fields: ${fields}` : ""}`);
   });
   next();

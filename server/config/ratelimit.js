@@ -15,6 +15,8 @@ export const LIMITS = {
   saveOrder: { max: 120, seconds: 10 * MINUTE },
   payPerOrder: { max: 15, seconds: 10 * MINUTE },
   payPerAddress: { max: 60, seconds: HOUR },
+  photoPerOrder: { max: 100, seconds: 10 * MINUTE },
+  photoPerAddress: { max: 300, seconds: HOUR },
   unlockPerAddress: { max: 10, seconds: 15 * MINUTE },
   unlockPerSurprise: { max: 100, seconds: DAY },
 };

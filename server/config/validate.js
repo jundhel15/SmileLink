@@ -91,7 +91,8 @@ export const isMusicLink = (value) => MUSIC_LINK_PATTERN.test(value ?? "");
 export const isVideoLink = (value) => VIDEO_LINK_PATTERN.test(value ?? "");
 
 // Checks a saved order is complete before any payment starts. Returns { field, error } or null.
-export function unpayableReason(order, delivery, content) {
+// expectedPhotos is how many the customer sees in their browser
+export function unpayableReason(order, delivery, content, photoCount, expectedPhotos) {
   const limits = PACKAGES[order.package_id];
   const problem = (field, error) => ({ field, error });
 
@@ -111,6 +112,15 @@ export function unpayableReason(order, delivery, content) {
     return problem("recipient", "Choose a delivery time in the future.");
   }
   if (!content?.message?.trim()) return problem("content", "Write your message first.");
+  if (photoCount > limits.max_photos) {
+    return problem(
+      "content",
+      `Your package allows ${limits.max_photos} photos. Please remove ${photoCount - limits.max_photos}.`,
+    );
+  }
+  if (Number.isInteger(expectedPhotos) && expectedPhotos > photoCount) {
+    return problem("content", "Some photos weren't saved. Go back to Content and add them again.");
+  }
   if (limits.has_music && content.music_track === "link" && !isMusicLink(content.music_link)) {
     return problem("content", "Paste a YouTube or Spotify link for the music, or choose a track.");
   }

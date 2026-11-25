@@ -3,7 +3,7 @@
        (galaxy → isang bituin → "Maligayang kaarawan" → puso → mga polaroid na alaala).
        Top bar + pilian ng device ay nasa SurpriseShell. -->
   <SurpriseShell class="cozy-shell" title="08 Cozy Corner" @close="emit('close')" @use="emit('use')">
-    <KonstelasyonFilm :name="c.recipient" />
+    <KonstelasyonFilm :name="c.recipient" :photos="c.photos" />
   </SurpriseShell>
 </template>
 
