@@ -407,7 +407,11 @@ async function requestGcashPayment(type) {
       "Content-Type": "application/json",
       "x-order-token": readOrderDraft().order_token ?? "",
     },
-    body: JSON.stringify({ order_id: orderId, payment_method: type }),
+    body: JSON.stringify({
+      order_id: orderId,
+      payment_method: type,
+      photo_count: readOrderDraft().photo_count ?? 0,
+    }),
   });
   if (response.status === 409) throw new OrderPaidError(orderId);
   await throwIfRefused(response);
@@ -525,7 +529,11 @@ async function startCheckout() {
         "Content-Type": "application/json",
         "x-order-token": readOrderDraft().order_token ?? "",
       },
-      body: JSON.stringify({ order_id: orderId, payment_method: paymentMethod.value }),
+      body: JSON.stringify({
+        order_id: orderId,
+        payment_method: paymentMethod.value,
+        photo_count: readOrderDraft().photo_count ?? 0,
+      }),
     });
     if (response.status === 409) throw new OrderPaidError(orderId);
     await throwIfRefused(response);

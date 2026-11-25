@@ -75,7 +75,8 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 const props=defineProps({
-  name:{type:String,default:'Maria'} /* pangalan ng taong reregaluhan */
+  name:{type:String,default:'Maria'}, /* pangalan ng taong reregaluhan */
+  photos:{type:Array,default:()=>[]} /* URL ng mga litrato; sample kapag walang laman */
 })
 
 const rootRef=ref(null)
@@ -385,6 +386,15 @@ onMounted(()=>{
   }
   for(let i=0;i<NP;i++){drawPolaroid(i,null);photoTex[i]=makeTex(photoCv[i])}
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(dead)return;for(let i=0;i<NP;i++)if(!photoCustom[i])drawPolaroid(i,null)});
+
+  /* mga litrato ng customer; inuulit kapag kulang sa bilang ng polaroid */
+  if(props.photos.length)for(let i=0;i<NP;i++){
+    const im=new Image();im.crossOrigin='anonymous'; // kailangan para magamit sa WebGL
+    photoCustom[i]=true;
+    im.onload=()=>{if(!dead)drawPolaroid(i,im)};
+    im.onerror=()=>{photoCustom[i]=false};
+    im.src=props.photos[i%props.photos.length];
+  }
 
   const photoIn=$('photoIn');
   $('addBtn').addEventListener('click',()=>photoIn.click());

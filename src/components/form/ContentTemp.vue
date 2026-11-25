@@ -67,15 +67,16 @@
             <small>{{ photos.length }} of {{ packageLimits.max_photos }} used</small>
           </div>
           <div class="photo-grid">
-            <div v-for="(photo, index) in photos" :key="photo.id" class="photo-tile" :class="`tone-${index % 4}`">
-              <img :src="photo.url" :alt="`Photo ${index + 1}`" />
-              <button class="remove-photo" type="button" :aria-label="`Remove photo ${index + 1}`" @click="removePhoto(photo.id)">
+            <div v-for="(photo, index) in photos" :key="photo.key" class="photo-tile" :class="`tone-${index % 4}`">
+              <img :src="photo.url" :alt="`Photo ${index + 1}`" :class="{ 'is-uploading': !photo.id }" />
+              <span v-if="!photo.id" class="photo-uploading" role="status">Uploading…</span>
+              <button v-else class="remove-photo" type="button" :aria-label="`Remove photo ${index + 1}`" @click="removePhoto(photo)">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
                 </svg>
               </button>
             </div>
-            <label v-if="photos.length < packageLimits.max_photos" class="photo-add">
+            <label v-if="photosReady && photos.length < packageLimits.max_photos" class="photo-add">
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/heic,.heic"
@@ -254,14 +255,14 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { errorMessage, readOrderDraft, saveServerOrder } from "@/utils/orderDraft";
+import { loadPhotos, removeSavedPhoto, resizePhoto, uploadPhoto } from "@/utils/orderPhotos";
 import { useOrderStore } from "@/stores/order";
 import { VIDEO_LINK_PATTERN } from "@/shared/catalog";
 
 const MESSAGE_LIMIT = 1000;
-const MAX_PHOTO_WIDTH = 1600;
 const AUTOSAVE_DELAY = 2000;
 
 // kapareho ng limits sa PackageTemp
@@ -315,7 +316,10 @@ const sections = computed(() => [
 const activeSection = ref("message");
 const passwordSet = ref(Boolean(draft.password_set)); // may password na sa server
 const previewDevice = ref("phone");
+// { key, id, orderId, url, blob }: walang id habang ina-upload pa
 const photos = ref([]);
+const photosReady = ref(false); // na-load na ang mga nasa server
+const isUploading = computed(() => photos.value.some((photo) => !photo.id));
 const photoError = ref("");
 const saveStatus = ref("");
 
@@ -373,7 +377,10 @@ onUnmounted(() => {
 
 function persistDraft() {
   // inaalis ng store ang password bago i-save
-  orderStore.updateOrderDraft({ ...form, photo_count: photos.value.length });
+  orderStore.updateOrderDraft({
+    ...form,
+    ...(photosReady.value && { photo_count: photos.value.filter((photo) => photo.id).length }),
+  });
   saveStatus.value = "Saved";
 }
 
@@ -385,17 +392,18 @@ function openSection(section) {
   activeSection.value = section.id;
 }
 
-// pinapaliit ang litrato hanggang 1600 px bago i-upload
-async function resizePhoto(file) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_PHOTO_WIDTH / bitmap.width);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.88));
-}
+// mga litratong na-upload na dati, para hindi mawala kapag bumalik o nag-refresh
+onMounted(async () => {
+  try {
+    const saved = await loadPhotos();
+    photos.value = saved.map((photo) => ({ ...photo, key: photo.id }));
+    photosReady.value = true;
+    persistDraft();
+  } catch (error) {
+    console.error(error);
+    photoError.value = "We couldn't load your photos. Please refresh the page.";
+  }
+});
 
 async function addPhotos(event) {
   photoError.value = "";
@@ -407,27 +415,65 @@ async function addPhotos(event) {
     photoError.value = `Your package allows ${packageLimits.max_photos} photos.`;
   }
 
-  for (const file of files.slice(0, remaining)) {
+  for (const file of files.slice(0, Math.max(0, remaining))) {
+    let blob;
     try {
-      const blob = await resizePhoto(file);
-      photos.value.push({ id: crypto.randomUUID(), blob, url: URL.createObjectURL(blob) });
+      blob = await resizePhoto(file);
     } catch {
       photoError.value = `${file.name} could not be read. Try a JPG or PNG.`;
+      continue;
     }
+
+    const key = crypto.randomUUID();
+    photos.value.push({ key, id: "", orderId: "", blob, url: URL.createObjectURL(blob) });
+    try {
+      const saved = await uploadPhoto(blob);
+      Object.assign(photos.value.find((photo) => photo.key === key) ?? {}, saved);
+    } catch (error) {
+      console.error(error);
+      photos.value = photos.value.filter((photo) => photo.key !== key);
+      photoError.value = errorMessage(error, `${file.name} couldn't be uploaded. Please try again.`);
+    }
+    persistDraft();
   }
+}
+
+async function removePhoto(photo) {
+  photoError.value = "";
+  try {
+    await removeSavedPhoto(photo);
+  } catch (error) {
+    console.error(error);
+    photoError.value = "We couldn't remove that photo. Please try again.";
+    return;
+  }
+  URL.revokeObjectURL(photo.url);
+  photos.value = photos.value.filter((item) => item.key !== photo.key);
   persistDraft();
 }
 
-function removePhoto(id) {
-  const photo = photos.value.find((item) => item.id === id);
-  URL.revokeObjectURL(photo.url);
-  photos.value = photos.value.filter((item) => item.id !== id);
-  photoError.value = "";
-  persistDraft();
+// kapag napalitan ang order habang nasa page na ito, ilipat doon ang mga litrato
+async function movePhotosToCurrentOrder() {
+  const { order_id: orderId } = readOrderDraft();
+  for (const photo of photos.value) {
+    if (photo.orderId === orderId) continue;
+    photo.blob ??= await (await fetch(photo.url)).blob();
+    Object.assign(photo, await uploadPhoto(photo.blob));
+  }
 }
 
 // Unang bagay na kailangang ayusin bago magpatuloy: { section, message } o null
 function contentProblem() {
+  if (isUploading.value) {
+    return { section: "photos", message: "Your photos are still uploading. Please wait a moment." };
+  }
+  if (photos.value.length > packageLimits.max_photos) {
+    const extra = photos.value.length - packageLimits.max_photos;
+    return {
+      section: "photos",
+      message: `Your package allows ${packageLimits.max_photos} photos. Please remove ${extra}.`,
+    };
+  }
   if (packageLimits.has_music && musicLinkError.value) {
     return { section: "music", message: musicLinkError.value };
   }
@@ -457,6 +503,8 @@ async function saveContent() {
   const newPassword = form.password_enabled && form.password.trim() ? form.password : "";
   try {
     await saveServerOrder(newPassword ? { password: newPassword } : {});
+    await movePhotosToCurrentOrder();
+    persistDraft();
   } catch (error) {
     console.error(error);
     saveState.value = "";
@@ -686,6 +734,19 @@ async function saveContent() {
 }
 .tone-3 {
   background: #dcf2d8;
+}
+.photo-tile img.is-uploading {
+  opacity: 0.45;
+}
+.photo-uploading {
+  position: absolute;
+  inset: auto 0 0;
+  background: rgb(28 35 68 / 0.7);
+  padding: 3px 0;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
 }
 .remove-photo {
   position: absolute;
