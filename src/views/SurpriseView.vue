@@ -84,25 +84,12 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { templatePhotos } from "@/utils/surprisePhotos";
+import { surpriseComponents, surpriseContent } from "@/components/surprise/registry";
 
 const surprise_endpoint = "/api/surprise";
-
-// kapareho ng surpriseComponents sa BirthdayTemp at MonthsaryTemp; lazy para hindi lahat nilo-load
-const surpriseComponents = {
-  "soft-celebration": defineAsyncComponent(() => import("@/components/surprise/BirthdaySoftCelebration.vue")),
-  "starry-night": defineAsyncComponent(() => import("@/components/surprise/BirthdayStarryNight.vue")),
-  "memory-matrix": defineAsyncComponent(() => import("@/components/surprise/BirthdayMemoryMatrix.vue")),
-  "cozy-corner": defineAsyncComponent(() => import("@/components/surprise/BirthdayCozyCorner.vue")),
-  "happy-vibes": defineAsyncComponent(() => import("@/components/surprise/BirthdayGoldenHour.vue")),
-  "timeless-elegance": defineAsyncComponent(() => import("@/components/surprise/BirthdayTimelessElegance.vue")),
-  "ocean-breeze": defineAsyncComponent(() => import("@/components/surprise/BirthdayOceanBreeze.vue")),
-  "garden-bloom": defineAsyncComponent(() => import("@/components/surprise/BirthdayGardenBloom.vue")),
-  "monthsary-template-1": defineAsyncComponent(() => import("@/components/surprise/MonthsaryTemplate1.vue")),
-};
 
 const route = useRoute();
 const slug = route.params.slug;
@@ -116,18 +103,7 @@ const isUnlocking = ref(false);
 
 const occasionLabel = computed(() => (surprise.value?.occasion === "monthsary" ? "Monthsary" : "Birthday"));
 
-// ang ibang laman ng template (wishes, captions, atbp.) ay sample pa; wala pa sa server
-const templateContent = computed(() => {
-  const s = surprise.value ?? {};
-  return Object.fromEntries(
-    Object.entries({
-      recipient: s.recipient_name,
-      sender: s.sender_name,
-      message: s.message,
-      ...templatePhotos(s.template_id, s.photos),
-    }).filter(([, value]) => value),
-  );
-});
+const templateContent = computed(() => surpriseContent(surprise.value?.template_id, surprise.value ?? {}));
 
 function showSurprise(body) {
   surprise.value = body;

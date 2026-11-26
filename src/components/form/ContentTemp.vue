@@ -38,6 +38,12 @@
       </nav>
 
       <section class="content-card editor-card" :class="{ busy: isBusy }" :inert="isBusy" aria-label="Editor">
+        <p v-if="inlineEdit" class="inline-tip">
+          <strong>Edit right on the template.</strong>
+          Click any text to change it, or a photo to replace it. Use the ‹ › arrows at the top of the
+          template to go through each part.
+        </p>
+        <small v-if="inlineEdit && photoError" class="field-error" role="alert">{{ photoError }}</small>
         <template v-if="activeSection === 'message'">
           <label class="field">
             <span>Headline</span>
@@ -163,6 +169,24 @@
       <section class="content-card preview-card" aria-label="Live preview">
         <div class="preview-head">
           <span>Live preview</span>
+          <div v-if="inlineEdit" class="mode-toggle" role="group" aria-label="Preview mode">
+            <button
+              type="button"
+              :class="{ active: previewMode === 'edit' }"
+              :aria-pressed="previewMode === 'edit'"
+              @click="previewMode = 'edit'"
+            >
+              ✏️ Edit
+            </button>
+            <button
+              type="button"
+              :class="{ active: previewMode === 'play' }"
+              :aria-pressed="previewMode === 'play'"
+              @click="previewMode = 'play'"
+            >
+              ▶ Play
+            </button>
+          </div>
           <div class="device-toggle" role="group" aria-label="Preview device">
             <button
               type="button"
@@ -187,10 +211,51 @@
                 <path d="M9 20h6M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
               </svg>
             </button>
+            <button
+              v-if="previewComponent"
+              type="button"
+              :class="{ active: previewDevice === 'none' }"
+              aria-label="Full preview, no device frame"
+              :aria-pressed="previewDevice === 'none'"
+              @click="previewDevice = 'none'"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        <div class="device" :class="`device-${previewDevice}`">
+        <!-- ang mismong template na pinili, pinapalitan lang ang text at litrato habang nagta-type -->
+        <div v-if="previewComponent" class="template-preview" :class="`template-${previewDevice}`">
+          <!-- :key = bagong simula kapag lumipat sa Play/Edit -->
+          <component
+            :is="previewComponent"
+            :key="previewMode"
+            embedded
+            :embed-device="{ phone: 'phone', desktop: 'laptop', none: 'none' }[previewDevice]"
+            :editable="inlineEdit && previewMode === 'edit'"
+            :max-photos="packageLimits.max_photos"
+            :content="previewContent"
+            @edit-init="onEditInit"
+            @edit="onTemplateEdit"
+            @photo="pickSlotPhoto"
+            @photo-remove="removeSlot"
+          />
+          <input
+            ref="slotFileEl"
+            class="slot-file"
+            type="file"
+            accept="image/jpeg,image/png,image/heic,.heic"
+            tabindex="-1"
+            aria-hidden="true"
+            @change="onSlotFile"
+          />
+          <p v-if="uploadingSlot >= 0" class="slot-uploading" role="status">Uploading photo…</p>
+        </div>
+
+        <!-- para sa mga template na wala pang interactive na bersyon -->
+        <div v-else class="device" :class="previewDevice === 'phone' ? 'device-phone' : 'device-desktop'">
           <div class="device-screen">
             <div class="preview-hero" aria-hidden="true">
               <span class="balloon balloon-blue"></span>
@@ -261,6 +326,7 @@ import { errorMessage, readOrderDraft, saveServerOrder } from "@/utils/orderDraf
 import { loadPhotos, removeSavedPhoto, resizePhoto, uploadPhoto } from "@/utils/orderPhotos";
 import { useOrderStore } from "@/stores/order";
 import { VIDEO_LINK_PATTERN } from "@/shared/catalog";
+import { INLINE_EDIT_TEMPLATES, surpriseComponents, surpriseContent } from "@/components/surprise/registry";
 
 const MESSAGE_LIMIT = 1000;
 const AUTOSAVE_DELAY = 2000;
@@ -305,17 +371,26 @@ const form = reactive({
   video_link: draft.video_link || "",
 });
 
+// ang template na pinili sa Template step; kapareho ng makikita ng tatanggap
+const previewComponent = surpriseComponents[draft.template_id] || null;
+// inline = ang text at litrato ay sa mismong template ine-edit, kaya wala nang Message/Photos na form
+const inlineEdit = Boolean(previewComponent) && INLINE_EDIT_TEMPLATES.includes(draft.template_id);
+
 const sections = computed(() => [
-  { id: "message", label: "Message", icon: "message", locked: false },
-  { id: "photos", label: "Photos", icon: "photos", locked: false },
+  ...(inlineEdit
+    ? []
+    : [
+        { id: "message", label: "Message", icon: "message", locked: false },
+        { id: "photos", label: "Photos", icon: "photos", locked: false },
+      ]),
   { id: "music", label: "Music", icon: "music", locked: !packageLimits.has_music },
   { id: "password", label: "Password lock", icon: "lock", locked: !packageLimits.has_password },
   { id: "video", label: "Video clip", icon: "video", locked: !packageLimits.has_video },
   { id: "group", label: "Group wishes", icon: "group", locked: !packageLimits.has_group },
 ]);
-const activeSection = ref("message");
+const activeSection = ref(inlineEdit ? (sections.value.find((item) => !item.locked)?.id ?? "") : "message");
 const passwordSet = ref(Boolean(draft.password_set)); // may password na sa server
-const previewDevice = ref("phone");
+const previewDevice = ref("none"); // phone | desktop | none (walang frame, para sa totoong template lang)
 // { key, id, orderId, url, blob }: walang id habang ina-upload pa
 const photos = ref([]);
 const photosReady = ref(false); // na-load na ang mga nasa server
@@ -338,6 +413,165 @@ function showToast(message, type = "success") {
   toast.message = message;
   toast.type = type;
   toastTimer = setTimeout(() => (toast.message = ""), toast_duration_ms);
+}
+
+/* ===== Inline editing sa template =====
+   templateContent = lahat ng text at photo slots ng template ({ template, message, wishes, photos: [{ photo, caption }] ... }).
+   Galing sa template mismo (event "edit"); dito sine-save. Walang litrato sa slot = sample ng template. */
+const previewMode = ref("edit"); // edit | play
+// ilang litrato ang kasya sa template ayon sa plan (hanggang 10 ang kaya ng template)
+const maxSlots = Math.max(1, Math.min(10, packageLimits.max_photos));
+const savedContent = draft.template_content?.template === draft.template_id ? draft.template_content : null;
+// kapag lumipat sa plan na mas kaunti ang litrato, tatanggalin ang sobrang puwesto
+const templateContent = ref(
+  savedContent && Array.isArray(savedContent.photos) && savedContent.photos.length > maxSlots
+    ? { ...savedContent, photos: savedContent.photos.slice(0, maxSlots) }
+    : savedContent,
+);
+const slotFileEl = ref(null);
+const uploadingSlot = ref(-1);
+let pendingSlot = -1;
+const slotPreviews = ref({}); // slot -> local na URL habang ina-upload
+
+const photoUrls = computed(() => Object.fromEntries(photos.value.filter((photo) => photo.id).map((photo) => [photo.id, photo.url])));
+const previewContent = computed(() => {
+  const base = surpriseContent(draft.template_id, {
+    recipient_name: draft.recipient_name,
+    sender_name: draft.sender_name,
+    message: form.message,
+    photos: photos.value.map((photo) => photo.url),
+    ...(inlineEdit && templateContent.value && { template_content: templateContent.value, photo_urls: photoUrls.value }),
+  });
+  if (!inlineEdit || !base.photos) return base;
+  // litratong ina-upload pa: ipakita agad
+  return {
+    ...base,
+    photos: base.photos.map((slot, index) => (slotPreviews.value[index] ? { ...slot, src: slotPreviews.value[index] } : slot)),
+  };
+});
+
+function setTemplateContent(next) {
+  templateContent.value = next;
+  saveStatus.value = "Saving...";
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(persistDraft, AUTOSAVE_DELAY);
+}
+function onEditInit(snapshot) {
+  if (!templateContent.value) templateContent.value = snapshot;
+  adoptLoosePhotos();
+}
+function onTemplateEdit(next) {
+  setTemplateContent(next);
+}
+// mga litratong na-upload na pero wala sa template (hal. galing sa dating form): ilagay sa mga slot
+function adoptLoosePhotos() {
+  if (!templateContent.value || !photosReady.value) return;
+  const slots = templateContent.value.photos.map((slot) => ({ ...slot }));
+  const used = new Set(slots.map((slot) => slot.photo).filter(Boolean));
+  const loose = photos.value.filter((photo) => photo.id && !used.has(photo.id));
+  if (loose.length === 0) return;
+  const extra = [];
+  for (const photo of loose) {
+    const empty = slots.findIndex((slot) => !slot.photo);
+    if (empty >= 0) slots[empty].photo = photo.id;
+    else if (slots.length < maxSlots) slots.push({ photo: photo.id, caption: "" });
+    else extra.push(photo);
+  }
+  setTemplateContent({ ...templateContent.value, photos: slots });
+  removeExtraPhotos(extra);
+}
+// sobra sa plan (hal. lumipat sa mas maliit na plan): tanggalin sa server para hindi ma-block ang bayad
+async function removeExtraPhotos(extra) {
+  for (const photo of extra) {
+    try {
+      await removeSavedPhoto(photo);
+      URL.revokeObjectURL(photo.url);
+      photos.value = photos.value.filter((item) => item.id !== photo.id);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  if (extra.length) persistDraft();
+}
+function pickSlotPhoto(slot) {
+  if (uploadingSlot.value >= 0) {
+    showToast("Please wait, a photo is still uploading.", "error");
+    return;
+  }
+  pendingSlot = slot;
+  slotFileEl.value?.click();
+}
+async function onSlotFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  const slot = pendingSlot;
+  if (!file || slot < 0 || !templateContent.value) return;
+  photoError.value = "";
+
+  const slots = templateContent.value.photos.map((item) => ({ ...item }));
+  const old = slots[slot]?.photo || "";
+  const uploaded = photos.value.filter((photo) => photo.id).length;
+  if (!old && uploaded >= packageLimits.max_photos) {
+    photoError.value = `Your package allows ${packageLimits.max_photos} photos. Replace one of yours instead.`;
+    showToast(photoError.value, "error");
+    return;
+  }
+
+  let blob;
+  try {
+    blob = await resizePhoto(file);
+  } catch {
+    showToast(`${file.name} could not be read. Try a JPG or PNG.`, "error");
+    return;
+  }
+  uploadingSlot.value = slot;
+  const localUrl = URL.createObjectURL(blob);
+  slotPreviews.value = { ...slotPreviews.value, [slot]: localUrl };
+  try {
+    // tanggalin muna ang dati para hindi lumampas sa limit ng package
+    if (old) {
+      const oldPhoto = photos.value.find((photo) => photo.id === old);
+      if (oldPhoto) {
+        await removeSavedPhoto(oldPhoto);
+        photos.value = photos.value.filter((photo) => photo.id !== old);
+      }
+    }
+    const saved = await uploadPhoto(blob);
+    photos.value.push({ key: saved.id, ...saved, blob, url: localUrl });
+    if (slot >= slots.length) slots.push({ photo: saved.id, caption: "" });
+    else slots[slot] = { ...slots[slot], photo: saved.id };
+    setTemplateContent({ ...templateContent.value, photos: slots });
+  } catch (error) {
+    console.error(error);
+    URL.revokeObjectURL(localUrl);
+    if (old && slots[slot]) {
+      // nabura na ang dati: sample muna ang lalabas sa slot na ito
+      slots[slot] = { ...slots[slot], photo: "" };
+      setTemplateContent({ ...templateContent.value, photos: slots });
+    }
+    showToast(errorMessage(error, "That photo couldn't be uploaded. Please try again."), "error");
+  } finally {
+    const rest = { ...slotPreviews.value };
+    delete rest[slot];
+    slotPreviews.value = rest;
+    uploadingSlot.value = -1;
+  }
+}
+async function removeSlot(slot) {
+  if (!templateContent.value || uploadingSlot.value >= 0) return;
+  const slots = templateContent.value.photos.map((item) => ({ ...item }));
+  if (slots.length <= 1) return;
+  const [removed] = slots.splice(slot, 1);
+  setTemplateContent({ ...templateContent.value, photos: slots });
+  const saved = removed?.photo && photos.value.find((photo) => photo.id === removed.photo);
+  if (!saved) return;
+  try {
+    await removeSavedPhoto(saved);
+    URL.revokeObjectURL(saved.url);
+    photos.value = photos.value.filter((photo) => photo.id !== saved.id);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 const previewMessage = computed(() => {
@@ -380,6 +614,9 @@ function persistDraft() {
   orderStore.updateOrderDraft({
     ...form,
     ...(photosReady.value && { photo_count: photos.value.filter((photo) => photo.id).length }),
+    // sa inline na template, ang message ay ang nasa mismong template
+    ...(inlineEdit &&
+      templateContent.value && { template_content: templateContent.value, message: templateContent.value.message ?? "" }),
   });
   saveStatus.value = "Saved";
 }
@@ -398,6 +635,7 @@ onMounted(async () => {
     const saved = await loadPhotos();
     photos.value = saved.map((photo) => ({ ...photo, key: photo.id }));
     photosReady.value = true;
+    adoptLoosePhotos();
     persistDraft();
   } catch (error) {
     console.error(error);
@@ -457,15 +695,26 @@ async function movePhotosToCurrentOrder() {
   const { order_id: orderId } = readOrderDraft();
   for (const photo of photos.value) {
     if (photo.orderId === orderId) continue;
+    const oldId = photo.id;
     photo.blob ??= await (await fetch(photo.url)).blob();
     Object.assign(photo, await uploadPhoto(photo.blob));
+    // bagong id sa bagong order: palitan din sa mga slot ng template
+    if (templateContent.value) {
+      templateContent.value = {
+        ...templateContent.value,
+        photos: templateContent.value.photos.map((slot) => (slot.photo === oldId ? { ...slot, photo: photo.id } : slot)),
+      };
+    }
   }
 }
 
 // Unang bagay na kailangang ayusin bago magpatuloy: { section, message } o null
 function contentProblem() {
-  if (isUploading.value) {
-    return { section: "photos", message: "Your photos are still uploading. Please wait a moment." };
+  if (isUploading.value || uploadingSlot.value >= 0) {
+    return { section: inlineEdit ? activeSection.value : "photos", message: "Your photos are still uploading. Please wait a moment." };
+  }
+  if (inlineEdit && !templateContent.value?.message?.trim()) {
+    return { section: activeSection.value, message: "Add your message on the final card of the template." };
   }
   if (photos.value.length > packageLimits.max_photos) {
     const extra = photos.value.length - packageLimits.max_photos;
@@ -551,11 +800,25 @@ async function saveContent() {
   font-size: 11px;
   font-weight: 700;
 }
+/* kaliwa: tabs + editor; kanan: malaking Live preview ng mismong template */
 .content-layout {
   display: grid;
-  grid-template-columns: minmax(170px, 0.62fr) minmax(0, 1.45fr) minmax(250px, 0.82fr);
+  grid-template-columns: minmax(300px, 0.75fr) minmax(0, 1.6fr);
+  grid-template-rows: auto 1fr auto;
   align-items: stretch;
   gap: 14px;
+}
+.section-menu {
+  grid-column: 1;
+  grid-row: 1;
+}
+.editor-card {
+  grid-column: 1;
+  grid-row: 2;
+}
+.preview-card {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 .content-card {
   min-width: 0;
@@ -568,7 +831,7 @@ async function saveContent() {
 /* ===== Section menu ===== */
 .section-menu {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 8px;
 }
@@ -592,8 +855,7 @@ async function saveContent() {
   flex: 0 0 auto;
 }
 .menu-label {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
 }
 .menu-item:hover {
   background: #f6f2ea;
@@ -848,6 +1110,69 @@ async function saveContent() {
 .device-toggle svg {
   width: 13px;
   height: 13px;
+}
+.inline-tip {
+  margin: 0;
+  border-radius: 10px;
+  background: #fff1f6;
+  padding: 10px 12px;
+  color: #7a2a52;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.inline-tip strong {
+  display: block;
+  color: #c93d72;
+}
+.mode-toggle {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  margin-right: 8px;
+  border: 1px solid #e2dacb;
+  border-radius: 999px;
+  padding: 2px;
+}
+.mode-toggle button {
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  padding: 3px 10px;
+  color: #404a63;
+  font-size: 11px;
+  font-weight: 800;
+}
+.mode-toggle button.active {
+  background: #e8507b;
+  color: #fff;
+}
+.slot-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.slot-uploading {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  z-index: 30;
+  margin: 0;
+  border-radius: 999px;
+  background: rgb(28 35 68 / 0.85);
+  padding: 6px 14px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  transform: translateX(-50%);
+}
+.template-preview {
+  position: relative;
+  flex: 1;
+  min-height: max(560px, calc(100vh - 300px));
+  overflow: hidden;
+  border-radius: 12px;
 }
 .device {
   display: flex;
@@ -1142,10 +1467,14 @@ async function saveContent() {
 
 @media (max-width: 1000px) {
   .content-layout {
-    grid-template-columns: minmax(160px, 0.6fr) minmax(0, 1.4fr);
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
   }
+  .section-menu,
+  .editor-card,
   .preview-card {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 @media (max-width: 760px) {
@@ -1157,7 +1486,7 @@ async function saveContent() {
     grid-template-columns: 1fr;
   }
   .section-menu {
-    flex-direction: row;
+    flex-wrap: nowrap;
     overflow-x: auto;
   }
   .menu-item {

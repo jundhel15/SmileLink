@@ -57,6 +57,7 @@ const CONTENT_FIELDS = [
   "video_link",
   "password_enabled",
   "password_hint",
+  "template_content",
 ];
 
 // Only the hash is stored, so a leaked database does not give out working tokens.
@@ -107,12 +108,11 @@ async function findSurprise(slug) {
   return { order, delivery: delivery ?? {}, content: content ?? {} };
 }
 
-// Links to the photos the package includes. A storage problem must not stop the surprise opening.
+// Links to the photos the package includes, as [{ id, url }]. A storage problem must not stop the surprise opening.
 async function surprisePhotos(order) {
   try {
     const ids = await listPhotoIds(order.id);
-    const links = await photoLinks(order.id, ids.slice(0, PACKAGES[order.package_id]?.max_photos ?? 0));
-    return links.map((photo) => photo.url);
+    return await photoLinks(order.id, ids.slice(0, PACKAGES[order.package_id]?.max_photos ?? 0));
   } catch (error) {
     console.error(`[photos] surprise ${order.id}:`, error.message);
     return [];
@@ -122,8 +122,16 @@ async function surprisePhotos(order) {
 // What the recipient sees. Never includes emails, tokens or the password hash.
 async function surpriseBody({ order, delivery, content }) {
   const limits = PACKAGES[order.package_id];
+  const photos = await surprisePhotos(order);
+  // only when it was made for this template (the customer may have switched templates since)
+  const templateContent =
+    content.template_content?.template === order.template_id ? content.template_content : null;
   return {
-    photos: await surprisePhotos(order),
+    photos: photos.map((photo) => photo.url),
+    ...(templateContent && {
+      template_content: templateContent,
+      photo_urls: Object.fromEntries(photos.map((photo) => [photo.id, photo.url])),
+    }),
     occasion: order.occasion,
     template_id: order.template_id,
     package_id: order.package_id,

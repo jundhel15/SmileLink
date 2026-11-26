@@ -4,12 +4,13 @@
   <div
     ref="overlayEl"
     class="surprise-overlay"
-    role="dialog"
-    aria-modal="true"
+    :class="{ embedded }"
+    :role="embedded ? null : 'dialog'"
+    :aria-modal="embedded ? null : 'true'"
     :aria-label="`${title} interactive preview`"
-    tabindex="-1"
+    :tabindex="embedded ? null : -1"
   >
-    <header v-if="!live" class="surprise-topbar">
+    <header v-if="!live && !embedded" class="surprise-topbar">
       <div class="topbar-title">
         <strong>{{ title }}</strong>
         <span>Interactive preview</span>
@@ -42,9 +43,9 @@
       </div>
     </header>
 
-    <div class="surprise-stage" :class="{ compact }">
+    <div class="surprise-stage" :class="{ compact: fill }">
       <!-- side = opsyonal na panel sa kaliwa ng device (hal. step list ng Soft Celebration) -->
-      <div v-if="$slots.side && !compact" class="side-panel">
+      <div v-if="$slots.side && !fill && !embedded" class="side-panel">
         <slot name="side" />
       </div>
       <div ref="areaEl" class="device-area">
@@ -54,7 +55,7 @@
             <div :key="screenKey" class="screen" :style="screenStyle">
               <slot />
             </div>
-            <span v-if="!compact && activeDevice.base" class="laptop-base" aria-hidden="true" />
+            <span v-if="!fill && activeDevice.base" class="laptop-base" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -69,6 +70,10 @@ const props = defineProps({
   title: { type: String, required: true },
   // live = totoong surprise page (/s/:slug): walang top bar, puno ang screen
   live: { type: Boolean, default: false },
+  // embedded = nasa loob ng ibang page (hal. Live preview sa Content step): walang top bar,
+  // hindi naka-fixed sa buong screen, at ang device ay galing sa embedDevice
+  embedded: { type: Boolean, default: false },
+  embedDevice: { type: String, default: "phone" },
 });
 // device-change = lumipat ng device (o ng compact mode); para ma-reset ng parent ang sariling state
 const emit = defineEmits(["close", "use", "device-change"]);
@@ -103,14 +108,31 @@ const devices = [
     base: 22,
     icon: "M5 5h14a1 1 0 0 1 1 1v9H4V6a1 1 0 0 1 1-1Zm-3 13h20",
   },
+  {
+    // None = walang device frame; pinupuno ng preview ang buong espasyo sa ilalim ng top bar
+    id: "none",
+    label: "None",
+    icon: "M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4",
+  },
 ];
-const device = ref("phone");
+const device = ref(props.embedded ? props.embedDevice : "phone");
+watch(
+  () => props.embedDevice,
+  (id) => {
+    if (props.embedded && devices.some((item) => item.id === id)) device.value = id;
+  },
+);
 const activeDevice = computed(() => devices.find((item) => item.id === device.value));
 
 /* compact = maliit na screen (totoong phone o landscape): puno ang screen, walang frame at pilian */
 const compactQuery = window.matchMedia("(max-width: 480px), (max-height: 620px)");
-const compact = ref(props.live || compactQuery.matches);
-const onCompactChange = (event) => (compact.value = props.live || event.matches);
+// sa embedded, laging may frame: ang laki ng browser ay walang kinalaman sa laki ng preview
+const compact = ref(props.live || (!props.embedded && compactQuery.matches));
+const onCompactChange = (event) => (compact.value = props.live || (!props.embedded && event.matches));
+/* bare = pinili ang "None": walang frame pero may top bar at pilian pa rin */
+const bare = computed(() => !compact.value && device.value === "none");
+/* fill = puno ang screen, walang frame (compact o None) */
+const fill = computed(() => compact.value || bare.value);
 
 const screenKey = computed(() => (compact.value ? "full" : device.value));
 watch(screenKey, (key) => emit("device-change", key));
@@ -122,6 +144,7 @@ let observer = null;
 
 const outer = computed(() => {
   const d = activeDevice.value;
+  if (!d.w) return { w: 1, h: 1 };
   return { w: d.w + d.bezel * 2, h: d.h + d.bezel * 2 + (d.base || 0) };
 });
 const scale = computed(() => {
@@ -130,17 +153,17 @@ const scale = computed(() => {
   return Math.min(1, w / outer.value.w, h / outer.value.h);
 });
 const boxStyle = computed(() =>
-  compact.value
+  fill.value
     ? { width: "100%", height: "100%" }
     : { width: `${outer.value.w * scale.value}px`, height: `${outer.value.h * scale.value}px` },
 );
 const deviceStyle = computed(() =>
-  compact.value
+  fill.value
     ? { width: "100%", height: "100%" }
     : { width: `${outer.value.w}px`, height: `${outer.value.h}px`, transform: `scale(${scale.value})` },
 );
 const screenStyle = computed(() => {
-  if (compact.value) return { width: "100%", height: "100%", border: 0, borderRadius: 0, "--screen-radius": "0px" };
+  if (fill.value) return { width: "100%", height: "100%", border: 0, borderRadius: 0, "--screen-radius": "0px" };
   const d = activeDevice.value;
   return {
     width: `${d.w + d.bezel * 2}px`,
@@ -165,17 +188,18 @@ function onKeydown(event) {
 const overlayEl = ref(null);
 let previousOverflow = "";
 onMounted(() => {
-  previousOverflow = document.body.style.overflow;
-  document.body.style.overflow = "hidden";
-  window.addEventListener("keydown", onKeydown);
   compactQuery.addEventListener("change", onCompactChange);
   observer = new ResizeObserver(measure);
   observer.observe(areaEl.value);
   measure();
+  if (props.embedded) return; // bahagi lang ng page: hindi ila-lock ang scroll o kukunin ang Esc
+  previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  window.addEventListener("keydown", onKeydown);
   overlayEl.value?.focus();
 });
 onBeforeUnmount(() => {
-  document.body.style.overflow = previousOverflow;
+  if (!props.embedded) document.body.style.overflow = previousOverflow;
   window.removeEventListener("keydown", onKeydown);
   compactQuery.removeEventListener("change", onCompactChange);
   observer?.disconnect();
@@ -197,6 +221,15 @@ onBeforeUnmount(() => {
   color: var(--shell-ink, #fff);
   font-family: var(--sl-font-body, "Nunito", sans-serif);
   outline: none;
+}
+
+.surprise-overlay.embedded {
+  position: absolute;
+  z-index: auto;
+  background: transparent;
+}
+.embedded .surprise-stage {
+  padding: 6px;
 }
 
 /* ===== Top bar ===== */

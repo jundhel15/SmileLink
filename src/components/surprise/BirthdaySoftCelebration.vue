@@ -237,15 +237,21 @@
       </div>
 
       <!-- PROGRESS -->
-      <div v-if="sceneIndex >= 0" class="progress" aria-hidden="true">
+      <!-- EDIT MODE: lipat-lipat ng eksena para ma-edit ang bawat isa -->
+      <div v-if="isEditing" class="edit-nav" @pointerdown.stop @click.stop>
+        <button type="button" aria-label="Previous scene" :disabled="editIndex <= 0" @click="editStep(-1)">‹</button>
+        <span><b>{{ editIndex + 1 }}/{{ editScenes.length }}</b> {{ editScenes[editIndex]?.label }}</span>
+        <button type="button" aria-label="Next scene" :disabled="editIndex >= editScenes.length - 1" @click="editStep(1)">›</button>
+      </div>
+      <div v-else-if="sceneIndex >= 0" class="progress" aria-hidden="true">
         <span v-for="(step, index) in scenes" :key="step.id" :class="{ on: index <= sceneIndex, now: index === sceneIndex }" />
       </div>
 
       <Transition name="scene" mode="out-in">
         <!-- COVER: wind-up music box -->
         <section v-if="scene === 'cover'" key="cover" class="scene scene-cover">
-          <p class="eyebrow"><span class="eyebrow-line" /> A surprise for {{ c.recipient }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Wind up your <em>surprise</em></h3>
+          <p class="eyebrow"><span class="eyebrow-line" /> <EditableText v-bind="ed('coverEyebrow', 'Small heading')" /> <span class="eyebrow-line" /></p>
+          <h3 class="scene-title"><EditableText v-bind="ed('coverTitle', 'Title')" /> <em><EditableText v-bind="ed('coverTitleEm', 'Title highlight')" /></em></h3>
 
           <div ref="mbStageEl" class="gift-stage">
             <div class="gift-halo" />
@@ -291,7 +297,7 @@
                       </div>
                     </div>
                   </div>
-                  <div class="mb-wall mb-front"><span class="mb-plate">♥ {{ c.recipient }}</span></div>
+                  <div class="mb-wall mb-front"><span class="mb-plate">♥ <EditableText v-bind="ed('plateName', 'Name on the box')" /></span></div>
                   <div class="mb-hinge">
                     <div class="mb-lid">
                       <div class="mb-lid-out"><svg aria-hidden="true"><use href="#sl-heart" /></svg></div>
@@ -325,19 +331,20 @@
                   <use href="#sl-heart" x="43" y="43" width="14" height="14" fill="#e8507b" />
                 </svg>
               </div>
-              <p class="mb-hint" :class="{ off: mbTouched }">Wind the key <i>↻</i> around and around</p>
+              <!-- instruction lang ito, hindi ine-edit -->
+              <p class="mb-hint" :class="{ off: mbTouched && !isEditing }">Wind the key <i>↻</i> around and around</p>
             </div>
           </div>
           <button class="primary-button" type="button" :disabled="mbDone" @click.stop="mbAuto">
-            Open your surprise <span aria-hidden="true">→</span>
+            <EditableText v-bind="ed('coverButton', 'Button text')" /> <span aria-hidden="true">→</span>
           </button>
-          <p class="script-line">From {{ c.sender }}, with love 💗</p>
+          <EditableText v-bind="ed('coverFrom', 'From line')" tag="p" class="script-line" />
         </section>
 
         <!-- 1. SECRET LOCK -->
         <section v-else-if="scene === 'lock'" key="lock" class="scene scene-lock">
-          <p class="eyebrow"><span class="eyebrow-line" /> A surprise for {{ c.recipient }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Just for <em>you</em></h3>
+          <p class="eyebrow"><span class="eyebrow-line" /> <EditableText v-bind="ed('lockEyebrow', 'Small heading')" /> <span class="eyebrow-line" /></p>
+          <h3 class="scene-title"><EditableText v-bind="ed('lockTitle', 'Title')" /> <em><EditableText v-bind="ed('lockTitleEm', 'Title highlight')" /></em></h3>
           <div class="padlock-wrap" :class="{ shake: lockShake, open: unlocked, bump: lockBump }">
             <span class="ring r1" /><span class="ring r2" />
             <svg class="padlock" viewBox="0 0 160 170" aria-hidden="true">
@@ -362,7 +369,7 @@
           <div class="pad glass">
             <p class="hint">
               <svg class="hint-icon" aria-hidden="true"><use href="#sl-letter" /></svg>
-              Hint: {{ c.hint }}
+              <EditableText v-bind="ed('hintLabel', 'Hint label')" />&nbsp;<EditableText :value="c.hint" label="Lock hint" :maxlength="80" @change="(v) => setField('hint', v)" />
             </p>
             <div class="code-dots" aria-live="polite" :aria-label="`${entered.length} of ${c.code.length} digits`">
               <span v-for="n in c.code.length" :key="n" :class="{ filled: n <= entered.length }" />
@@ -387,24 +394,50 @@
               </button>
             </div>
           </div>
-          <p class="demo-code">Demo code: <b>{{ c.code }}</b></p>
+          <label v-if="isEditing" class="demo-code code-edit" @pointerdown.stop>
+            Lock code:
+            <input
+              :value="c.code"
+              inputmode="numeric"
+              maxlength="6"
+              aria-label="Lock code, 3 to 6 numbers"
+              @keydown.stop
+              @change="onCodeChange"
+            />
+            <small v-if="codeError" role="alert">{{ codeError }}</small>
+          </label>
+          <p v-else class="demo-code">Demo code: <b>{{ c.code }}</b></p>
         </section>
 
         <!-- 2. WHACK THE PIÑATA (tap o swipe; bawat hampas = isang wish, sa huli mabibiyak) -->
         <section v-else-if="scene === 'balloons'" key="balloons" class="scene scene-balloons">
           <div class="sky" aria-hidden="true" />
-          <p class="eyebrow"><span class="eyebrow-line" /> Make a wish, {{ c.recipient }} <span class="eyebrow-line" /></p>
+          <p class="eyebrow"><span class="eyebrow-line" /> Make a wish, <EditableText v-bind="ed('wishName', 'Name')" /> <span class="eyebrow-line" /></p>
           <h3 class="scene-title">Set the <em>wishes</em> free</h3>
           <p class="scene-sub">{{ pinSub }}</p>
           <div class="wish-card glass" aria-live="polite">
             <svg class="card-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
-            <Transition name="pop-in" mode="out-in">
+            <div v-if="isEditing" class="edit-item" @pointerdown.stop>
+              <span class="chip">Wish {{ editWish + 1 }} of {{ wishes.length }}</span>
+              <EditableText
+                tag="p"
+                :value="wishes[editWish]"
+                :label="`Wish ${editWish + 1}`"
+                :maxlength="140"
+                @change="(v) => setListItem('wishes', editWish, v)"
+              />
+              <div class="edit-arrows">
+                <button type="button" aria-label="Previous wish" :disabled="editWish <= 0" @click="editWish -= 1">‹</button>
+                <button type="button" aria-label="Next wish" :disabled="editWish >= wishes.length - 1" @click="editWish += 1">›</button>
+              </div>
+            </div>
+            <Transition v-else name="pop-in" mode="out-in">
               <div :key="hits">
                 <template v-if="hits">
                   <span class="chip">Wish {{ hits }} of {{ pinHits }}</span>
                   <p>{{ wishes[hits - 1] }}</p>
                 </template>
-                <p v-else>Give the piñata a whack to free the first wish</p>
+                <p v-else>{{ t("pinStart") }}</p>
               </div>
             </Transition>
           </div>
@@ -508,14 +541,14 @@
             type="button"
             @click="goTo('memories')"
           >
-            Next surprise <span aria-hidden="true">→</span>
+            <EditableText v-bind="ed('nextLabel', 'Button text')" /> <span aria-hidden="true">→</span>
           </button>
         </section>
 
         <!-- 3. MEMORY CARDS: holographic na card stack (dito lumalabas ang litrato ng customer) -->
         <section v-else-if="scene === 'memories'" key="memories" class="scene scene-memories">
           <p class="eyebrow"><span class="eyebrow-line" /> Memory {{ Math.min(cardIndex + 1, memoryPhotos.length) }} of {{ memoryPhotos.length }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Your <em>memories</em></h3>
+          <h3 class="scene-title"><EditableText v-bind="ed('memTitle', 'Title')" /> <em><EditableText v-bind="ed('memTitleEm', 'Title highlight')" /></em></h3>
           <p class="scene-sub" aria-live="polite">{{ cardHint }}</p>
           <div class="cards-stage">
             <div class="cards-aura" />
@@ -534,9 +567,9 @@
                 <!-- likod ng card (sarado pa) -->
                 <div class="mface mback">
                   <div class="back-frame">
-                    <span class="back-eyebrow">For {{ c.recipient }}</span>
+                    <EditableText v-bind="ed('backEyebrow', 'Card label')" class="back-eyebrow" />
                     <div class="seal"><svg aria-hidden="true"><use href="#sl-heart" /></svg></div>
-                    <span class="back-script">Tap to open</span>
+                    <EditableText v-bind="ed('backScript', 'Card hint')" class="back-script" />
                   </div>
                   <span class="sheen" />
                 </div>
@@ -544,14 +577,33 @@
                 <div class="mface mfront">
                   <div class="mphoto">
                     <img :src="item.p.src" :alt="item.p.caption" draggable="false" />
-                    <span class="foil" />
-                    <span class="glare" />
+                    <button
+                      v-if="isEditing && item.i === cardIndex"
+                      class="edit-photo"
+                      type="button"
+                      @pointerdown.stop
+                      @click.stop="changePhoto(item.p.slot)"
+                    >
+                      📷 Change photo
+                    </button>
+                    <!-- maliliit na pusong lumulutang kapag naka-hover (o pinipindot sa phone) ang card -->
+                    <span class="hover-hearts" aria-hidden="true">
+                      <svg v-for="h in hoverHearts" :key="h.n" :style="h.style"><use href="#sl-heart" /></svg>
+                    </span>
                     <svg class="csp c1" aria-hidden="true"><use href="#sl-sparkle" /></svg>
                     <svg class="csp c2" aria-hidden="true"><use href="#sl-sparkle" /></svg>
                   </div>
                   <div class="mcap">
                     <span class="no">No. {{ String(item.i + 1).padStart(2, "0") }}</span>
-                    <p>{{ item.p.caption }}</p>
+                    <EditableText
+                      tag="p"
+                      :value="item.p.caption"
+                      label="Photo caption"
+                      :required="false"
+                      placeholder="Add a caption"
+                      :maxlength="80"
+                      @change="(v) => setCaption(item.p.slot, v)"
+                    />
                   </div>
                   <span class="sheen" />
                 </div>
@@ -559,21 +611,22 @@
             </div>
           </div>
           <p v-if="flipped" class="swipe-hint">
-            <span class="arr l">←</span> Swipe to continue <span class="arr r">→</span>
+            <span class="arr l">←</span> <EditableText v-bind="ed('swipeHint', 'Swipe hint')" /> <span class="arr r">→</span>
           </p>
           <button v-if="!flipped" class="primary-button" type="button" @click="flipCard">
-            Reveal memory <span aria-hidden="true">✨</span>
+            <EditableText v-bind="ed('revealLabel', 'Button text')" /> <span aria-hidden="true">✨</span>
           </button>
           <button v-else class="primary-button" type="button" @click="throwCard(1)">
-            {{ cardIndex < memoryPhotos.length - 1 ? "Next memory" : "Next surprise" }}
+            <EditableText v-if="cardIndex < memoryPhotos.length - 1" v-bind="ed('nextMemory', 'Button text')" />
+            <EditableText v-else v-bind="ed('nextLabel', 'Button text')" />
             <span aria-hidden="true">→</span>
           </button>
         </section>
 
         <!-- 4. GACHA LOVE COUPONS -->
         <section v-else-if="scene === 'gacha'" key="gacha" class="scene scene-gacha">
-          <p class="eyebrow"><span class="eyebrow-line" /> Love coupons for {{ c.recipient }} <span class="eyebrow-line" /></p>
-          <h3 class="scene-title">Spin the <em>gacha</em></h3>
+          <p class="eyebrow"><span class="eyebrow-line" /> <EditableText v-bind="ed('couponEyebrow', 'Small heading')" /> <span class="eyebrow-line" /></p>
+          <h3 class="scene-title"><EditableText v-bind="ed('gachaTitle', 'Title')" /> <em><EditableText v-bind="ed('gachaTitleEm', 'Title highlight')" /></em></h3>
           <p class="scene-sub" aria-live="polite">{{ gachaHint }}</p>
           <div class="gacha">
             <svg class="gacha-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
@@ -581,7 +634,7 @@
               <span v-for="n in 7" :key="n" class="mini-capsule" :class="`cap-${n}`" />
             </div>
             <div class="gacha-body">
-              <span class="gacha-label">♥ LOVE ♥</span>
+              <EditableText v-bind="ed('gachaLabel', 'Machine label')" class="gacha-label" />
               <button
                 class="gacha-knob"
                 :class="{ turning: gachaState === 'turning', ready: canTurn }"
@@ -603,13 +656,30 @@
               />
             </div>
           </div>
-          <Transition name="pop-in">
+          <div v-if="isEditing" class="coupon-wrap" @pointerdown.stop>
+            <svg class="card-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
+            <div class="coupon edit-item">
+              <span class="chip">Love coupon {{ editCoupon + 1 }} of {{ coupons.length }}</span>
+              <EditableText
+                tag="p"
+                :value="coupons[editCoupon]"
+                :label="`Love coupon ${editCoupon + 1}`"
+                :maxlength="60"
+                @change="(v) => setListItem('coupons', editCoupon, v)"
+              />
+              <div class="edit-arrows">
+                <button type="button" aria-label="Previous coupon" :disabled="editCoupon <= 0" @click="editCoupon -= 1">‹</button>
+                <button type="button" aria-label="Next coupon" :disabled="editCoupon >= coupons.length - 1" @click="editCoupon += 1">›</button>
+              </div>
+            </div>
+          </div>
+          <Transition v-else name="pop-in">
             <div v-if="gachaState === 'open'" :key="spin" class="coupon-wrap">
               <svg class="card-bow" viewBox="0 0 60 44" aria-hidden="true"><use href="#sl-bow" width="60" height="44" /></svg>
               <div class="coupon">
                 <span class="chip">Love coupon {{ spin }} of {{ coupons.length }}</span>
                 <p>{{ coupons[spin - 1] }}</p>
-                <span v-if="redeemed.includes(spin - 1)" class="stamp">Redeemed ♥</span>
+                <span v-if="redeemed.includes(spin - 1)" class="stamp">{{ t("stampText") }}</span>
                 <button
                   v-else
                   class="coupon-redeem"
@@ -618,7 +688,7 @@
                   :style="scratched ? null : { visibility: 'hidden' }"
                   @click="redeem"
                 >
-                  Redeem
+                  {{ t("redeemLabel") }}
                 </button>
                 <canvas
                   ref="scratchEl"
@@ -634,7 +704,7 @@
             </div>
           </Transition>
           <button v-if="gachaDone" class="primary-button" type="button" @click="goTo('finale')">
-            Next surprise <span aria-hidden="true">→</span>
+            <EditableText v-bind="ed('nextLabel', 'Button text')" /> <span aria-hidden="true">→</span>
           </button>
         </section>
 
@@ -659,11 +729,11 @@
             </g>
           </svg>
           <!-- BUBBLE WAND: i-swipe (o i-tap) para bumuga ng bula; i-tap ang mga bulang may salita
-               para lumipad ang salita pataas at mabuo ang "Happy Birthday <pangalan> 💗" -->
+               para lumabas at lumutang ang salita; kapag kumpleto, mag-aayos sila sa "Happy Birthday <pangalan>" -->
           <div
             ref="bwLayerEl"
             class="bw-layer"
-            :class="{ live: !revealed, done: bwDone }"
+            :class="{ live: !revealed, done: bwDone, 'all-out': bwAllOut }"
             :tabindex="revealed ? -1 : 0"
             role="application"
             aria-label="Bubble wand. Swipe or tap to blow bubbles, press Enter to blow and pop"
@@ -676,20 +746,8 @@
             @keydown.space.prevent="bwKey"
           >
             <div v-if="!revealed" class="bw-head">
-              <p class="bw-title">{{ bwDone ? "Made with love 💗" : bwTitle }}</p>
+              <p class="bw-title">{{ bwDone ? t("bwDoneTitle") : t("bwTitle") }}</p>
               <p class="bw-sub" aria-live="polite">{{ bwHint }}</p>
-              <ol class="bw-slots" :class="{ full: bwDone }">
-                <li
-                  v-for="(w, i) in bwWords"
-                  :key="i"
-                  :ref="(el) => (bwSlotEls[i] = el)"
-                  class="bw-slot"
-                  :class="{ on: bwGot[i] }"
-                  :style="{ '--ch': Math.max(2, w.length) }"
-                >
-                  <span>{{ bwGot[i] ? w : "" }}</span>
-                </li>
-              </ol>
             </div>
 
             <div
@@ -705,7 +763,35 @@
             </div>
 
 
-            <span v-for="f in bwFlyers" :key="f.id" :ref="(el) => bwFly(el, f)" class="bw-fly">{{ f.text }}</span>
+            <!-- salitang lumabas sa pumutok na bula: lumulutang, tapos nag-aayos sa "Happy Birthday <pangalan>" -->
+            <template v-if="!revealed">
+              <span
+                v-for="f in bwFree"
+                :key="f.id"
+                :ref="(el) => bwSetFreeEl(f.id, el)"
+                class="bw-word"
+                :class="{ set: bwArranged }"
+                :aria-label="f.text"
+              ><span
+                  v-for="(ch, ci) in [...f.text]"
+                  :key="ci"
+                  class="bw-ch"
+                  :style="{ '--i': ci }"
+                  aria-hidden="true"
+                >{{ ch === " " ? " " : ch }}</span><i class="bw-spark s1" aria-hidden="true" /><i class="bw-spark s2" aria-hidden="true" /><i class="bw-spark s3" aria-hidden="true" /></span>
+              <!-- hindi na kusang lilipat: ang user ang magpapasya kung kailan bubuksan ang card -->
+              <Transition name="pop-in">
+                <button
+                  v-if="bwReady && !bwDone"
+                  class="bw-next"
+                  type="button"
+                  @pointerdown.stop
+                  @click="bwFinish"
+                >
+                  {{ t("openCard") }}
+                </button>
+              </Transition>
+            </template>
 
             <svg v-if="!revealed" ref="bwWandEl" class="bw-wand" :class="{ idle: !bwActive }" viewBox="0 0 80 150" aria-hidden="true">
               <defs>
@@ -734,35 +820,76 @@
               <figure v-if="photos[0]" class="bk-photo">
                 <span class="bk-tape" aria-hidden="true" />
                 <img :src="photos[0].src" :alt="photos[0].caption" />
-                <figcaption>{{ photos[0].caption }}</figcaption>
+                <button v-if="isEditing" class="edit-photo" type="button" @click="changePhoto(0)">📷 Change photo</button>
+                <EditableText
+                  tag="figcaption"
+                  :value="photos[0].caption"
+                  label="Photo caption"
+                  :required="false"
+                  placeholder="Add a caption"
+                  :maxlength="80"
+                  @change="(v) => setCaption(0, v)"
+                />
               </figure>
               <div class="bk-body">
-                <p class="bk-eyebrow">Happy Birthday</p>
-                <h3 class="bk-name">{{ c.recipient }}!</h3>
-                <p class="bk-msg">{{ c.message }}</p>
-                <p class="bk-from">— {{ c.sender }} ♡</p>
-                <ul v-if="photos.length > 1" class="bk-gallery" aria-label="All our photos">
+                <EditableText v-bind="ed('cardEyebrow', 'Small heading')" tag="p" class="bk-eyebrow" />
+                <EditableText v-bind="ed('cardName', 'Name')" tag="h3" class="bk-name" />
+                <EditableText
+                  tag="p"
+                  class="bk-msg"
+                  :value="c.message"
+                  label="Your message"
+                  multiline
+                  :maxlength="1000"
+                  @change="(v) => setField('message', v)"
+                />
+                <EditableText v-bind="ed('cardFrom', 'From line')" tag="p" class="bk-from" />
+                <ul v-if="photos.length > 1 || isEditing" class="bk-gallery" aria-label="All our photos">
                   <li v-for="(p, i) in photos" :key="i">
                     <button
                       type="button"
                       class="bk-thumb"
                       :style="{ '--tilt': `${(i % 2 ? 1 : -1) * (2 + (i % 3))}deg` }"
-                      :aria-label="`Open photo ${i + 1}: ${p.caption || ''}`"
-                      @click="galleryIndex = i"
+                      :aria-label="isEditing ? `Change photo ${i + 1}` : `Open photo ${i + 1}: ${p.caption || ''}`"
+                      @click="isEditing ? changePhoto(i) : (galleryIndex = i)"
                     >
                       <img :src="p.src" alt="" draggable="false" />
+                      <span v-if="isEditing" class="thumb-edit" aria-hidden="true">📷</span>
+                    </button>
+                    <button
+                      v-if="isEditing && photos.length > 1"
+                      class="thumb-remove"
+                      type="button"
+                      :aria-label="`Remove photo ${i + 1}`"
+                      @click="emit('photo-remove', i)"
+                    >
+                      ×
+                    </button>
+                  </li>
+                  <li v-if="isEditing && photos.length < maxPhotoSlots">
+                    <button type="button" class="bk-thumb thumb-add" aria-label="Add a photo" @click="changePhoto(photos.length)">
+                      <span aria-hidden="true">+</span>
                     </button>
                   </li>
                 </ul>
                 <Transition name="pop-in">
-                  <p v-if="showExtra" class="bk-extra">{{ c.extraMessage }}</p>
+                  <EditableText
+                    v-if="showExtra"
+                    tag="p"
+                    class="bk-extra"
+                    :value="c.extraMessage"
+                    label="P.S. message"
+                    multiline
+                    :maxlength="300"
+                    @change="(v) => setField('extraMessage', v)"
+                  />
                 </Transition>
                 <div class="bk-actions">
-                  <button v-if="!showExtra" class="bk-more" type="button" @click="revealExtra">
+                  <button v-if="!showExtra || isEditing" class="bk-more" type="button" @click="revealExtra">
                     <span class="bk-more-bub" aria-hidden="true" />
-                    Pop for one more ✨
+                    <EditableText v-bind="ed('moreLabel', 'Button text')" />
                   </button>
-                  <button class="replay-button" type="button" @click="goTo('cover')">↻ Replay</button>
+                  <button class="replay-button" type="button" @click="goTo('cover')">↻ <EditableText v-bind="ed('replayLabel', 'Button text')" /></button>
                 </div>
               </div>
             </article>
@@ -798,6 +925,7 @@
       <div v-if="flash" class="flash" aria-hidden="true" />
     </div>
     <button
+      v-if="!isEmbedded"
       class="fs-toggle"
       type="button"
       :title="bare ? 'Exit full view (Esc)' : 'Full view, walang device frame'"
@@ -815,7 +943,8 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, useAttrs, watch } from "vue";
+import EditableText from "./EditableText.vue";
 import SurpriseShell from "./SurpriseShell.vue";
 
 /* ===== Sample na litrato: gawa sa SVG (inline data URI), walang file na kailangan =====
@@ -870,14 +999,139 @@ const sampleContent = {
 const props = defineProps({
   content: { type: Object, default: () => ({}) },
 });
-const emit = defineEmits(["close", "use"]);
+// edit / edit-init / photo / photo-remove: para sa edit mode sa Content step
+const emit = defineEmits(["close", "use", "edit", "edit-init", "photo", "photo-remove"]);
 
 const c = computed(() => ({ ...sampleContent, ...props.content }));
+// embedded = Live preview sa Content step (dumadaan ang attribute sa SurpriseShell)
+const attrs = useAttrs();
+const isEmbedded = computed(() => attrs.embedded !== undefined && attrs.embedded !== false);
 const wishes = computed(() => c.value.wishes.slice(0, 5));
-const photos = computed(() => (Array.isArray(c.value.photos) ? c.value.photos.filter((p) => p?.src) : []).slice(0, 10));
+// slot na walang litrato (src "") = sample na litrato ng template sa puwestong iyon.
+// Hindi lalampas sa dami ng litrato ng plan (max-photos, galing sa Content step)
+const photos = computed(() =>
+  (Array.isArray(c.value.photos) ? c.value.photos : [])
+    .slice(0, maxPhotoSlots.value)
+    .map((p, i) => ({
+      ...p,
+      src: p?.src || sampleContent.photos[i % sampleContent.photos.length].src,
+      caption: p?.caption ?? "",
+      slot: i,
+    })),
+);
 // Memory Cards: hanggang 5 lang (nakakapagod mag-swipe ng 10); ang iba ay nasa Bubble Wand at gallery
 const memoryPhotos = computed(() => photos.value.slice(0, 5));
 const coupons = computed(() => c.value.coupons.slice(0, 3));
+
+/* ===== EDIT MODE (Content step): i-click ang text o litrato para palitan =====
+   Hindi nagse-save ang template. Ipinapasa lang nito ang buong bagong laman (event "edit");
+   ang parent (ContentTemp) ang nagse-save at nagbabalik ng bagong content. */
+const isEditing = computed(() => attrs.editable !== undefined && attrs.editable !== false);
+provide("slEditing", isEditing);
+const maxPhotoSlots = computed(() => Math.min(10, Number(attrs["max-photos"] ?? attrs.maxPhotos) || 10));
+const editScenes = [
+  { id: "cover", label: "Music Box" },
+  { id: "lock", label: "Secret Lock" },
+  { id: "balloons", label: "Piñata Wishes" },
+  { id: "memories", label: "Memory Cards" },
+  { id: "gacha", label: "Love Coupons" },
+  { id: "finale", label: "Final Card" },
+];
+/* Lahat ng iba pang text sa template (titles, buttons, labels). Ang may pangalan ay sumusunod
+   sa pangalan mula sa Recipient step hanggang palitan ng customer. */
+const TEXT_DEFAULTS = {
+  coverTitle: "Wind up your",
+  coverTitleEm: "surprise",
+  coverButton: "Open your surprise",
+  lockTitle: "Just for",
+  lockTitleEm: "you",
+  hintLabel: "Hint:",
+  pinStart: "Give the piñata a whack to free the first wish",
+  nextLabel: "Next surprise",
+  memTitle: "Your",
+  memTitleEm: "memories",
+  backScript: "Tap to open",
+  swipeHint: "Swipe to continue",
+  revealLabel: "Reveal memory",
+  nextMemory: "Next memory",
+  gachaTitle: "Spin the",
+  gachaTitleEm: "gacha",
+  gachaLabel: "♥ LOVE ♥",
+  stampText: "Redeemed ♥",
+  redeemLabel: "Redeem",
+  bwTitle: "Wave the bubble wand",
+  bwDoneTitle: "Made with love 💗",
+  openCard: "Open your card 💌",
+  cardEyebrow: "Happy Birthday",
+  moreLabel: "Pop for one more ✨",
+  replayLabel: "Replay",
+};
+const nameDefaults = computed(() => ({
+  coverEyebrow: `A surprise for ${c.value.recipient}`,
+  plateName: c.value.recipient,
+  coverFrom: `From ${c.value.sender}, with love 💗`,
+  lockEyebrow: `A surprise for ${c.value.recipient}`,
+  wishName: c.value.recipient,
+  backEyebrow: `For ${c.value.recipient}`,
+  couponEyebrow: `Love coupons for ${c.value.recipient}`,
+  cardName: `${c.value.recipient}!`,
+  cardFrom: `— ${c.value.sender} ♡`,
+}));
+const TEXT_KEYS = [...Object.keys(TEXT_DEFAULTS), ...Object.keys(nameDefaults.value)];
+function t(key) {
+  const value = props.content[key];
+  return typeof value === "string" && value ? value : (nameDefaults.value[key] ?? TEXT_DEFAULTS[key]);
+}
+// props para sa <EditableText v-bind="ed(key, label)" />
+function ed(key, label) {
+  return { value: t(key), label, maxlength: 80, onChange: (value) => setField(key, value) };
+}
+
+const editWish = ref(0);
+const editCoupon = ref(0);
+const codeError = ref("");
+
+function editSnapshot() {
+  const v = c.value;
+  return {
+    template: "soft-celebration",
+    message: v.message,
+    extraMessage: v.extraMessage,
+    hint: v.hint,
+    code: v.code,
+    wishes: [...wishes.value],
+    coupons: [...coupons.value],
+    photos: photos.value.map((p) => ({ photo: p.photo || "", caption: p.caption || "" })),
+    // mga text na napalitan na (ang hindi pa ay galing sa default)
+    ...Object.fromEntries(TEXT_KEYS.filter((key) => typeof props.content[key] === "string").map((key) => [key, props.content[key]])),
+  };
+}
+function setField(key, value) {
+  emit("edit", { ...editSnapshot(), [key]: value });
+}
+function setListItem(key, index, value) {
+  const list = [...editSnapshot()[key]];
+  list[index] = value;
+  setField(key, list);
+}
+function setCaption(index, caption) {
+  const next = editSnapshot();
+  next.photos[index] = { ...next.photos[index], caption };
+  emit("edit", next);
+}
+function changePhoto(index) {
+  emit("photo", index);
+}
+function onCodeChange(event) {
+  const code = event.target.value.trim();
+  if (!/^\d{3,6}$/.test(code)) {
+    codeError.value = "Use 3 to 6 numbers.";
+    event.target.value = c.value.code;
+    return;
+  }
+  codeError.value = "";
+  setField("code", code);
+}
 
 /* mga talulot na bumabagsak sa background */
 const petals = Array.from({ length: 12 }, (_, i) => ({
@@ -985,51 +1239,15 @@ function onDeviceChange() {
   setTimeout(fitStage, 500);
 }
 
-/* ===== "NONE" na pagpipilian sa device selector =====
-   Ang Cellphone / iPad / Laptop na pili ay galing sa SurpriseShell. Dinadagdagan dito ng "None" na
-   button sa tabi nila. Kapag pinili: tinatanggal ang device frame at ipinapakita ang buong preview
-   (sa ibaba ng top bar). Kapag pumili ulit ng device, babalik ang frame. */
+/* ===== "Full view" (bare) =====
+   Inilalabas ang eksena sa device frame at pinupuno ang buong screen sa ilalim ng top bar.
+   (Ang "None" sa device selector ay nasa SurpriseShell na, para sa lahat ng template.) */
 const bare = ref(false);
 const bareTop = ref(0);
-const NONE_ICON =
-  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="3" stroke-dasharray="3 3"/></svg>';
-const NONE_SHAPES = '<rect x="3.5" y="5" width="17" height="14" rx="3" stroke-dasharray="3 3"></rect><path d="M9 12h6"></path>';
-const STYLE_PROPS = ["background-color", "background-image", "color", "box-shadow", "border-color"];
-let noneBtn = null;
-let devBtns = [];
-let noneTimer = null;
 
-function snapStyle(el) {
-  const cs = getComputedStyle(el);
-  const o = {};
-  STYLE_PROPS.forEach((p) => {
-    o[p] = cs.getPropertyValue(p);
-  });
-  return o;
-}
-function applyStyle(el, o) {
-  if (!el || !o) return;
-  STYLE_PROPS.forEach((p) => el.style.setProperty(p, o[p], "important"));
-}
-function clearStyle(el) {
-  if (!el) return;
-  STYLE_PROPS.forEach((p) => el.style.removeProperty(p));
-}
-function isActiveBtn(b) {
-  const cs = getComputedStyle(b);
-  const bg = cs.backgroundColor;
-  return (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") || (cs.backgroundImage && cs.backgroundImage !== "none");
-}
 function headerBottom() {
-  const ref0 = devBtns[0];
-  if (!ref0) return 0;
-  let n = ref0.parentElement;
-  while (n && n !== document.body) {
-    const r = n.getBoundingClientRect();
-    if (r.top <= 4 && r.height >= 48 && r.height <= 220 && r.width >= window.innerWidth * 0.8) return Math.round(r.bottom);
-    n = n.parentElement;
-  }
-  return Math.round(ref0.getBoundingClientRect().bottom + 16);
+  const bar = document.querySelector(".surprise-topbar");
+  return bar ? Math.round(bar.getBoundingClientRect().bottom) : 0;
 }
 function setBare(value) {
   bare.value = value;
@@ -1037,98 +1255,15 @@ function setBare(value) {
   nextTick(fitStage);
   setTimeout(fitStage, 120);
 }
-function enterNone() {
-  if (bare.value) return;
-  bareTop.value = headerBottom();
-  if (noneBtn && devBtns.length) {
-    const activeBtn = devBtns.find(isActiveBtn);
-    const inactiveBtn = devBtns.find((b) => b !== activeBtn) || devBtns[0];
-    const inactiveSnap = snapStyle(inactiveBtn);
-    const activeSnap = activeBtn ? snapStyle(activeBtn) : null;
-    if (activeBtn) applyStyle(activeBtn, inactiveSnap);
-    if (activeSnap) applyStyle(noneBtn, activeSnap);
-  }
-  setBare(true);
-}
-function exitNone() {
-  if (!bare.value) return;
-  devBtns.forEach(clearStyle);
-  clearStyle(noneBtn);
-  setBare(false);
-}
 function toggleBare() {
-  if (bare.value) exitNone();
-  else enterNone();
-}
-function onNoneClick(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  toggleBare();
-}
-function onDeviceBtnClick() {
-  if (bare.value) exitNone();
-}
-function installNoneOption() {
-  if (noneBtn) return true;
-  const lap = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Laptop");
-  if (!lap || !lap.parentElement) return false;
-  const group = lap.parentElement;
-  devBtns = [...group.children].filter((b) => b.tagName === "BUTTON" && /^(Cellphone|iPad|Laptop)$/.test(b.textContent.trim()));
-  if (devBtns.length < 2) return false;
-  const inactive = devBtns.find((b) => !isActiveBtn(b)) || devBtns[0];
-  const btn = inactive.cloneNode(true);
-  btn.removeAttribute("disabled");
-  btn.setAttribute("data-sl-none", "1");
-  const walker = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT);
-  let done = false;
-  let node = walker.nextNode();
-  while (node) {
-    if (node.nodeValue.trim()) {
-      node.nodeValue = done ? "" : "None";
-      done = true;
-    }
-    node = walker.nextNode();
-  }
-  btn.removeAttribute("aria-pressed");
-  btn.removeAttribute("aria-selected");
-  btn.classList.remove("active", "is-active", "selected", "on", "current");
-  const svg = btn.querySelector("svg");
-  if (svg) {
-    // pinapanatili ang class at laki ng orihinal na icon, ang laman lang ang pinapalitan
-    svg.innerHTML = NONE_SHAPES;
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "1.8");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("stroke-linejoin", "round");
-  } else {
-    btn.insertAdjacentHTML("afterbegin", NONE_ICON);
-  }
-  btn.addEventListener("click", onNoneClick);
-  group.appendChild(btn);
-  devBtns.forEach((b) => b.addEventListener("click", onDeviceBtnClick, true));
-  noneBtn = btn;
-  return true;
-}
-function removeNoneOption() {
-  clearInterval(noneTimer);
-  devBtns.forEach((b) => {
-    b.removeEventListener("click", onDeviceBtnClick, true);
-    clearStyle(b);
-  });
-  if (noneBtn) {
-    noneBtn.removeEventListener("click", onNoneClick);
-    noneBtn.remove();
-    noneBtn = null;
-  }
-  devBtns = [];
+  if (!bare.value) bareTop.value = headerBottom();
+  setBare(!bare.value);
 }
 function onEscCapture(event) {
   if (event.key === "Escape" && bare.value) {
     event.stopPropagation();
     event.preventDefault();
-    exitNone();
+    setBare(false);
   }
 }
 let fitObserver = null;
@@ -1868,6 +2003,18 @@ function uiScale() {
   const phone = phoneEl.value;
   return (phone ? phone.getBoundingClientRect().width / phone.offsetWidth || 1 : 1) * sceneFit;
 }
+/* maliliit na puso sa ibabaw ng litrato kapag naka-hover (fixed na posisyon para pareho lagi) */
+const hoverHearts = Array.from({ length: 9 }, (_, n) => ({
+  n,
+  style: {
+    "--hl": `${6 + ((n * 37) % 84)}%`,
+    "--hd": `${((n * 0.31) % 1.6).toFixed(2)}s`,
+    "--hs": `${10 + (n % 3) * 5}px`,
+    "--hx": `${(n % 2 ? 1 : -1) * (8 + (n % 4) * 6)}px`,
+    "--hc": ["#ff6f9a", "#ff9fbd", "#ffffff", "#e8507b"][n % 4],
+  },
+}));
+
 function cardStyle(i) {
   const o = i - cardIndex.value;
   if (o !== 0) {
@@ -2323,11 +2470,10 @@ const showExtra = ref(false);
 
 const bwLayerEl = ref(null);
 const bwWandEl = ref(null);
-const bwSlotEls = [];
 const bwWords = computed(() => {
   const full = String(c.value.recipient || "you").trim();
   const name = full.length > 12 ? full.split(/\s+/)[0] : full;
-  return ["Happy", "Birthday", name || "you", "💗"];
+  return ["Happy", "Birthday", name || "you"];
 });
 const bwList = ref([]); // { id, word, wordIndex, r, spin, popping }
 const galleryIndex = ref(-1);
@@ -2335,15 +2481,20 @@ function galleryStep(d) {
   const n = photos.value.length;
   if (n) galleryIndex.value = (galleryIndex.value + d + n) % n;
 }
-const bwFlyers = ref([]); // { id, text, index, from, to }
-const bwGot = ref([false, false, false, false]);
+const bwFree = ref([]); // { id, text, index } — mga salitang lumulutang na
+const bwArranged = ref(false);
+const bwReady = ref(false); // nakaayos na ang mga salita: lalabas ang "Open your card"
+const bwGot = ref([false, false, false]);
 const bwSpawned = ref(0);
 const bwActive = ref(false);
 const bwDone = ref(false);
-const bwTitle = "Wave the bubble wand";
+// lahat ng bulang may salita ay lumabas na: mawawala ang wand, i-tap na lang ang mga bula
+const bwAllOut = computed(() => bwSpawned.value >= bwWords.value.length);
 const bwHint = computed(() => {
   const got = bwGot.value.filter(Boolean).length;
   if (bwSpawned.value === 0) return "Swipe or tap anywhere to blow bubbles 🫧";
+  if (got === bwWords.value.length) return bwReady.value ? "Pop the little bubbles, or open your card 💌" : "Happy birthday! 💗";
+  if (bwAllOut.value) return got === 0 ? "Tap the bubbles to pop them ✨" : `${got} of ${bwWords.value.length} words · tap to pop the rest`;
   if (got === 0) return "Pop the bubbles with words ✨";
   return `${got} of ${bwWords.value.length} words · keep blowing & popping`;
 });
@@ -2352,7 +2503,7 @@ const BW_SMALL_EVERY = 46; // px ng mabilis na galaw bawat maliit na bula
 const BW_WORD_EVERY = 230; // px ng galaw bago lumabas ang susunod na bulang may salita
 const BW_TAP_CREDIT = 120; // bawat tap ay parang 120px na galaw (2 tap = 1 salita)
 const bwBodies = new Map(); // id -> { x, y, vx, vy, r, word, wordIndex, seed, life, el, popping }
-const bwFlown = new Set();
+const bwFreeBodies = new Map(); // id -> { x, y, vx, vy, seed, el, index, tx, ty }
 const bwWand = { x: 0, y: 0, tx: 0, ty: 0, tilt: 0 };
 let bwId = 0;
 let bwRaf = 0;
@@ -2380,16 +2531,18 @@ function bwSetEl(id, el) {
   if (b) b.el = el;
 }
 
-function bwSpawn({ x, y, vx = 0, vy = 0, word = null, wordIndex = -1 }) {
+function bwSpawn({ x, y, vx = 0, vy = 0, word = null, wordIndex = -1, size = null }) {
   const id = (bwId += 1);
   const k = stage.value.wide ? 1.3 : 1;
-  const r = word ? Math.min(66, 34 + word.length * 4.5) * k : rand(7, 17) * k;
-  const life = word ? Infinity : rand(4200, 7600);
-  bwBodies.set(id, { x, y, vx, vy, r, word, wordIndex, seed: rand(0, 6.28), life, el: null, popping: false });
+  const r = word ? Math.min(66, 34 + word.length * 4.5) * k : (size ?? rand(7, 17)) * k;
+  // stay = habang naglalaro, hindi kusang nawawala ang maliliit na bula; ang user ang magpuputok
+  const stay = !word && !bwDone.value && !revealed.value;
+  const life = word || stay ? Infinity : rand(4200, 7600);
+  bwBodies.set(id, { x, y, vx, vy, r, word, wordIndex, stay, seed: rand(0, 6.28), life, el: null, popping: false });
   bwList.value = [...bwList.value, { id, word, wordIndex, r: Math.round(r), spin: rand(5, 9).toFixed(1), popping: false }];
-  // hindi hihigit sa 22 na maliit na bula; ang pinakaluma ang puputok
+  // hindi hihigit sa 45 na maliit na bula; ang pinakaluma ang puputok
   const small = bwList.value.filter((b) => !b.word && !b.popping);
-  if (small.length > 22) bwPopById(small[0].id, false);
+  if (small.length > 45) bwPopById(small[0].id, false);
   bwStart();
   return id;
 }
@@ -2407,7 +2560,7 @@ function bwPuff(p, n = 3) {
 }
 
 function bwDown(event) {
-  if (revealed.value) return;
+  if (revealed.value || bwAllOut.value) return;
   event.currentTarget.setPointerCapture?.(event.pointerId);
   const p = bwLocal(event);
   bwHolding = true;
@@ -2419,7 +2572,7 @@ function bwDown(event) {
   bwSpawn({ x: p.x, y: p.y, vx: rand(-1, 1), vy: -rand(1, 2) });
 }
 function bwMove(event) {
-  if (revealed.value || !bwLayerEl.value) return;
+  if (revealed.value || bwAllOut.value || !bwLayerEl.value) return;
   const p = bwLocal(event);
   bwWand.tx = p.x;
   bwWand.ty = p.y;
@@ -2452,7 +2605,7 @@ function bwMove(event) {
 function bwUp() {
   if (!bwHolding) return;
   bwHolding = false;
-  if (bwStroke < 14 && !revealed.value) {
+  if (bwStroke < 14 && !revealed.value && !bwAllOut.value) {
     // TAP: maliit na buga, at bawat 2 tap ay may lalabas na bulang may salita
     const p = { x: bwWand.tx, y: bwWand.ty };
     bwPuff(p, 3);
@@ -2471,6 +2624,7 @@ function bwKey() {
   if (revealed.value) return;
   const waiting = bwList.value.find((b) => b.word && !b.popping);
   if (waiting) return bwPopById(waiting.id, true);
+  if (bwAllOut.value) return;
   const { w, h } = bwSize();
   const p = { x: w / 2, y: h * 0.62 };
   bwPuff(p, 4);
@@ -2489,44 +2643,91 @@ function bwPopById(id, byUser) {
     buzz(body.word ? 18 : 6);
     heartsAt(pointFrom({ currentTarget: body.el }), body.word ? 8 : 2);
   }
-  if (body.word) bwSendWord(body);
+  if (body.word) {
+    bwSendWord(body);
+    bwBurstSmall(body);
+  }
   later(() => {
     bwBodies.delete(id);
     bwList.value = bwList.value.filter((x) => x.id !== id);
   }, 340);
 }
-// ang salita ay lilipad mula sa pumutok na bula papunta sa puwang nito sa itaas
-function bwSendWord(body) {
-  const layer = bwLayerEl.value;
-  const slot = bwSlotEls[body.wordIndex];
-  if (!layer || !slot) return;
-  const L = layer.getBoundingClientRect();
-  const k = L.width / layer.offsetWidth || 1;
-  const s = slot.getBoundingClientRect();
-  const to = { x: (s.left + s.width / 2 - L.left) / k, y: (s.top + s.height / 2 - L.top) / k };
-  bwId += 1;
-  bwFlyers.value = [...bwFlyers.value, { id: bwId, text: body.word, index: body.wordIndex, from: { x: body.x, y: body.y }, to }];
+// ang malaking bula ay sasabog at magiging maraming maliliit na bula sa paligid
+function bwBurstSmall(body) {
+  const n = 12;
+  for (let i = 0; i < n; i += 1) {
+    const a = (i / n) * Math.PI * 2 + rand(-0.25, 0.25);
+    const sp = rand(1.6, 3.6);
+    const d = body.r * rand(0.3, 0.8);
+    bwSpawn({
+      x: body.x + Math.cos(a) * d,
+      y: body.y + Math.sin(a) * d,
+      vx: Math.cos(a) * sp,
+      vy: Math.sin(a) * sp,
+      size: rand(6, 15),
+    });
+  }
 }
-function bwFly(el, f) {
-  if (!el || bwFlown.has(f.id)) return;
-  bwFlown.add(f.id);
-  const mid = { x: (f.from.x + f.to.x) / 2, y: Math.min(f.from.y, f.to.y) - 40 };
-  const at = (p, s) => `translate(${p.x}px, ${p.y}px) translate(-50%, -50%) scale(${s})`;
-  const anim = el.animate(
-    [
-      { transform: at(f.from, 1.25) },
-      { transform: at(mid, 1.1), offset: 0.55 },
-      { transform: at(f.to, 1) },
-    ],
-    { duration: reduceMotion ? 1 : 720, easing: "cubic-bezier(.3,.7,.3,1)", fill: "forwards" },
-  );
-  anim.onfinish = () => {
-    if (!bwFlyers.value.some((x) => x.id === f.id)) return; // lumipat na ng eksena
-    bwGot.value = bwGot.value.map((g, i) => (i === f.index ? true : g));
-    bwFlyers.value = bwFlyers.value.filter((x) => x.id !== f.id);
-    buzz(8);
-    if (bwGot.value.every(Boolean)) bwFinish();
-  };
+// ang salita ay lalabas mula sa pumutok na bula at lulutang-lutang
+function bwSetFreeEl(id, el) {
+  const b = bwFreeBodies.get(id);
+  if (b) b.el = el;
+}
+function bwSendWord(body) {
+  const id = (bwId += 1);
+  bwFreeBodies.set(id, {
+    x: body.x,
+    y: body.y,
+    vx: rand(-0.8, 0.8),
+    vy: -rand(0.8, 1.6),
+    seed: rand(0, 6.28),
+    el: null,
+    index: body.wordIndex,
+    tx: null,
+    ty: null,
+  });
+  bwFree.value = [...bwFree.value, { id, text: body.word, index: body.wordIndex }];
+  bwGot.value = bwGot.value.map((g, i) => (i === body.wordIndex ? true : g));
+  bwStart();
+  if (bwGot.value.every(Boolean)) later(bwArrange, 900);
+}
+// lahat ng salita ay lumabas na: aayusin sila nang pa-linya (nag-wrap kapag kulang ang lapad)
+function bwArrange() {
+  if (bwArranged.value) return;
+  bwArranged.value = true;
+  buzz(20);
+  nextTick(() => {
+    const { w, h } = bwSize();
+    if (!w) return;
+    const list = [...bwFreeBodies.values()].sort((a, b) => a.index - b.index);
+    const gap = stage.value.wide ? 18 : 12;
+    const maxW = w * 0.9;
+    const rows = [];
+    let row = [];
+    let rowW = 0;
+    for (const b of list) {
+      const bw = b.el?.offsetWidth || 80;
+      if (row.length && rowW + gap + bw > maxW) {
+        rows.push({ items: row, w: rowW });
+        row = [];
+        rowW = 0;
+      }
+      rowW += (row.length ? gap : 0) + bw;
+      row.push({ b, bw });
+    }
+    if (row.length) rows.push({ items: row, w: rowW });
+    const lineH = Math.max(...list.map((b) => b.el?.offsetHeight || 40)) * 1.15;
+    const top = h * 0.4 - ((rows.length - 1) * lineH) / 2;
+    rows.forEach((r, ri) => {
+      let x = (w - r.w) / 2;
+      for (const { b, bw } of r.items) {
+        b.tx = x + bw / 2;
+        b.ty = top + ri * lineH;
+        x += bw + gap;
+      }
+    });
+    later(() => (bwReady.value = true), 1600);
+  });
 }
 
 function bwFinish() {
@@ -2542,6 +2743,12 @@ function bwFinish() {
   heartsAt({ x: W / 2, y: H * 0.3 }, 24);
   later(() => {
     revealed.value = true;
+    for (const b of bwBodies.values()) {
+      if (b.stay) {
+        b.stay = false;
+        b.life = rand(2500, 6000);
+      }
+    }
     later(confettiRain, 600);
     // maliliit na bula na patuloy na lumulutang sa likod ng card
     clearInterval(bwAmbient);
@@ -2589,9 +2796,16 @@ function bwTick(now) {
       b.vx *= 0.97 ** dt;
       b.vy *= 0.97 ** dt;
     } else {
-      b.vy -= 0.02 * dt;
-      b.vx *= 0.985 ** dt;
-      b.vy *= 0.99 ** dt;
+      if (b.stay) {
+        // palutang-lutang lang sa loob ng eksena (hindi lumalabas sa itaas o natatakpan ng ulap)
+        b.vy += (b.y - b.r < bandTop ? 0.05 : b.y + b.r > h * 0.82 ? -0.05 : Math.sin(now * 0.0011 + b.seed) * 0.006) * dt;
+        b.vx *= 0.975 ** dt;
+        b.vy *= 0.975 ** dt;
+      } else {
+        b.vy -= 0.02 * dt;
+        b.vx *= 0.985 ** dt;
+        b.vy *= 0.99 ** dt;
+      }
       b.life -= 16.67 * dt;
       if (b.life <= 0 || b.y < -b.r * 2) {
         bwPopById(id, false);
@@ -2607,7 +2821,7 @@ function bwTick(now) {
       b.x = w - b.r;
       b.vx = -Math.abs(b.vx) * 0.6;
     }
-    if (b.word && b.y > h - b.r) {
+    if ((b.word || b.stay) && b.y > h - b.r) {
       b.y = h - b.r;
       b.vy = -Math.abs(b.vy);
     }
@@ -2634,6 +2848,58 @@ function bwTick(now) {
       }
     }
   }
+  // mga salitang lumabas sa bula
+  const free = [...bwFreeBodies.values()];
+  for (const b of free) {
+    if (b.tx != null) {
+      // nakaayos na: dahan-dahang lumilipat sa puwesto, habang lumulutang pa rin
+      const k = Math.min(1, 0.06 * dt);
+      b.x += (b.tx - b.x) * k;
+      b.y += (b.ty - b.y) * k;
+      continue;
+    }
+    b.vy += (b.y < bandTop + 20 ? 0.04 : b.y > bandBottom - 20 ? -0.04 : 0) * dt;
+    b.vx += Math.sin(now * 0.0009 + b.seed) * 0.012 * dt;
+    b.vx *= 0.985 ** dt;
+    b.vy *= 0.985 ** dt;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    const half = (b.el?.offsetWidth || 60) / 2;
+    if (b.x < half) {
+      b.x = half;
+      b.vx = Math.abs(b.vx);
+    } else if (b.x > w - half) {
+      b.x = w - half;
+      b.vx = -Math.abs(b.vx);
+    }
+  }
+  // hindi nagpapatong ang mga lumulutang na salita
+  for (let i = 0; i < free.length; i += 1) {
+    for (let j = i + 1; j < free.length; j += 1) {
+      const a = free[i];
+      const o = free[j];
+      if (a.tx != null) continue;
+      const dx = o.x - a.x;
+      const dy = o.y - a.y;
+      const minX = ((a.el?.offsetWidth || 60) + (o.el?.offsetWidth || 60)) / 2 + 8;
+      const minY = 44;
+      if (Math.abs(dx) < minX && Math.abs(dy) < minY) {
+        const push = Math.min(minX - Math.abs(dx), minY - Math.abs(dy)) * 0.08;
+        const sx = dx >= 0 ? 1 : -1;
+        const sy = dy >= 0 ? 1 : -1;
+        a.vx -= sx * push;
+        o.vx += sx * push;
+        a.vy -= sy * push * 0.6;
+        o.vy += sy * push * 0.6;
+      }
+    }
+  }
+  for (const b of free) {
+    if (!b.el) continue;
+    const bob = Math.sin(now * 0.0022 + b.seed) * (b.tx != null ? 6 : 3);
+    const tilt = Math.sin(now * 0.0015 + b.seed * 2) * (b.tx != null ? 3 : 6);
+    b.el.style.transform = `translate(${b.x.toFixed(1)}px, ${(b.y + bob).toFixed(1)}px) translate(-50%, -50%) rotate(${tilt.toFixed(1)}deg)`;
+  }
   for (const b of bwBodies.values()) {
     if (!b.el || b.popping) continue;
     const sq = 1 + Math.sin(now * 0.004 + b.seed) * 0.035;
@@ -2659,17 +2925,19 @@ function bwTick(now) {
     const wh = wand.clientHeight || 120;
     wand.style.transform = `translate(${(bwWand.x - ww * 0.5).toFixed(1)}px, ${(bwWand.y - wh * 0.24).toFixed(1)}px) rotate(${bwWand.tilt.toFixed(1)}deg)`;
   }
-  if (bwBodies.size || wand) bwRaf = requestAnimationFrame(bwTick);
+  if (bwBodies.size || bwFreeBodies.size || wand) bwRaf = requestAnimationFrame(bwTick);
 }
 function bwReset() {
   bwStop();
   clearInterval(bwAmbient);
   bwAmbient = null;
   bwBodies.clear();
-  bwFlown.clear();
+  bwFreeBodies.clear();
   bwList.value = [];
   galleryIndex.value = -1;
-  bwFlyers.value = [];
+  bwFree.value = [];
+  bwArranged.value = false;
+  bwReady.value = false;
   bwGot.value = bwWords.value.map(() => false);
   bwSpawned.value = 0;
   bwDone.value = false;
@@ -2731,9 +2999,28 @@ function goTo(id) {
   scene.value = id;
 }
 
+const editIndex = computed(() => editScenes.findIndex((item) => item.id === scene.value));
+function editStep(delta) {
+  const next = editScenes[editIndex.value + delta];
+  if (next) goTo(next.id);
+}
+// sa edit mode, diretso sa huling card (at sa P.S.) para ma-edit agad
+watch(
+  [scene, isEditing],
+  ([id, editing]) => {
+    if (editing && id === "finale") {
+      revealed.value = true;
+      showExtra.value = true;
+    }
+  },
+  { flush: "post" },
+);
+
 /* sa Secret Lock, gumagana rin ang number keys ng keyboard (ang Esc ay nasa SurpriseShell). */
 function onKeydown(event) {
   if (scene.value !== "lock") return;
+  // nagta-type sa form (hal. sa Content step): hindi para sa lock
+  if (event.target.closest?.("input, textarea, select, [contenteditable]")) return;
   if (/^[0-9]$/.test(event.key)) pressKey(event.key);
   else if (event.key === "Backspace") pressKey("back");
   else if (event.key === "Enter" && !event.target.closest?.("button")) pressKey("ok");
@@ -2816,6 +3103,8 @@ watch(mbEl, (el) => (el ? startMusicBox() : stopMusicBox()), { flush: "post" });
 watch(domeEl, (el) => (el ? startGacha() : stopGacha()), { flush: "post" });
 
 onMounted(() => {
+  // ang kasalukuyang laman (kasama ang sample) bilang simula ng mga ie-edit
+  if (isEditing.value) emit("edit-init", editSnapshot());
   window.addEventListener("keydown", onKeydown);
   fitStage();
   if (typeof ResizeObserver !== "undefined" && fitEl.value) {
@@ -2828,11 +3117,6 @@ onMounted(() => {
   }
   window.addEventListener("resize", fitStage);
   window.addEventListener("keydown", onEscCapture, true);
-  let tries = 0;
-  noneTimer = setInterval(() => {
-    tries += 1;
-    if (installNoneOption() || tries > 24) clearInterval(noneTimer);
-  }, 250);
   resizeCanvas();
   if (typeof ResizeObserver !== "undefined" && phoneEl.value) {
     resizeObserver = new ResizeObserver(resizeCanvas);
@@ -2853,7 +3137,6 @@ onUnmounted(() => {
   stopSceneFit();
   window.removeEventListener("resize", fitStage);
   window.removeEventListener("keydown", onEscCapture, true);
-  removeNoneOption();
   if (bare.value) document.body.style.overflow = "";
   window.removeEventListener("keydown", onKeydown);
 });
@@ -3755,25 +4038,32 @@ onUnmounted(() => {
   object-fit: cover;
   pointer-events: none;
 }
-.foil {
+/* hindi binabago ang kulay ng litrato; maliliit na puso ang lumulutang kapag naka-hover */
+.hover-hearts {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(115deg, #ff9ecb 0%, #ffe08a 12%, #8fe9ff 24%, #c9a6ff 36%, #ff9ecb 48%);
-  background-size: 260% 260%;
-  background-position: var(--hx, 50%) var(--hy, 50%);
-  mix-blend-mode: color-dodge;
-  opacity: calc(0.14 + var(--holo, 0) * 0.5);
-  transition: opacity 0.3s;
+  overflow: hidden;
   pointer-events: none;
 }
-.glare {
+.hover-hearts svg {
   position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at var(--hx, 50%) var(--hy, 50%), rgb(255 255 255 / 0.7), transparent 55%);
-  mix-blend-mode: soft-light;
-  opacity: var(--holo, 0);
-  transition: opacity 0.3s;
-  pointer-events: none;
+  bottom: -18px;
+  left: var(--hl);
+  width: var(--hs);
+  height: var(--hs);
+  fill: var(--hc);
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.9)) drop-shadow(0 1px 2px rgb(200 60 110 / 0.35));
+}
+.mcard.top:hover .hover-hearts svg,
+.mcard.top:active .hover-hearts svg {
+  animation: hoverHeart 2.4s ease-in var(--hd) infinite;
+}
+@keyframes hoverHeart {
+  0% { opacity: 0; translate: 0 0; scale: 0.5; }
+  15% { opacity: 1; }
+  50% { translate: calc(var(--hx) * -0.6) -120px; }
+  100% { opacity: 0; translate: var(--hx) -250px; scale: 1.15; }
 }
 .csp {
   position: absolute;
@@ -5048,6 +5338,8 @@ onUnmounted(() => {
   .sheen,
   .seal,
   .csp,
+  .mcard.top:hover .hover-hearts svg,
+  .mcard.top:active .hover-hearts svg,
   .arr,
   .cloud,
   .pin-sway,
@@ -5118,43 +5410,6 @@ onUnmounted(() => {
   font-weight: 800;
   letter-spacing: 0.3px;
 }
-.bw-slots {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.bw-slot {
-  display: grid;
-  place-items: center;
-  min-width: calc(var(--ch) * 0.55em + 18px);
-  height: 36px;
-  padding: 0 9px;
-  border: 1.5px dashed rgb(255 255 255 / 0.4);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.06);
-  color: #fff;
-  font-family: var(--serif);
-  font-size: 17px;
-  font-style: italic;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
-}
-.bw-slot.on {
-  border-style: solid;
-  border-color: rgb(255 255 255 / 0.85);
-  background: linear-gradient(135deg, rgb(255 160 200 / 0.45), rgb(170 200 255 / 0.35));
-  box-shadow: 0 0 18px rgb(255 170 210 / 0.55);
-}
-.bw-slot.on span { animation: bwLand 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
-.bw-slots.full .bw-slot { animation: bwGlow 1.2s ease-in-out infinite alternate; }
-@keyframes bwLand { from { scale: 0.5; opacity: 0; } to { scale: 1; opacity: 1; } }
-@keyframes bwGlow { to { box-shadow: 0 0 30px rgb(255 190 225 / 0.95); } }
-
 /* bula: manipis na sabon na may iridescent na gilid at kislap */
 .bub {
   position: absolute;
@@ -5188,6 +5443,7 @@ onUnmounted(() => {
 }
 @keyframes bwSpin { to { rotate: 1turn; } }
 .bub.word {
+  background: radial-gradient(circle at 50% 50%, rgb(255 255 255 / 0) 56%, rgb(255 255 255 / 0.14) 70%, rgb(255 214 236 / 0.55) 100%);
   z-index: 3;
   box-shadow: inset 0 0 16px rgb(255 255 255 / 0.4), 0 0 26px rgb(255 170 215 / 0.45);
 }
@@ -5231,20 +5487,60 @@ onUnmounted(() => {
 @keyframes bwPopA { 0% { scale: 1; opacity: 1; } 40% { scale: 1.22; opacity: 0.9; } 100% { scale: 1.45; opacity: 0; } }
 @keyframes bwBurst { from { scale: 1; opacity: 1; } to { scale: 1.8; opacity: 0; } }
 
-.bw-fly {
+.bw-word {
   position: absolute;
   z-index: 4;
   top: 0;
   left: 0;
   color: #fff;
   font-family: var(--serif);
-  font-size: 20px;
+  font-size: 30px;
   font-style: italic;
   font-weight: 600;
   white-space: nowrap;
-  text-shadow: 0 0 14px rgb(255 140 190);
+  text-shadow: 0 0 14px rgb(255 140 190), 0 1px 2px rgb(60 20 60 / 0.5);
   pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 0 10px rgb(255 140 195 / 0.85)) drop-shadow(0 1px 1px rgb(60 20 60 / 0.5));
+  animation: bwWordIn 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
 }
+/* bawat letra: parang alon na sumasayaw + kumikislap na pastel na kulay na dumadaloy */
+.bw-ch {
+  display: inline-block;
+  background: linear-gradient(100deg, #fff 0%, #ffd1e6 18%, #fff 34%, #d8c8ff 52%, #fff 68%, #ffe3b0 84%, #fff 100%);
+  background-size: 300% 100%;
+  text-shadow: none; /* naka-filter na ang glow sa .bw-word */
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    bwWave 2.2s ease-in-out calc(var(--i) * -0.14s) infinite,
+    bwSheen 4s linear calc(var(--i) * -0.12s) infinite;
+}
+@keyframes bwWave { 0%, 100% { translate: 0 0; rotate: 0deg; } 50% { translate: 0 -5px; rotate: -3deg; } }
+@keyframes bwSheen { to { background-position: -300% 0; } }
+/* maliliit na kislap sa paligid ng salita */
+.bw-spark {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: bwTwinkle 2.4s ease-in-out infinite;
+}
+.bw-spark.s1 { top: -8px; left: -10px; }
+.bw-spark.s2 { top: 2px; right: -12px; width: 7px; height: 7px; animation-delay: 0.8s; }
+.bw-spark.s3 { bottom: -6px; left: 45%; width: 8px; height: 8px; animation-delay: 1.6s; }
+@keyframes bwTwinkle { 0%, 100% { opacity: 0; scale: 0.3; rotate: 0deg; } 45% { opacity: 1; scale: 1; rotate: 45deg; } }
+/* nakaayos na: mas malaki at kumikinang (walang font-size transition para tama ang sukat sa layout) */
+.bw-word.set {
+  font-size: 36px;
+  animation: bwWordSet 0.6s cubic-bezier(0.3, 1.6, 0.5, 1), bwWordGlow 1.4s ease-in-out 0.6s infinite alternate;
+}
+@keyframes bwWordIn { from { scale: 0.3; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes bwWordSet { from { scale: 0.8; } to { scale: 1; } }
+@keyframes bwWordGlow { to { filter: drop-shadow(0 0 22px rgb(255 170 215)) drop-shadow(0 0 6px #fff) drop-shadow(0 1px 1px rgb(60 20 60 / 0.5)); } }
 
 .bw-wand {
   position: absolute;
@@ -5267,7 +5563,8 @@ onUnmounted(() => {
   animation: bwFilm 3s ease-in-out infinite alternate;
 }
 @keyframes bwFilm { from { opacity: 0.55; } to { opacity: 1; } }
-.bw-layer.done .bw-wand { opacity: 0; }
+.bw-layer.done .bw-wand,
+.bw-layer.all-out .bw-wand { opacity: 0; }
 
 /* huling card: dahan-dahang lumilitaw at umaangat */
 .bk-card {
@@ -5278,15 +5575,59 @@ onUnmounted(() => {
   margin-top: 70px;
   padding: 0 20px 20px;
   border-radius: 28px;
-  background: linear-gradient(180deg, rgb(255 252 247 / 0.97), rgb(255 238 244 / 0.95));
+  /* frosted na pink na salamin: kita ang langit sa likod, may malalambot na kulay na lumulutang */
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgb(255 182 214 / 0.1), transparent 60%),
+    radial-gradient(90% 55% at 100% 30%, rgb(214 178 255 / 0.07), transparent 62%),
+    radial-gradient(110% 60% at 50% 110%, rgb(255 205 170 / 0.06), transparent 60%),
+    linear-gradient(170deg, rgb(255 228 240 / 0.06), rgb(255 206 228 / 0.04) 55%, rgb(244 200 255 / 0.04));
+  background-size: 160% 160%, 160% 160%, 160% 160%, 100% 100%;
+  -webkit-backdrop-filter: blur(2px) saturate(1.2);
+  backdrop-filter: blur(2px) saturate(1.2);
   color: #6b4a4a;
   text-align: center;
   cursor: default;
   box-shadow:
-    inset 0 0 0 5px rgb(255 252 247 / 0.9),
-    inset 0 0 0 6px #f3c7d4,
+    inset 0 1px 0 rgb(255 255 255 / 0.75),
+    inset 0 0 30px rgb(255 255 255 / 0.12),
     0 28px 60px rgb(0 0 0 / 0.42),
-    0 0 60px rgb(255 160 205 / 0.25);
+    0 0 70px rgb(255 150 205 / 0.4);
+  animation: bkAurora 12s ease-in-out infinite alternate;
+}
+/* iridescent na gilid na parang bula */
+.bk-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--bk-angle, 0deg), #ffb3d1, #ffe0a8, #b8f0e0, #b9d3ff, #e1b8ff, #ffb3d1);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  opacity: 0.9;
+  pointer-events: none;
+  animation: bkRim 6s linear infinite;
+}
+/* kumikinang na liwanag na dumadaan sa salamin */
+.bk-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 0.35) 48%, transparent 60%);
+  background-size: 250% 100%;
+  pointer-events: none;
+  animation: bkSheen 5.5s ease-in-out infinite;
+}
+@property --bk-angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes bkRim { to { --bk-angle: 360deg; } }
+@keyframes bkSheen { 0%, 30% { background-position: 150% 0; } 70%, 100% { background-position: -100% 0; } }
+@keyframes bkAurora {
+  from { background-position: 0% 0%, 100% 0%, 50% 100%, 0 0; }
+  to { background-position: 40% 30%, 60% 40%, 30% 70%, 0 0; }
 }
 .bk-enter-active { animation: bkIn 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
 .bk-leave-active { transition: opacity 0.3s; }
@@ -5332,7 +5673,8 @@ onUnmounted(() => {
 }
 .bk-eyebrow {
   margin: 12px 0 0;
-  color: var(--rose-deep);
+  color: #ffc4dc;
+  text-shadow: 0 1px 3px rgb(40 10 40 / 0.6);
   font-family: var(--ui);
   font-size: 12px;
   font-weight: 800;
@@ -5341,7 +5683,7 @@ onUnmounted(() => {
 }
 .bk-name {
   margin: 2px 0 8px;
-  background: linear-gradient(110deg, #ff5f8d 0%, #ff9bb6 30%, #b38cff 50%, #ff6f95 70%, #ff5f8d 100%);
+  background: linear-gradient(110deg, #ff8fb3 0%, #ffd0e0 30%, #cbb0ff 50%, #ff9cbc 70%, #ff8fb3 100%);
   background-size: 220% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -5355,24 +5697,27 @@ onUnmounted(() => {
 }
 .bk-msg {
   margin: 0;
-  color: #6b4a4a;
+  color: #fff;
+  text-shadow: 0 1px 3px rgb(40 10 40 / 0.7), 0 0 12px rgb(255 140 200 / 0.45);
   font-family: var(--serif);
   font-size: 15px;
   line-height: 1.55;
 }
 .bk-from {
   margin: 8px 0 0;
-  color: var(--rose-deep);
+  color: #ffb6d3;
+  text-shadow: 0 1px 3px rgb(40 10 40 / 0.6), 0 0 14px rgb(255 140 200 / 0.5);
   font-family: var(--script);
   font-size: 27px;
 }
 .bk-extra {
   margin: 12px 0 0;
   padding: 10px 14px;
-  border: 1.5px solid #f6c9d8;
+  border: 1.5px solid rgb(255 214 232 / 0.6);
   border-radius: 18px;
-  background: linear-gradient(135deg, #fff1f6, #f1f0ff);
-  color: var(--ink);
+  background: linear-gradient(135deg, rgb(255 200 225 / 0.12), rgb(220 200 255 / 0.1));
+  color: #fff;
+  text-shadow: 0 1px 3px rgb(40 10 40 / 0.7), 0 0 12px rgb(255 140 200 / 0.45);
   font-family: var(--script);
   font-size: 22px;
   line-height: 1.15;
@@ -5384,6 +5729,27 @@ onUnmounted(() => {
   gap: 12px;
   margin-top: 16px;
 }
+.bw-next {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  top: 64%;
+  translate: -50% 0;
+  padding: 12px 26px;
+  border: 1.5px solid rgb(255 255 255 / 0.7);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ff7aa8, #c98bff);
+  color: #fff;
+  font-family: var(--ui);
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgb(201 90 160 / 0.45), 0 0 22px rgb(255 170 215 / 0.5);
+  animation: bwNextPulse 1.8s ease-in-out infinite;
+}
+@keyframes bwNextPulse { 50% { scale: 1.05; } }
+.phone.is-wide .bw-next { font-size: 19px; padding: 14px 32px; }
 .bk-more {
   display: inline-flex;
   align-items: center;
@@ -5414,8 +5780,8 @@ onUnmounted(() => {
 .phone.is-wide .bw-head { top: 70px; }
 .phone.is-wide .bw-title { font-size: 40px; }
 .phone.is-wide .bw-sub { font-size: 15px; }
-.phone.is-wide .bw-slot { height: 46px; font-size: 24px; }
-.phone.is-wide .bw-fly { font-size: 26px; }
+.phone.is-wide .bw-word { font-size: 40px; }
+.phone.is-wide .bw-word.set { font-size: 56px; }
 .phone.is-wide .bw-wand { width: 84px; height: 158px; }
 .phone.is-wide .scene-finale .bk-card {
   display: grid;
@@ -5438,8 +5804,14 @@ onUnmounted(() => {
   .bw-wand.idle,
   .bw-film,
   .bk-name,
+  .bk-card,
+  .bk-card::before,
+  .bk-card::after,
   .bk-more-bub,
-  .bw-slots.full .bw-slot {
+  .bw-word,
+  .bw-ch,
+  .bw-spark,
+  .bw-next {
     animation: none;
   }
 }
@@ -5468,6 +5840,126 @@ onUnmounted(() => {
 }
 .bk-thumb:hover,
 .bk-thumb:focus-visible { rotate: 0deg; scale: 1.12; }
+
+/* ===================== EDIT MODE (Content step) ===================== */
+.edit-nav {
+  position: absolute;
+  z-index: 8;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgb(255 255 255 / 0.8);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.88);
+  box-shadow: 0 6px 18px rgb(140 40 90 / 0.2);
+  color: #7a2a52;
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.edit-nav b { color: #e8507b; }
+.edit-nav button,
+.edit-arrows button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff7aa8, #e8507b);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.edit-nav button:disabled,
+.edit-arrows button:disabled { opacity: 0.35; cursor: default; }
+.edit-item { position: relative; }
+.edit-arrows {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.edit-photo {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 10px;
+  translate: -50% 0;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(40 16 40 / 0.72);
+  color: #fff;
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bk-photo .edit-photo { bottom: 44px; rotate: 4deg; }
+.edit-photo:hover { background: #e8507b; }
+.code-edit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.code-edit input {
+  width: 84px;
+  padding: 4px 8px;
+  border: 1.5px dashed #e8507b;
+  border-radius: 8px;
+  background: #fff;
+  color: #7a2a52;
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-align: center;
+}
+.code-edit small { flex-basis: 100%; color: #c93d72; text-align: center; }
+.bk-gallery li { position: relative; }
+.thumb-edit {
+  position: absolute;
+  right: 2px;
+  bottom: 10px;
+  font-size: 13px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4));
+}
+.thumb-remove {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #e8507b;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.thumb-add {
+  display: grid;
+  place-items: center;
+  height: 66px;
+  border: 1.5px dashed #ff9fbd;
+  background: rgb(255 255 255 / 0.5);
+  color: #e8507b;
+  font-size: 26px;
+  cursor: pointer;
+}
 .bk-thumb img { display: block; width: 100%; aspect-ratio: 1; border-radius: 2px; object-fit: cover; }
 .phone.is-wide .bk-gallery { justify-content: flex-start; }
 .phone.is-wide .bk-thumb { width: 58px; }

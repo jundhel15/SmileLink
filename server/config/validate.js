@@ -44,6 +44,43 @@ function hasControlCharacter(text, allowLines) {
 const label = (field) => field.replace(/_id$/, "").replaceAll("_", " ");
 const isBlank = (value) => value === undefined || value === null || value === "";
 
+// Limits for template_content: the text and photo slots edited inside a template
+const TEMPLATE_CONTENT_BYTES = 20000;
+const TEMPLATE_KEY_PATTERN = /^[a-zA-Z]{1,32}$/;
+const TEMPLATE_TEXT_MAX = MESSAGE_LIMIT;
+const TEMPLATE_ITEM_MAX = 300;
+const TEMPLATE_LIST_MAX = 20;
+// a saved photo's id ("<time>-<uuid>.jpg"), or "" for the template's own sample photo
+const SLOT_PHOTO_PATTERN = /^([\w-]{1,80}\.jpg)?$/;
+
+const isPlainObject = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
+const badText = (value, max) => typeof value !== "string" || value.length > max || hasControlCharacter(value, true);
+
+// Returns a message for the customer, or "" if it's fine
+export function templateContentProblem(content) {
+  if (isBlank(content)) return "";
+  const invalid = "Your template changes couldn't be saved. Please refresh the page.";
+  if (!isPlainObject(content)) return invalid;
+  if (JSON.stringify(content).length > TEMPLATE_CONTENT_BYTES) return "Your template text is too long.";
+  if (!TEMPLATES.some((template) => template.id === content.template)) return invalid;
+
+  for (const [key, value] of Object.entries(content)) {
+    if (!TEMPLATE_KEY_PATTERN.test(key)) return invalid;
+    if (key === "template") continue;
+    if (key === "photos") {
+      if (!Array.isArray(value) || value.length > TEMPLATE_LIST_MAX) return invalid;
+      if (!value.every((slot) => isPlainObject(slot) && SLOT_PHOTO_PATTERN.test(slot.photo ?? ""))) return invalid;
+      if (value.some((slot) => badText(slot.caption ?? "", TEMPLATE_ITEM_MAX))) return "A photo caption is too long.";
+    } else if (Array.isArray(value)) {
+      if (value.length > TEMPLATE_LIST_MAX) return invalid;
+      if (value.some((item) => badText(item, TEMPLATE_ITEM_MAX))) return "One of your template lines is too long.";
+    } else if (badText(value, TEMPLATE_TEXT_MAX)) {
+      return "One of your template texts is too long.";
+    }
+  }
+  return "";
+}
+
 // Checks what a draft contains, not whether it's finished: customers save half-filled forms.
 // Returns a message for the customer, or "" if it's fine.
 export function draftProblem(draft) {
@@ -64,6 +101,8 @@ export function draftProblem(draft) {
   for (const field of BOOLEANS) {
     if (!isBlank(draft[field]) && typeof draft[field] !== "boolean") return `Invalid ${label(field)}.`;
   }
+  const templateProblem = templateContentProblem(draft.template_content);
+  if (templateProblem) return templateProblem;
   if (!isBlank(draft.scheduled_at)) {
     if (typeof draft.scheduled_at !== "string" || Number.isNaN(Date.parse(draft.scheduled_at))) {
       return "Choose a valid delivery date and time.";
