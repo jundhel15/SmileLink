@@ -68,14 +68,11 @@
       <h3 id="failed-heading">Payment didn't go through</h3>
       <p class="muted">You were not charged for this attempt. You can try again.</p>
       <div class="failed-actions">
-        <button class="primary-button" type="button" :disabled="isRetrying" @click="retryCheckout">
-          {{ isRetrying ? "Opening checkout..." : "Try again" }}
-        </button>
-        <button class="secondary-button" type="button" @click="router.push('/create/review')">
-          Back to review
+        <!-- babalik sa review para lumabas ulit ang QR (QR Ph lang ang active sa PayMongo) -->
+        <button class="primary-button" type="button" @click="router.push('/create/review')">
+          Try again
         </button>
       </div>
-      <p v-if="retryError" class="field-error">{{ retryError }}</p>
     </section>
   </main>
 </template>
@@ -83,12 +80,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { errorMessage, readOrderDraft, throwIfRefused } from "@/utils/orderDraft";
+import { readOrderDraft } from "@/utils/orderDraft";
 import { useOrderStore } from "@/stores/order";
 
 // ang status ay galing lang sa server (PayMongo webhook na checkout_session.payment.paid na na-verify ang signature)
 const orders_endpoint = "/api/orders";
-const checkout_endpoint = "/api/checkout-sessions";
 const poll_interval_ms = 3000;
 // after this long without a confirmation, stop checking and let the customer choose what to do
 const poll_timeout_ms = 2 * 60 * 1000;
@@ -112,8 +108,6 @@ const steps = [
 
 const orderStatus = ref("pending_payment");
 const pollError = ref("");
-const isRetrying = ref(false);
-const retryError = ref("");
 const timedOut = ref(false);
 let pollTimer;
 let timeoutTimer;
@@ -165,44 +159,6 @@ function startPolling() {
 function stopPolling() {
   clearInterval(pollTimer);
   clearTimeout(timeoutTimer);
-}
-
-// bagong checkout session para sa parehong order
-async function retryCheckout() {
-  isRetrying.value = true;
-  retryError.value = "";
-
-  try {
-    const response = await fetch(checkout_endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-order-token": readOrderDraft().order_token ?? "",
-      },
-      body: JSON.stringify({ order_id: orderId, payment_method: draft.payment_method }),
-    });
-    // 409: bayad na o kinukumpirma na, kaya maghintay na lang ulit
-    if (response.status === 409) {
-      isRetrying.value = false;
-      orderStatus.value = "pending_payment";
-      return startPolling();
-    }
-    await throwIfRefused(response);
-    if (!response.ok) throw new Error(`Checkout request failed with status ${response.status}.`);
-
-    const { checkout_url: checkoutUrl } = await response.json();
-    if (!checkoutUrl?.startsWith("https://")) throw new Error("Checkout URL is missing.");
-
-    orderStore.updateOrderDraft({ order_status: "pending_payment" });
-    window.location.assign(checkoutUrl);
-  } catch (error) {
-    console.error(error);
-    retryError.value = errorMessage(
-      error,
-      "We couldn't open the secure checkout. Please try again.",
-    );
-    isRetrying.value = false;
-  }
 }
 
 onMounted(startPolling);

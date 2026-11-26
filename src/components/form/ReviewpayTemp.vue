@@ -113,8 +113,8 @@
             />
           </svg>
           <p v-if="paymentMethod === 'gcash'">
-            On your phone, the GCash app opens so you can approve the payment. On a computer, a QR
-            code appears. Scan it with GCash.
+            A QR code appears. Scan it with GCash, Maya or your bank app. On a phone, save the QR,
+            then upload it in your GCash app.
           </p>
           <p v-else>
             You will pay on PayMongo's secure checkout. SmileLink never sees or stores your card
@@ -189,7 +189,7 @@
           <div class="qr-header">
             <span class="brand-gcash qr-brand">GCash</span>
             <h3 id="qr-heading">Scan to pay</h3>
-            <p class="muted">Open your GCash app, tap <strong>QR</strong>, then scan this code.</p>
+            <p class="muted">Scan this code with GCash, Maya or your bank app.</p>
           </div>
 
           <div class="qr-box" :class="{ expired: secondsLeft === 0 }">
@@ -201,6 +201,28 @@
             />
             <span v-if="secondsLeft === 0" class="qr-expired-label">QR expired</span>
           </div>
+
+          <!-- paalala: QR lang muna ang paraan ng pagbabayad -->
+          <ol class="qr-steps">
+            <template v-if="onPhone">
+              <li>Tap <strong>Save QR image</strong> below.</li>
+              <li>Open GCash, tap <strong>QR</strong>, then <strong>Upload QR</strong>.</li>
+              <li>Choose the saved image and pay.</li>
+            </template>
+            <template v-else>
+              <li>Open GCash on your phone and tap <strong>QR</strong>.</li>
+              <li>Scan this code and pay.</li>
+            </template>
+            <li>Keep this page open. It moves on by itself once you've paid.</li>
+          </ol>
+          <a
+            v-if="secondsLeft > 0"
+            class="qr-secondary qr-save"
+            :href="qrImage"
+            download="smilelink-gcash-qr.png"
+          >
+            Save QR image
+          </a>
 
           <dl class="qr-details">
             <div>
@@ -225,7 +247,13 @@
             {{ isPaying ? "Preparing GCash..." : "Generate a new QR code" }}
           </button>
 
-          <button class="qr-secondary" type="button" :disabled="isPaying" @click="openGcashApp">
+          <button
+            v-if="gcash_app_enabled"
+            class="qr-secondary"
+            type="button"
+            :disabled="isPaying"
+            @click="openGcashApp"
+          >
             Open GCash
           </button>
           <button class="qr-cancel" type="button" @click="closeGcashModal">Cancel</button>
@@ -261,6 +289,10 @@ const PAYMENT_INTENT_ENDPOINT = "/api/payment-intents";
 const PAID_STATUSES = ["paid", "scheduled", "sent"];
 // naka-off muna ang card; gawing true para ipakita ulit
 const card_payment_enabled = false;
+// naka-off muna: hindi pa aprubado ang GCash sa PayMongo account (QR Ph lang ang active).
+// Gawing true kapag aprubado na, para bumukas ulit ang GCash app sa phone.
+const gcash_app_enabled = false;
+const onPhone = isPhone();
 
 const router = useRouter();
 const orderStore = useOrderStore();
@@ -378,8 +410,8 @@ const countdownLabel = computed(() => {
 function onPayClick() {
   if (paymentMethod.value !== "gcash") return startCheckout();
   if (!canPay.value) return;
-  // a phone has GCash installed, so open it; a computer can't, so show a QR to scan with the phone
-  if (isPhone()) openGcashApp();
+  // a phone opens GCash directly (only when enabled); otherwise everyone gets the QR
+  if (gcash_app_enabled && onPhone) openGcashApp();
   else showGcashQr();
 }
 
@@ -995,6 +1027,20 @@ async function startCheckout() {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+.qr-save {
+  text-align: center;
+  text-decoration: none;
+}
+.qr-steps {
+  margin: 12px 0 0;
+  padding: 10px 12px 10px 30px;
+  border-radius: 10px;
+  background: #f1f6ff;
+  color: #3e4864;
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
 }
 .qr-secondary:hover:not(:disabled) {
   background: #f1f6ff;
